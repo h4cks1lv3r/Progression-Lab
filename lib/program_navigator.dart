@@ -95,6 +95,7 @@ Future<void> showCadenceSwitchSheet(
                 ),
                 Expanded(
                   child: ListView(
+                    key: const ValueKey('cadence-options-scroll'),
                     controller: controller,
                     padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
                     children: [

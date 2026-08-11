@@ -52,7 +52,11 @@ void main() {
     );
 
     final upperBodyC = find.text('Upper Body C');
-    await tester.ensureVisible(upperBodyC);
+    await tester.scrollUntilVisible(
+      upperBodyC,
+      250,
+      scrollable: find.byKey(const ValueKey('cadence-options-scroll')),
+    );
     await tester.tap(upperBodyC);
     await tester.pump();
 
