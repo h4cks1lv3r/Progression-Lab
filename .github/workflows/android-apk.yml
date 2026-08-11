@@ -1,0 +1,67 @@
+name: Android APK
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Verify and build release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Show tool versions
+        run: flutter --version
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze source
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build release APK
+        run: flutter build apk --release --build-name 1.1.1 --build-number 3
+
+      - name: Publish APK to source branch
+        if: github.event_name == 'pull_request' && hashFiles('apk/Progression-Lab-1.1.1.apk') == ''
+        env:
+          TARGET_BRANCH: ${{ github.head_ref }}
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk /tmp/Progression-Lab-1.1.1.apk
+          git fetch origin "$TARGET_BRANCH"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          mkdir -p apk
+          cp /tmp/Progression-Lab-1.1.1.apk apk/Progression-Lab-1.1.1.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apk/Progression-Lab-1.1.1.apk
+          git commit -m "Add installable Progression Lab 1.1.1 APK"
+          git push origin "$TARGET_BRANCH"
