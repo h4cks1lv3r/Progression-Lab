@@ -17,27 +17,18 @@ Date: 2026-08-11
 - Test source now defines 23 unit/widget test cases.
 - The broken mixed-exercise chart is no longer referenced by the application shell.
 - The old `ProgramPage`, `ProgressPage`, and `_Chart` implementations were removed from `main.dart`.
+- GitHub Actions used Flutter 3.44.9, Dart 3.12.2, and Java 17.
+- `flutter analyze` completed with no issues.
+- All 23 unit and widget tests passed.
+- `flutter build apk --release --build-name 1.1.1 --build-number 3` completed successfully.
+- The resulting 49.8 MB APK is stored at `apk/Progression-Lab-1.1.1.apk`.
 
-## Checks that could not run
+## Checks still required
 
-Flutter and Dart executables are not installed in this environment. Therefore the following results are unknown:
-
-- Dart formatting.
-- `flutter analyze` type/API checks.
-- Execution of the 23 tests.
-- Widget layout/overflow tests on a real Flutter renderer.
-- Android debug or release APK compilation.
-- Galaxy S24 Ultra runtime and touch/haptic testing.
-
-The syntax pass does not replace Flutter compilation. Treat this source as implemented but not release-verified until these commands pass in a compatible environment:
-
-```bash
-flutter pub get
-dart format --output=none --set-exit-if-changed lib test
-flutter analyze
-flutter test
-flutter build apk --debug
-```
+- Install, upgrade, navigation, graph interaction, touch, and haptic tests on a Galaxy S24 Ultra.
+- Process-death and low-memory recovery tests.
+- Android accessibility and large-font layout tests.
+- Production signing and Play Store release validation.
 
 ## Known engineering limits
 
@@ -46,6 +37,6 @@ flutter build apk --debug
 - Phase 1's five-day routine is inherited from the old prototype because the private screenshots did not contain that source sequence.
 - Primary/AMRAP classification still needs explicit per-slot program metadata.
 - E1RM still uses the recovered Epley formula.
-- Production release signing is not configured.
+- The APK is release-optimized but debug-signed. Production release signing is not configured.
 
-Do not distribute this as a production release until Flutter analysis/tests, an Android build, and device verification pass.
+Use the APK for direct device testing only. Do not distribute it as a production release until production signing and device verification pass.

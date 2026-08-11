@@ -9,6 +9,7 @@
 - Retained the existing Android application ID, platform channel, and preferences key so installed builds can upgrade without losing local workout data.
 - Added a GitHub Actions pipeline that analyzes, tests, builds, and retains the release APK.
 - Changed APK delivery to a source-branch file because the account's Actions artifact-storage quota is exhausted.
+- Verified the source with Flutter 3.44.9 and Dart 3.12.2: analysis passed, all 23 tests passed, and the 49.8 MB release APK compiled successfully.
 
 ## 1.1.0+2 — 2026-08-11
 
@@ -38,7 +39,7 @@
 
 ### Known limits
 
-- Flutter/Dart tooling was unavailable in the implementation environment, so the included tests and APK build were not executed here.
+- Device-level validation on a Galaxy S24 Ultra is still required.
 - Phase 1's five-day routine is inherited from the prototype because its source pages were not supplied.
 - Active workouts are still memory-only; process-death recovery needs the planned database/session rebuild.
 - The working history model still uses SharedPreferences rather than canonical-unit SQLite storage.
