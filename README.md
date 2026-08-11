@@ -4,7 +4,7 @@ Progression Lab is an original, offline-first Android strength-training tracker 
 
 Version: **1.1.1+3**
 
-The Android application ID and local-storage keys intentionally retain their original `iron_cadence` identifiers. This allows an installed earlier build to upgrade without losing workout history.
+The Android application ID and local-storage keys intentionally retain their original `iron_cadence` identifiers. This preserves the data namespace, but Android also requires the same signing certificate for an in-place upgrade. This GitHub-built APK may not update an earlier APK that was signed with a different key. Do not uninstall an existing build if its unsaved local history matters.
 
 ## What changed in 1.1
 

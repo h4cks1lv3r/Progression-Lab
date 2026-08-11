@@ -5,7 +5,7 @@ Date: 2026-08-11
 ## Completed checks
 
 - Product branding is Progression Lab in the launcher label and visible app shell.
-- The Android application ID and storage identifiers are unchanged for upgrade and data compatibility.
+- The Android application ID and storage identifiers are unchanged, but an in-place upgrade still requires the earlier APK's signing certificate.
 - All seven Dart files passed a Tree-sitter Dart syntax parse with no error or missing nodes.
 - Program state is constrained to supported 3/4/5-day cadences and weeks 1–48.
 - The cadence-switch engine keeps the current week and accepts an explicit next-workout index.
@@ -38,5 +38,6 @@ Date: 2026-08-11
 - Primary/AMRAP classification still needs explicit per-slot program metadata.
 - E1RM still uses the recovered Epley formula.
 - The APK is release-optimized but debug-signed. Production release signing is not configured.
+- A previously installed build signed with another key may produce an Android signature-conflict error instead of upgrading.
 
 Use the APK for direct device testing only. Do not distribute it as a production release until production signing and device verification pass.

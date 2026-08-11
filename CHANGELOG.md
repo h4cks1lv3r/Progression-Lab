@@ -6,7 +6,7 @@
 
 - Renamed the product from Iron Cadence to Progression Lab.
 - Updated the launcher label, in-app title, Flutter package name, tests, and documentation.
-- Retained the existing Android application ID, platform channel, and preferences key so installed builds can upgrade without losing local workout data.
+- Retained the existing Android application ID, platform channel, and preferences key. In-place upgrades still require the same Android signing certificate.
 - Added a GitHub Actions pipeline that analyzes, tests, builds, and retains the release APK.
 - Changed APK delivery to a source-branch file because the account's Actions artifact-storage quota is exhausted.
 - Verified the source with Flutter 3.44.9 and Dart 3.12.2: analysis passed, all 23 tests passed, and the 49.8 MB release APK compiled successfully.
