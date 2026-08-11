@@ -55,7 +55,10 @@ void main() {
     await tester.scrollUntilVisible(
       upperBodyC,
       250,
-      scrollable: find.byKey(const ValueKey('cadence-options-scroll')),
+      scrollable: find.descendant(
+        of: find.byKey(const ValueKey('cadence-options-scroll')),
+        matching: find.byType(Scrollable),
+      ),
     );
     await tester.tap(upperBodyC);
     await tester.pump();
