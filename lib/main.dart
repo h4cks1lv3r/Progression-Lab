@@ -1228,46 +1228,6 @@ class _Previous extends StatelessWidget {
   );
 }
 
-class _PrTile extends StatelessWidget {
-  const _PrTile({required this.log, required this.unit});
-  final SetLog log;
-  final String unit;
-  @override
-  Widget build(BuildContext context) => ListTile(
-    contentPadding: EdgeInsets.zero,
-    leading: const CircleAvatar(
-      backgroundColor: lime,
-      foregroundColor: ink,
-      child: Icon(Icons.emoji_events_rounded),
-    ),
-    title: Text(
-      log.exercise,
-      style: const TextStyle(fontWeight: FontWeight.w700),
-    ),
-    subtitle: Text('Estimated 1RM ${log.e1rm.round()} $unit'),
-    trailing: Text(
-      '${log.weight.g} × ${log.reps}',
-      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
-    ),
-  );
-}
-
-class _Empty extends StatelessWidget {
-  const _Empty();
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(25),
-    decoration: BoxDecoration(
-      color: panel,
-      borderRadius: BorderRadius.circular(18),
-    ),
-    child: const Text(
-      'Your first PR appears after you log a working set.',
-      style: TextStyle(color: Colors.white54),
-    ),
-  );
-}
-
 class _Setting extends StatelessWidget {
   const _Setting({
     required this.icon,

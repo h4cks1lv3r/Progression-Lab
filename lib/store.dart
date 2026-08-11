@@ -124,7 +124,8 @@ class AppStore extends ChangeNotifier {
     return pr;
   }
 
-  Future<void> complete(int _workoutsThisWeek) async {
+  Future<void> complete(int workoutsThisWeek) async {
+    assert(workoutsThisWeek > 0, 'Workout count must be positive.');
     // The store cadence is authoritative. A workout screen can remain open
     // across a settings change and pass a stale count from the old cadence.
     final previousWeek = week;
