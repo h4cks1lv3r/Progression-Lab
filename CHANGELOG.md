@@ -8,6 +8,7 @@
 - Updated the launcher label, in-app title, Flutter package name, tests, and documentation.
 - Retained the existing Android application ID, platform channel, and preferences key so installed builds can upgrade without losing local workout data.
 - Added a GitHub Actions pipeline that analyzes, tests, builds, and retains the release APK.
+- Changed APK delivery to a source-branch file because the account's Actions artifact-storage quota is exhausted.
 
 ## 1.1.0+2 — 2026-08-11
 

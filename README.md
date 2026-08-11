@@ -30,7 +30,7 @@ Cadence changes do not reset the program. The default next workout is selected b
 
 ## Build
 
-The repository includes `.github/workflows/android-apk.yml`. Every pull request and push to `main` runs Flutter analysis, the test suite, and a release APK build. A successful run publishes `Progression-Lab-1.1.1-release-apk` as a downloadable workflow artifact for 30 days.
+The repository includes `.github/workflows/android-apk.yml`. Every pull request and push to `main` runs Flutter analysis, the test suite, and a release APK build. Because this account's GitHub Actions artifact quota is exhausted, the first successful pull-request build publishes the APK at `apk/Progression-Lab-1.1.1.apk` on the source branch instead of using temporary artifact storage.
 
 Use a Flutter release compatible with Dart `^3.12.2` and Java 17:
 
@@ -41,7 +41,7 @@ flutter test
 flutter build apk --debug
 ```
 
-Configure production signing before creating a distributable release APK or AAB. The recovered Gradle project still uses debug signing for its release build type.
+The included APK is release-optimized but debug-signed, so it is installable for direct testing. Configure a private production signing key before Play Store distribution or public release.
 
 ## Current limits
 

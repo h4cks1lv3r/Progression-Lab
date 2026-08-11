@@ -10,7 +10,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -20,10 +20,10 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -50,10 +50,18 @@ jobs:
       - name: Build release APK
         run: flutter build apk --release --build-name 1.1.1 --build-number 3
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Progression-Lab-1.1.1-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
-          retention-days: 30
+      - name: Publish APK to source branch
+        if: github.event_name == 'pull_request' && hashFiles('apk/Progression-Lab-1.1.1.apk') == ''
+        env:
+          TARGET_BRANCH: ${{ github.head_ref }}
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk /tmp/Progression-Lab-1.1.1.apk
+          git fetch origin "$TARGET_BRANCH"
+          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+          mkdir -p apk
+          cp /tmp/Progression-Lab-1.1.1.apk apk/Progression-Lab-1.1.1.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apk/Progression-Lab-1.1.1.apk
+          git commit -m "Add installable Progression Lab 1.1.1 APK"
+          git push origin "$TARGET_BRANCH"
