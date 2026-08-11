@@ -44,8 +44,8 @@ void main() {
 
     expect(find.text('CHANGE CADENCE'), findsOneWidget);
     expect(
-      find.textContaining(
-        'Phase 2 · Microcycle 3',
+      find.text(
+        'Phase 2 · Microcycle 3 is preserved. Only the weekly cadence and next workout change.',
         findRichText: true,
       ),
       findsOneWidget,
