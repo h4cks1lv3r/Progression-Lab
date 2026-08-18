@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'logged_sets.dart';
 import 'program.dart';
 import 'store.dart';
+
+typedef OpenProgramWorkout =
+    void Function(ProgramWeek week, int workoutIndex, bool retroactive);
 
 const _ink = Color(0xFF070A0F);
 const _surface = Color(0xFF101722);
@@ -26,8 +30,8 @@ Future<void> showCadenceSwitchSheet(
     _normalizedWeek(store.week),
     originalDays,
   );
-  var targetDays = requestedDays != null &&
-          ProgramEngine.isSupportedDays(requestedDays)
+  var targetDays =
+      requestedDays != null && ProgramEngine.isSupportedDays(requestedDays)
       ? requestedDays
       : originalDays;
   var selectedWorkout = _mappedWorkoutIndex(
@@ -55,10 +59,7 @@ Future<void> showCadenceSwitchSheet(
           if (saving) return;
           setSheetState(() => saving = true);
           try {
-            await store.setDays(
-              targetDays,
-              nextWorkoutIndex: selectedWorkout,
-            );
+            await store.setDays(targetDays, nextWorkoutIndex: selectedWorkout);
             if (sheetContext.mounted) Navigator.of(sheetContext).pop();
           } catch (_) {
             if (!sheetContext.mounted) return;
@@ -78,9 +79,7 @@ Future<void> showCadenceSwitchSheet(
           expand: false,
           builder: (context, controller) => Material(
             color: _surface,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(30),
-            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
@@ -218,7 +217,9 @@ Future<void> showCadenceSwitchSheet(
                       const SizedBox(height: 24),
                       Row(
                         children: [
-                          const Expanded(child: _Eyebrow('CHOOSE NEXT WORKOUT')),
+                          const Expanded(
+                            child: _Eyebrow('CHOOSE NEXT WORKOUT'),
+                          ),
                           Text(
                             '${targetWeek.workouts.length} sessions',
                             style: const TextStyle(
@@ -257,7 +258,9 @@ Future<void> showCadenceSwitchSheet(
                   decoration: BoxDecoration(
                     color: _ink,
                     border: Border(
-                      top: BorderSide(color: Colors.white.withValues(alpha: .08)),
+                      top: BorderSide(
+                        color: Colors.white.withValues(alpha: .08),
+                      ),
                     ),
                   ),
                   child: SafeArea(
@@ -310,9 +313,14 @@ Future<void> showCadenceSwitchSheet(
 }
 
 class ProgramNavigatorPage extends StatefulWidget {
-  const ProgramNavigatorPage({super.key, required this.store});
+  const ProgramNavigatorPage({
+    super.key,
+    required this.store,
+    required this.onOpenWorkout,
+  });
 
   final AppStore store;
+  final OpenProgramWorkout onOpenWorkout;
 
   @override
   State<ProgramNavigatorPage> createState() => _ProgramNavigatorPageState();
@@ -330,10 +338,8 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
     _visibleKinds = WeekKind.values.toSet();
   }
 
-  ProgramWeek get _currentWeek => ProgramEngine.week(
-    _normalizedWeek(widget.store.week),
-    widget.store.days,
-  );
+  ProgramWeek get _currentWeek =>
+      ProgramEngine.week(_normalizedWeek(widget.store.week), widget.store.days);
 
   void _showPhase(int phase) {
     if (phase == _phase) return;
@@ -507,10 +513,14 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
                         );
                       },
                       child: _WeekGrid(
-                        key: ValueKey('phase-$_phase-${_visibleKinds.hashCode}'),
+                        key: ValueKey(
+                          'phase-$_phase-${_visibleKinds.hashCode}',
+                        ),
                         weeks: weeks,
                         currentWeek: current.number,
                         currentWorkout: widget.store.workoutIndex,
+                        store: widget.store,
+                        onOpenWorkout: widget.onOpenWorkout,
                       ),
                     ),
                   ),
@@ -592,11 +602,7 @@ class _CadencePanel extends StatelessWidget {
         );
         if (compact) {
           return Column(
-            children: [
-              heading,
-              const SizedBox(height: 16),
-              selector,
-            ],
+            children: [heading, const SizedBox(height: 16), selector],
           );
         }
         return Row(
@@ -691,11 +697,11 @@ class _PositionPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final workout = current.workouts[
-      workoutIndex.clamp(0, current.workouts.length - 1).toInt()
-    ];
+    final workout = current
+        .workouts[workoutIndex.clamp(0, current.workouts.length - 1).toInt()];
     final completedFraction = workoutIndex / current.workouts.length;
-    final phaseProgress = ((current.microcycle - 1) + completedFraction) /
+    final phaseProgress =
+        ((current.microcycle - 1) + completedFraction) /
         ProgramEngine.weeksPerPhase;
 
     return Container(
@@ -888,7 +894,9 @@ class _KindFilters extends StatelessWidget {
           TextButton(
             onPressed: () => onChanged(WeekKind.values.toSet()),
             child: Text(
-              selected.length == WeekKind.values.length ? 'ALL ACTIVE' : 'SHOW ALL',
+              selected.length == WeekKind.values.length
+                  ? 'ALL ACTIVE'
+                  : 'SHOW ALL',
               style: TextStyle(
                 color: selected.length == WeekKind.values.length
                     ? _acid
@@ -946,7 +954,12 @@ class _KindChip extends StatelessWidget {
           color: selected ? meta.color : meta.color.withValues(alpha: .4),
           shape: BoxShape.circle,
           boxShadow: selected
-              ? [BoxShadow(color: meta.color.withValues(alpha: .4), blurRadius: 7)]
+              ? [
+                  BoxShadow(
+                    color: meta.color.withValues(alpha: .4),
+                    blurRadius: 7,
+                  ),
+                ]
               : null,
         ),
       ),
@@ -974,11 +987,15 @@ class _WeekGrid extends StatelessWidget {
     required this.weeks,
     required this.currentWeek,
     required this.currentWorkout,
+    required this.store,
+    required this.onOpenWorkout,
   });
 
   final List<ProgramWeek> weeks;
   final int currentWeek;
   final int currentWorkout;
+  final AppStore store;
+  final OpenProgramWorkout onOpenWorkout;
 
   @override
   Widget build(BuildContext context) {
@@ -1029,6 +1046,8 @@ class _WeekGrid extends StatelessWidget {
                   currentWorkout: week.number == currentWeek
                       ? currentWorkout
                       : null,
+                  store: store,
+                  onOpenWorkout: onOpenWorkout,
                 ),
               ),
           ],
@@ -1044,11 +1063,15 @@ class _MicrocycleCard extends StatefulWidget {
     required this.week,
     required this.current,
     required this.currentWorkout,
+    required this.store,
+    required this.onOpenWorkout,
   });
 
   final ProgramWeek week;
   final bool current;
   final int? currentWorkout;
+  final AppStore store;
+  final OpenProgramWorkout onOpenWorkout;
 
   @override
   State<_MicrocycleCard> createState() => _MicrocycleCardState();
@@ -1099,7 +1122,7 @@ class _MicrocycleCardState extends State<_MicrocycleCard> {
                       borderRadius: BorderRadius.circular(15),
                     ),
                     child: Text(
-                      widget.week.microcycle.toString().padLeft(2, '0'),
+                      widget.week.number.toString().padLeft(2, '0'),
                       style: TextStyle(
                         color: widget.current ? _ink : meta.color,
                         fontSize: 17,
@@ -1116,7 +1139,7 @@ class _MicrocycleCardState extends State<_MicrocycleCard> {
                           children: [
                             Flexible(
                               child: Text(
-                                'MICROCYCLE ${widget.week.microcycle}',
+                                'WEEK ${widget.week.number}',
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w900,
@@ -1169,11 +1192,14 @@ class _MicrocycleCardState extends State<_MicrocycleCard> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              '· ${widget.week.workouts.length} workouts',
-                              style: const TextStyle(
-                                color: Colors.white38,
-                                fontSize: 11,
+                            Expanded(
+                              child: Text(
+                                '· MC ${widget.week.microcycle} · ${widget.week.workouts.length} workouts',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 11,
+                                ),
                               ),
                             ),
                           ],
@@ -1213,9 +1239,14 @@ class _MicrocycleCardState extends State<_MicrocycleCard> {
                         for (final entry
                             in widget.week.workouts.asMap().entries)
                           _WorkoutDetailCard(
+                            week: widget.week,
+                            workoutIndex: entry.key,
                             workout: entry.value,
-                            current: widget.current &&
+                            current:
+                                widget.current &&
                                 widget.currentWorkout == entry.key,
+                            store: widget.store,
+                            onOpenWorkout: widget.onOpenWorkout,
                           ),
                       ],
                     ),
@@ -1229,106 +1260,189 @@ class _MicrocycleCardState extends State<_MicrocycleCard> {
 }
 
 class _WorkoutDetailCard extends StatelessWidget {
-  const _WorkoutDetailCard({required this.workout, required this.current});
+  const _WorkoutDetailCard({
+    required this.week,
+    required this.workoutIndex,
+    required this.workout,
+    required this.current,
+    required this.store,
+    required this.onOpenWorkout,
+  });
 
+  final ProgramWeek week;
+  final int workoutIndex;
   final WorkoutPlan workout;
   final bool current;
+  final AppStore store;
+  final OpenProgramWorkout onOpenWorkout;
 
   @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(top: 10),
-    padding: const EdgeInsets.all(13),
-    decoration: BoxDecoration(
-      color: current
-          ? _acid.withValues(alpha: .075)
-          : _ink.withValues(alpha: .62),
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(
+  Widget build(BuildContext context) {
+    final records = store.recordsForSlot(week.number, workoutIndex);
+    final record = records.isEmpty ? null : records.first;
+    final past = store.isPastSlot(week.number, workoutIndex);
+    final completed = records.any(
+      (item) => item.status == WorkoutStatus.completed,
+    );
+    final status = record == null
+        ? null
+        : record.retroactive
+        ? 'RETRO FILLED'
+        : record.status == WorkoutStatus.skipped
+        ? 'SKIPPED'
+        : 'COMPLETED';
+    return Container(
+      key: ValueKey('workout-${week.number}-$workoutIndex'),
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
         color: current
-            ? _acid.withValues(alpha: .32)
-            : Colors.white.withValues(alpha: .05),
+            ? _acid.withValues(alpha: .075)
+            : _ink.withValues(alpha: .62),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: current
+              ? _acid.withValues(alpha: .32)
+              : Colors.white.withValues(alpha: .05),
+        ),
       ),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                workout.name.toUpperCase(),
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: .7,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  workout.name.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .7,
+                  ),
+                ),
+              ),
+              if (current)
+                const Text(
+                  'NEXT',
+                  style: TextStyle(
+                    color: _acid,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .7,
+                  ),
+                ),
+              if (status != null) ...[
+                const SizedBox(width: 8),
+                Text(
+                  status,
+                  style: TextStyle(
+                    color: record!.status == WorkoutStatus.skipped
+                        ? Colors.white54
+                        : _acid,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .7,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 3),
+          Text(
+            _formatDate(store.dateForSlot(week.number, workoutIndex)),
+            style: const TextStyle(color: Colors.white38, fontSize: 11),
+          ),
+          const SizedBox(height: 10),
+          for (final entry in workout.exercises.asMap().entries) ...[
+            if (entry.key > 0)
+              Divider(height: 14, color: Colors.white.withValues(alpha: .055)),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 22,
+                  child: Text(
+                    '${entry.key + 1}'.padLeft(2, '0'),
+                    style: const TextStyle(
+                      color: Colors.white24,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    entry.value.name,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: .78),
+                      fontSize: 13,
+                      height: 1.25,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: entry.value.primary
+                        ? _electric.withValues(alpha: .1)
+                        : Colors.white.withValues(alpha: .045),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${entry.value.sets} × ${entry.value.reps}',
+                    style: TextStyle(
+                      color: entry.value.primary ? _electric : Colors.white60,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (record != null) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        LoggedWorkoutScreen(store: store, record: record),
+                  ),
+                ),
+                icon: const Icon(Icons.history_rounded, size: 17),
+                label: const Text('VIEW LOGGED WORKOUT'),
+              ),
+            ),
+          ],
+          if (past && !completed) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => onOpenWorkout(week, workoutIndex, true),
+                icon: const Icon(Icons.add_task_rounded, size: 17),
+                label: Text(
+                  record == null ? 'FILL PAST WORKOUT' : 'FILL SKIPPED WORKOUT',
                 ),
               ),
             ),
-            if (current)
-              const Text(
-                'NEXT',
-                style: TextStyle(
-                  color: _acid,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: .7,
-                ),
-              ),
           ],
-        ),
-        const SizedBox(height: 10),
-        for (final entry in workout.exercises.asMap().entries) ...[
-          if (entry.key > 0)
-            Divider(height: 14, color: Colors.white.withValues(alpha: .055)),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 22,
-                child: Text(
-                  '${entry.key + 1}'.padLeft(2, '0'),
-                  style: const TextStyle(
-                    color: Colors.white24,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  entry.value.name,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: .78),
-                    fontSize: 13,
-                    height: 1.25,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: entry.value.primary
-                      ? _electric.withValues(alpha: .1)
-                      : Colors.white.withValues(alpha: .045),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '${entry.value.sets} × ${entry.value.reps}',
-                  style: TextStyle(
-                    color: entry.value.primary ? _electric : Colors.white60,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
         ],
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
+
+String _formatDate(DateTime value) =>
+    '${value.day.toString().padLeft(2, '0')}/'
+    '${value.month.toString().padLeft(2, '0')}/${value.year}';
 
 class _NextWorkoutOption extends StatelessWidget {
   const _NextWorkoutOption({
@@ -1402,8 +1516,10 @@ class _NextWorkoutOption extends StatelessWidget {
                     const SizedBox(height: 5),
                     Text(
                       workout.exercises
-                          .map((exercise) =>
-                              '${exercise.name}  ${exercise.sets}×${exercise.reps}')
+                          .map(
+                            (exercise) =>
+                                '${exercise.name}  ${exercise.sets}×${exercise.reps}',
+                          )
                           .join('  ·  '),
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
@@ -1487,8 +1603,11 @@ class _KindMeta {
 
 _KindMeta _kindMeta(WeekKind kind) => switch (kind) {
   WeekKind.build => const _KindMeta('BUILD', 'Build', _electric),
-  WeekKind.volumeDeload =>
-    const _KindMeta('VOLUME DELOAD', 'Volume deload', _violet),
+  WeekKind.volumeDeload => const _KindMeta(
+    'VOLUME DELOAD',
+    'Volume deload',
+    _violet,
+  ),
   WeekKind.strength => const _KindMeta('STRENGTH WEEK', 'Strength', _amber),
   WeekKind.fullDeload => const _KindMeta('FULL DELOAD', 'Full deload', _acid),
 };

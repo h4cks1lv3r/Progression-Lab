@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'logged_sets.dart';
 import 'store.dart';
 
 /// An exercise-specific progress surface backed only by real [AppStore] logs.
@@ -96,10 +97,9 @@ class _ProgressDashboardState extends State<ProgressDashboard>
     return latest.exercise;
   }
 
-  List<SetLog> _exerciseLogs(String exercise) => widget.store.logs
-      .where((log) => log.exercise == exercise)
-      .toList()
-    ..sort((a, b) => a.date.compareTo(b.date));
+  List<SetLog> _exerciseLogs(String exercise) =>
+      widget.store.logs.where((log) => log.exercise == exercise).toList()
+        ..sort((a, b) => a.date.compareTo(b.date));
 
   List<_ChartPoint> _pointsFor(String exercise) {
     final cutoff = _window.cutoff;
@@ -145,13 +145,8 @@ class _ProgressDashboardState extends State<ProgressDashboard>
     const rightInset = 18.0;
     final availableWidth = width - leftInset - rightInset;
     final usableWidth = availableWidth < 1.0 ? 1.0 : availableWidth;
-    final fraction = ((position.dx - leftInset) / usableWidth).clamp(
-      0.0,
-      1.0,
-    );
-    final index = pointCount == 1
-        ? 0
-        : (fraction * (pointCount - 1)).round();
+    final fraction = ((position.dx - leftInset) / usableWidth).clamp(0.0, 1.0);
+    final index = pointCount == 1 ? 0 : (fraction * (pointCount - 1)).round();
     if (index == _scrubbedIndex) return;
     setState(() => _scrubbedIndex = index);
     if (_lastHapticIndex != index) {
@@ -237,9 +232,20 @@ class _ProgressDashboardState extends State<ProgressDashboard>
                 final recent = _RecentSetsCard(
                   logs: allExerciseLogs.reversed.take(8).toList(),
                   unit: widget.store.unit,
+                  onEdit: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => LoggedSetsScreen(
+                        store: widget.store,
+                        exercise: exercise,
+                      ),
+                    ),
+                  ),
                 );
                 final records = _PrRecordsCard(
-                  records: _prRecords(allExerciseLogs).reversed.take(8).toList(),
+                  records: _prRecords(
+                    allExerciseLogs,
+                  ).reversed.take(8).toList(),
                   unit: widget.store.unit,
                 );
                 if (!wide) {
@@ -519,7 +525,12 @@ class _StatsGrid extends StatelessWidget {
     final metricUnit = metric.unit(unit);
 
     final stats = [
-      _StatData('CURRENT', _formatValue(current), metricUnit, Icons.bolt_rounded),
+      _StatData(
+        'CURRENT',
+        _formatValue(current),
+        metricUnit,
+        Icons.bolt_rounded,
+      ),
       _StatData('HIGH', _formatValue(maximum), metricUnit, Icons.north_rounded),
       _StatData('LOW', _formatValue(minimum), metricUnit, Icons.south_rounded),
       _StatData(
@@ -541,7 +552,10 @@ class _StatsGrid extends StatelessWidget {
         return Wrap(
           spacing: gap,
           runSpacing: gap,
-          children: [for (final stat in stats) SizedBox(width: width, child: _StatCard(stat))],
+          children: [
+            for (final stat in stats)
+              SizedBox(width: width, child: _StatCard(stat)),
+          ],
         );
       },
     );
@@ -701,7 +715,10 @@ class _ChartCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: _ProgressDashboardState._cyan.withValues(alpha: .09),
                   borderRadius: BorderRadius.circular(20),
@@ -729,12 +746,21 @@ class _ChartCard extends StatelessWidget {
               value: semanticValue,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTapDown: (details) =>
-                    onScrub(details.localPosition, constraints.maxWidth, points.length),
-                onHorizontalDragStart: (details) =>
-                    onScrub(details.localPosition, constraints.maxWidth, points.length),
-                onHorizontalDragUpdate: (details) =>
-                    onScrub(details.localPosition, constraints.maxWidth, points.length),
+                onTapDown: (details) => onScrub(
+                  details.localPosition,
+                  constraints.maxWidth,
+                  points.length,
+                ),
+                onHorizontalDragStart: (details) => onScrub(
+                  details.localPosition,
+                  constraints.maxWidth,
+                  points.length,
+                ),
+                onHorizontalDragUpdate: (details) => onScrub(
+                  details.localPosition,
+                  constraints.maxWidth,
+                  points.length,
+                ),
                 child: AnimatedBuilder(
                   animation: reveal,
                   builder: (context, _) => CustomPaint(
@@ -813,12 +839,7 @@ class _NeonProgressPainter extends CustomPainter {
     final chartBottom = size.height - _bottom > _top + 1
         ? size.height - _bottom
         : _top + 1;
-    final chart = Rect.fromLTRB(
-      _left,
-      _top,
-      chartRight,
-      chartBottom,
-    );
+    final chart = Rect.fromLTRB(_left, _top, chartRight, chartBottom);
     final values = points.map((point) => point.value).toList();
     final rawMin = values.reduce((a, b) => a < b ? a : b);
     final rawMax = values.reduce((a, b) => a > b ? a : b);
@@ -889,10 +910,7 @@ class _NeonProgressPainter extends CustomPainter {
     );
 
     final shader = const LinearGradient(
-      colors: [
-        _ProgressDashboardState._violet,
-        _ProgressDashboardState._cyan,
-      ],
+      colors: [_ProgressDashboardState._violet, _ProgressDashboardState._cyan],
     ).createShader(chart);
     canvas.drawPath(
       linePath,
@@ -927,11 +945,7 @@ class _NeonProgressPainter extends CustomPainter {
     if (points.length <= 36) {
       for (var i = 0; i < points.length; i++) {
         final point = location(i);
-        canvas.drawCircle(
-          point,
-          3.2,
-          Paint()..color = const Color(0xFFCAFDF8),
-        );
+        canvas.drawCircle(point, 3.2, Paint()..color = const Color(0xFFCAFDF8));
       }
     }
     canvas.restore();
@@ -1026,7 +1040,8 @@ class _NeonProgressPainter extends CustomPainter {
 
     final item = points[index];
     final value = '${_formatValue(item.value)} ${metric.unit(unit)}';
-    final detail = '${_shortDate(item.log.date)}  •  '
+    final detail =
+        '${_shortDate(item.log.date)}  •  '
         '${_formatWeight(item.log.weight)} $unit × ${item.log.reps}';
     const tooltipWidth = 154.0;
     const tooltipHeight = 52.0;
@@ -1034,10 +1049,7 @@ class _NeonProgressPainter extends CustomPainter {
         ? size.width - tooltipWidth - 4
         : chart.left;
     final left = (point.dx - tooltipWidth / 2)
-        .clamp(
-          chart.left,
-          maximumLeft,
-        )
+        .clamp(chart.left, maximumLeft)
         .toDouble();
     final preferAbove = point.dy - tooltipHeight - 14 >= chart.top;
     final top = preferAbove ? point.dy - tooltipHeight - 12 : point.dy + 12;
@@ -1115,10 +1127,15 @@ class _NeonProgressPainter extends CustomPainter {
 }
 
 class _RecentSetsCard extends StatelessWidget {
-  const _RecentSetsCard({required this.logs, required this.unit});
+  const _RecentSetsCard({
+    required this.logs,
+    required this.unit,
+    required this.onEdit,
+  });
 
   final List<SetLog> logs;
   final String unit;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) => _DataCard(
@@ -1134,6 +1151,14 @@ class _RecentSetsCard extends StatelessWidget {
           subtitle: '${_shortDate(log.date)}  •  ${log.workout}',
           trailing: '${log.e1rm.round()}\nE1RM',
         ),
+      Align(
+        alignment: Alignment.centerRight,
+        child: TextButton.icon(
+          onPressed: onEdit,
+          icon: const Icon(Icons.edit_note_rounded),
+          label: const Text('VIEW & EDIT ALL SETS'),
+        ),
+      ),
     ],
   );
 }
@@ -1195,11 +1220,7 @@ class _DataCard extends StatelessWidget {
                 color: _ProgressDashboardState._cyan.withValues(alpha: .09),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                icon,
-                color: _ProgressDashboardState._cyan,
-                size: 20,
-              ),
+              child: Icon(icon, color: _ProgressDashboardState._cyan, size: 20),
             ),
             const SizedBox(width: 11),
             Expanded(
@@ -1332,9 +1353,7 @@ class _DataRow extends StatelessWidget {
           trailing,
           textAlign: TextAlign.right,
           style: TextStyle(
-            color: accent
-                ? _ProgressDashboardState._cyan
-                : Colors.white70,
+            color: accent ? _ProgressDashboardState._cyan : Colors.white70,
             fontSize: 9,
             height: 1.25,
             fontWeight: FontWeight.w900,
@@ -1550,8 +1569,7 @@ String _formatWeight(double value) => value == value.roundToDouble()
     ? value.round().toString()
     : value.toStringAsFixed(1);
 
-String _shortDate(DateTime value) =>
-    '${_months[value.month - 1]} ${value.day}';
+String _shortDate(DateTime value) => '${_months[value.month - 1]} ${value.day}';
 
 String _longDate(DateTime value) =>
     '${_months[value.month - 1]} ${value.day}, ${value.year}';
