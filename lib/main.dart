@@ -1,6 +1,10 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+import 'exercise_library_screen.dart';
+import 'logged_sets.dart';
 import 'program.dart';
 import 'program_navigator.dart';
 import 'progress_dashboard.dart';
@@ -147,7 +151,27 @@ class _ShellState extends State<Shell> {
         store: widget.store,
         onOpenProgram: () => setState(() => index = 1),
       ),
-      ProgramNavigatorPage(store: widget.store),
+      ProgramNavigatorPage(
+        store: widget.store,
+        onOpenWorkout: (week, workoutIndex, retroactive) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => WorkoutScreen(
+                store: widget.store,
+                week: week,
+                workout: week.workouts[workoutIndex],
+                workoutIndex: workoutIndex,
+                retroactive: retroactive,
+                scheduledDate: widget.store.dateForSlot(
+                  week.number,
+                  workoutIndex,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
       ProgressDashboard(store: widget.store),
       SettingsPage(store: widget.store),
     ];
@@ -212,9 +236,10 @@ class TodayPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final week = ProgramEngine.week(store.week, store.days);
-    final workout = week.workouts[
-      store.workoutIndex.clamp(0, week.workouts.length - 1).toInt()
-    ];
+    final workout =
+        week.workouts[store.workoutIndex
+            .clamp(0, week.workouts.length - 1)
+            .toInt()];
     return CustomScrollView(
       slivers: [
         SliverPadding(
@@ -260,9 +285,7 @@ class TodayPage extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: cyan.withValues(alpha: .09),
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: cyan.withValues(alpha: .22),
-                        ),
+                        border: Border.all(color: cyan.withValues(alpha: .22)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -316,10 +339,7 @@ class TodayPage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 15),
-              _CycleNavigatorCard(
-                week: week,
-                onOpenProgram: onOpenProgram,
-              ),
+              _CycleNavigatorCard(week: week, onOpenProgram: onOpenProgram),
               const SizedBox(height: 18),
               Text(
                 week.label,
@@ -347,6 +367,14 @@ class TodayPage extends StatelessWidget {
               const SizedBox(height: 22),
               _HeroCard(
                 workout: workout,
+                resuming:
+                    store.draftFor(
+                      weekNumber: store.week,
+                      targetWorkoutIndex: store.workoutIndex,
+                      cadence: store.days,
+                      retroactive: false,
+                    ) !=
+                    null,
                 onStart: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -354,6 +382,11 @@ class TodayPage extends StatelessWidget {
                       store: store,
                       week: week,
                       workout: workout,
+                      workoutIndex: store.workoutIndex,
+                      scheduledDate: store.dateForSlot(
+                        week.number,
+                        store.workoutIndex,
+                      ),
                     ),
                   ),
                 ),
@@ -397,10 +430,7 @@ class TodayPage extends StatelessWidget {
 }
 
 class _CycleNavigatorCard extends StatelessWidget {
-  const _CycleNavigatorCard({
-    required this.week,
-    required this.onOpenProgram,
-  });
+  const _CycleNavigatorCard({required this.week, required this.onOpenProgram});
 
   final ProgramWeek week;
   final VoidCallback onOpenProgram;
@@ -459,7 +489,11 @@ class _CycleNavigatorCard extends StatelessWidget {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  for (var phase = 1; phase <= ProgramEngine.phaseCount; phase++)
+                  for (
+                    var phase = 1;
+                    phase <= ProgramEngine.phaseCount;
+                    phase++
+                  )
                     Expanded(
                       child: Padding(
                         padding: EdgeInsets.only(
@@ -546,9 +580,14 @@ class _PhaseSegment extends StatelessWidget {
 }
 
 class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.workout, required this.onStart});
+  const _HeroCard({
+    required this.workout,
+    required this.onStart,
+    required this.resuming,
+  });
   final WorkoutPlan workout;
   final VoidCallback onStart;
+  final bool resuming;
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(22),
@@ -574,9 +613,9 @@ class _HeroCard extends StatelessWidget {
               child: const Icon(Icons.fitness_center_rounded, color: ink),
             ),
             const Spacer(),
-            const Text(
-              'READY',
-              style: TextStyle(
+            Text(
+              resuming ? 'IN PROGRESS' : 'READY',
+              style: const TextStyle(
                 color: lime,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.4,
@@ -607,7 +646,7 @@ class _HeroCard extends StatelessWidget {
                 letterSpacing: .8,
               ),
             ),
-            child: const Text('START WORKOUT  →'),
+            child: Text(resuming ? 'RESUME WORKOUT  →' : 'START WORKOUT  →'),
           ),
         ),
       ],
@@ -621,28 +660,75 @@ class WorkoutScreen extends StatefulWidget {
     required this.store,
     required this.week,
     required this.workout,
+    required this.workoutIndex,
+    required this.scheduledDate,
+    this.retroactive = false,
   });
   final AppStore store;
   final ProgramWeek week;
   final WorkoutPlan workout;
+  final int workoutIndex;
+  final DateTime scheduledDate;
+  final bool retroactive;
   @override
   State<WorkoutScreen> createState() => _WorkoutScreenState();
 }
 
-class _WorkoutScreenState extends State<WorkoutScreen> {
+class _WorkoutScreenState extends State<WorkoutScreen>
+    with WidgetsBindingObserver {
   int exercise = 0;
   int set = 1;
   int elapsed = 0;
   int rest = 0;
   int loggedSets = 0;
   Timer? timer;
+  Timer? draftTimer;
   final weight = TextEditingController();
   final reps = TextEditingController();
+  final notes = TextEditingController();
+  late final String sessionId;
+  final Map<int, String> substitutions = {};
   bool lastPr = false;
   bool finishing = false;
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final draft = widget.store.draftFor(
+      weekNumber: widget.week.number,
+      targetWorkoutIndex: widget.workoutIndex,
+      cadence: widget.store.days,
+      retroactive: widget.retroactive,
+    );
+    final canRestore =
+        draft != null &&
+        draft.week == widget.week.number &&
+        draft.workoutIndex == widget.workoutIndex &&
+        draft.workout == widget.workout.name &&
+        draft.days == widget.store.days &&
+        draft.retroactive == widget.retroactive &&
+        draft.exerciseIndex >= 0 &&
+        draft.exerciseIndex < widget.workout.exercises.length &&
+        draft.setNumber > 0 &&
+        draft.setNumber <= widget.workout.exercises[draft.exerciseIndex].sets;
+    if (canRestore) {
+      exercise = draft.exerciseIndex;
+      set = draft.setNumber;
+      sessionId = draft.sessionId;
+      substitutions.addAll(draft.substitutions);
+      weight.text = draft.weight;
+      reps.text = draft.reps;
+      notes.text = draft.notes;
+    } else {
+      sessionId = DateTime.now().microsecondsSinceEpoch.toString();
+      _seed();
+    }
+    loggedSets = widget.store.logs
+        .where((log) => log.sessionId == sessionId)
+        .length;
+    weight.addListener(_draftChanged);
+    reps.addListener(_draftChanged);
+    notes.addListener(_draftChanged);
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) {
         setState(() {
@@ -651,11 +737,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         });
       }
     });
-    _seed();
+    unawaited(_persistDraft());
   }
 
   void _seed({bool preserveWeight = false}) {
-    final e = widget.workout.exercises[exercise];
+    final e = _exercisePlan(exercise);
     if (!preserveWeight) {
       final best = widget.store.best(e.name);
       weight.text =
@@ -666,13 +752,63 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         : e.amrap && set == 2
         ? '4'
         : e.reps.split(RegExp('[– +]')).first;
+    notes.clear();
+  }
+
+  void _draftChanged() {
+    draftTimer?.cancel();
+    draftTimer = Timer(const Duration(milliseconds: 250), () {
+      unawaited(_persistDraft());
+    });
+  }
+
+  Future<void> _persistDraft() async {
+    if (finishing) return;
+    final value = DraftSetInput(
+      week: widget.week.number,
+      workoutIndex: widget.workoutIndex,
+      workout: widget.workout.name,
+      exerciseIndex: exercise,
+      setNumber: set,
+      sessionId: sessionId,
+      weight: weight.text,
+      reps: reps.text,
+      notes: notes.text,
+      days: widget.store.days,
+      retroactive: widget.retroactive,
+      scheduledDate: widget.scheduledDate,
+      substitutions: Map.unmodifiable(substitutions),
+    );
+    try {
+      await widget.store.setDraft(value);
+    } on Object {
+      // Keep the live input usable and retry on the next edit/lifecycle event.
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      draftTimer?.cancel();
+      unawaited(_persistDraft());
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     timer?.cancel();
+    draftTimer?.cancel();
+    weight.removeListener(_draftChanged);
+    reps.removeListener(_draftChanged);
+    notes.removeListener(_draftChanged);
+    unawaited(_persistDraft());
     weight.dispose();
     reps.dispose();
+    notes.dispose();
     super.dispose();
   }
 
@@ -687,7 +823,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       );
       return;
     }
-    final e = widget.workout.exercises[exercise];
+    final e = _exercisePlan(exercise);
+    if (_setsForExercise(exercise) >= e.sets) return;
     final pr = await widget.store.add(
       SetLog(
         exercise: e.name,
@@ -695,6 +832,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         reps: r,
         date: DateTime.now(),
         workout: widget.workout.name,
+        notes: notes.text,
+        sessionId: sessionId,
+        exerciseIndex: exercise,
       ),
     );
     if (!mounted) return;
@@ -703,9 +843,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       lastPr = pr;
       loggedSets++;
       rest = e.primary ? 180 : 120;
-      if (set < e.sets) {
+      final exerciseSets = _setsForExercise(exercise);
+      if (exerciseSets < e.sets) {
         set++;
-        if (e.amrap) _seed(preserveWeight: true);
+        if (e.amrap) {
+          _seed(preserveWeight: true);
+        } else {
+          notes.clear();
+        }
       } else if (exercise < widget.workout.exercises.length - 1) {
         exercise++;
         set = 1;
@@ -715,6 +860,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         workoutComplete = true;
       }
     });
+    if (!workoutComplete) unawaited(_persistDraft());
     HapticFeedback.selectionClick();
     if (pr && mounted) {
       HapticFeedback.heavyImpact();
@@ -758,23 +904,87 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       );
       if (confirmed != true || !mounted) return;
     }
+    await _commitWorkout(WorkoutStatus.completed);
+  }
+
+  Future<void> _skipWorkout() async {
+    if (finishing || widget.retroactive) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Skip this workout?'),
+        content: const Text(
+          'The workout will be marked skipped and the program will advance. Any sets already logged stay in history.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('KEEP TRAINING'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('SKIP WORKOUT'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await _commitWorkout(WorkoutStatus.skipped);
+    }
+  }
+
+  Future<void> _commitWorkout(WorkoutStatus status) async {
     setState(() => finishing = true);
-    await widget.store.complete(widget.week.workouts.length);
-    if (mounted) {
-      Navigator.pop(context);
+    try {
+      await widget.store.recordWorkout(
+        weekNumber: widget.week.number,
+        targetWorkoutIndex: widget.workoutIndex,
+        workout: widget.workout.name,
+        status: status,
+        sessionId: sessionId,
+        substitutions: substitutions,
+        retroactive: widget.retroactive,
+        scheduledDate: widget.scheduledDate,
+      );
+      if (mounted) Navigator.pop(context);
+    } on Object {
+      if (!mounted) return;
+      setState(() => finishing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not save the workout. Try again.')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final e = widget.workout.exercises[exercise];
+    final e = _exercisePlan(exercise);
+    final activeLogs = widget.store.logs
+        .where((log) => log.sessionId == sessionId && log.exercise == e.name)
+        .length;
     final progress =
-        (exercise + (set / e.sets)) / widget.workout.exercises.length;
+        (exercise + ((set - 1) / e.sets)) / widget.workout.exercises.length;
+    final exerciseComplete = _setsForExercise(exercise) >= e.sets;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        title: Text('${_clock(elapsed)}  •  ${widget.workout.name}'),
+        title: Text(
+          '${_clock(elapsed)}  •  ${widget.workout.name}'
+          '${widget.retroactive ? '  •  RETRO' : ''}',
+        ),
         actions: [
+          PopupMenuButton<String>(
+            tooltip: 'Workout actions',
+            enabled: !finishing,
+            onSelected: (value) {
+              if (value == 'skip') unawaited(_skipWorkout());
+            },
+            itemBuilder: (_) => widget.retroactive
+                ? const []
+                : const [
+                    PopupMenuItem(value: 'skip', child: Text('SKIP WORKOUT')),
+                  ],
+          ),
           TextButton(
             onPressed: finishing ? null : () => _finish(),
             child: Text(finishing ? 'SAVING' : 'FINISH'),
@@ -806,6 +1016,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               ),
               if (lastPr)
                 const Icon(Icons.emoji_events_rounded, color: lime, size: 34),
+              IconButton(
+                tooltip: 'Substitute exercise',
+                onPressed: _setsForExercise(exercise) == 0 && !finishing
+                    ? () => _chooseSubstitution(exercise)
+                    : null,
+                icon: const Icon(Icons.swap_horiz_rounded),
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -817,6 +1034,17 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               letterSpacing: 1.1,
             ),
           ),
+          if (substitutions.containsKey(exercise)) ...[
+            const SizedBox(height: 5),
+            Text(
+              'SUBSTITUTED FOR ${widget.workout.exercises[exercise].name.toUpperCase()}',
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
           _Previous(best: widget.store.best(e.name), unit: widget.store.unit),
           const SizedBox(height: 26),
@@ -851,6 +1079,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: notes,
+            minLines: 1,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'SET NOTES',
+              hintText: 'Optional notes for this set',
+            ),
+          ),
           const SizedBox(height: 16),
           if (rest > 0)
             Container(
@@ -883,15 +1121,40 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           SizedBox(
             height: 60,
             child: FilledButton(
-              onPressed: finishing ? null : _log,
+              onPressed: finishing || exerciseComplete ? null : _log,
               style: FilledButton.styleFrom(
                 backgroundColor: lime,
                 foregroundColor: ink,
               ),
-              child: const Text(
-                'LOG SET',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+              child: Text(
+                exerciseComplete ? 'EXERCISE COMPLETE' : 'LOG SET',
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Card(
+            margin: EdgeInsets.zero,
+            child: ExpansionTile(
+              leading: const Icon(Icons.history_rounded, color: cyan),
+              title: Text(
+                'LOGGED SETS ($activeLogs)',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: Text('Saved for ${e.name} in this workout'),
+              childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              children: [
+                LoggedSetsEditor(
+                  store: widget.store,
+                  predicate: (log) =>
+                      log.sessionId == sessionId && log.exercise == e.name,
+                  emptyMessage: 'No sets logged for this exercise yet.',
+                  compact: true,
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 28),
@@ -904,24 +1167,43 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          ...widget.workout.exercises.asMap().entries.map(
-            (x) => ListTile(
+          ...widget.workout.exercises.asMap().entries.map((x) {
+            final exercisePlan = _exercisePlan(x.key);
+            final loggedForSlot = _setsForExercise(x.key);
+            final done = x.key < exercise;
+            return ListTile(
               contentPadding: EdgeInsets.zero,
+              selected: x.key == exercise,
               leading: CircleAvatar(
-                backgroundColor: x.key < exercise ? lime : Colors.white10,
+                backgroundColor: done ? lime : Colors.white10,
                 child: Icon(
-                  x.key < exercise ? Icons.check : Icons.fitness_center,
-                  color: x.key < exercise ? ink : Colors.white54,
+                  done ? Icons.check : Icons.fitness_center,
+                  color: done ? ink : Colors.white54,
                   size: 18,
                 ),
               ),
-              title: Text(x.value.name),
-              trailing: Text(
-                '${x.value.sets} × ${x.value.reps}',
-                style: const TextStyle(color: Colors.white54),
+              title: Text(exercisePlan.name),
+              subtitle: substitutions.containsKey(x.key)
+                  ? Text('For ${x.value.name}')
+                  : null,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${exercisePlan.sets} × ${exercisePlan.reps}',
+                    style: const TextStyle(color: Colors.white54),
+                  ),
+                  IconButton(
+                    tooltip: 'Substitute ${x.value.name}',
+                    onPressed: loggedForSlot == 0 && !finishing
+                        ? () => _chooseSubstitution(x.key)
+                        : null,
+                    icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                  ),
+                ],
               ),
-            ),
-          ),
+            );
+          }),
         ],
       ),
     );
@@ -929,6 +1211,114 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   String _clock(int s) =>
       '${(s ~/ 60).toString().padLeft(2, '0')}:${(s % 60).toString().padLeft(2, '0')}';
+
+  ExercisePlan _exercisePlan(int index) {
+    final prescribed = widget.workout.exercises[index];
+    final replacement = substitutions[index];
+    if (replacement == null) return prescribed;
+    return ExercisePlan(
+      replacement,
+      prescribed.sets,
+      prescribed.reps,
+      primary: prescribed.primary,
+      amrap: prescribed.amrap,
+    );
+  }
+
+  int _setsForExercise(int index) {
+    final name = _exercisePlan(index).name;
+    return widget.store.logs
+        .where(
+          (log) =>
+              log.sessionId == sessionId &&
+              (log.exerciseIndex == index ||
+                  (log.exerciseIndex == null && log.exercise == name)),
+        )
+        .length;
+  }
+
+  Future<void> _chooseSubstitution(int index) async {
+    if (_setsForExercise(index) > 0) return;
+    final prescribed = widget.workout.exercises[index];
+    final alternatives = widget.store.selectableExercises
+        .where((item) => item.name != prescribed.name)
+        .toList();
+    var selected = substitutions[index] ?? prescribed.name;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            22,
+            20,
+            20 + MediaQuery.viewInsetsOf(sheetContext).bottom,
+          ),
+          child: StatefulBuilder(
+            builder: (context, setSheetState) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'SUBSTITUTE EXERCISE',
+                  style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  '${prescribed.name} • this session only',
+                  style: const TextStyle(color: Colors.white54),
+                ),
+                const SizedBox(height: 18),
+                DropdownButtonFormField<String>(
+                  initialValue: selected,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'EXERCISE'),
+                  items: [
+                    DropdownMenuItem(
+                      value: prescribed.name,
+                      child: Text('${prescribed.name} (prescribed)'),
+                    ),
+                    for (final item in alternatives)
+                      DropdownMenuItem(
+                        value: item.name,
+                        child: Text(
+                          '${item.name}${item.isBuiltIn ? '' : ' • Custom'}',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setSheetState(() => selected = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(sheetContext, selected),
+                    child: const Text('APPLY TO SESSION'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    setState(() {
+      if (choice == prescribed.name) {
+        substitutions.remove(index);
+      } else {
+        substitutions[index] = choice;
+      }
+      if (exercise == index) _seed();
+    });
+    await _persistDraft();
+  }
 }
 
 class SettingsPage extends StatelessWidget {
@@ -960,11 +1350,7 @@ class SettingsPage extends StatelessWidget {
         onSelectionChanged: (selection) {
           final requested = selection.first;
           if (requested != store.days) {
-            showCadenceSwitchSheet(
-              context,
-              store,
-              requestedDays: requested,
-            );
+            showCadenceSwitchSheet(context, store, requestedDays: requested);
           }
         },
       ),
@@ -1017,11 +1403,17 @@ class SettingsPage extends StatelessWidget {
         },
       ),
       const SizedBox(height: 28),
-      const _Setting(
-        icon: Icons.swap_horiz_rounded,
-        title: 'Exercise substitutions',
-        subtitle: 'Planned for the durable workout-engine update',
-        available: false,
+      _Setting(
+        icon: Icons.fitness_center_rounded,
+        title: 'Exercise library',
+        subtitle: 'Browse built-ins or manage custom exercises',
+        available: true,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ExerciseLibraryScreen(store: store),
+          ),
+        ),
       ),
       const _Setting(
         icon: Icons.calculate_rounded,
@@ -1234,12 +1626,15 @@ class _Setting extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.available,
+    this.onTap,
   });
   final IconData icon;
   final String title, subtitle;
   final bool available;
+  final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) => ListTile(
+    onTap: onTap,
     contentPadding: EdgeInsets.zero,
     leading: CircleAvatar(
       backgroundColor: Colors.white10,

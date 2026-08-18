@@ -1,3 +1,5 @@
+import 'exercise_library.dart';
+
 enum WeekKind { build, volumeDeload, strength, fullDeload }
 
 class ExercisePlan {
@@ -104,7 +106,11 @@ class ProgramEngine {
 
   static int firstWeekOfPhase(int phase) {
     if (phase < 1 || phase > phaseCount) {
-      throw ArgumentError.value(phase, 'phase', 'Must be from 1 to $phaseCount');
+      throw ArgumentError.value(
+        phase,
+        'phase',
+        'Must be from 1 to $phaseCount',
+      );
     }
     return ((phase - 1) * weeksPerPhase) + 1;
   }
@@ -197,10 +203,9 @@ class ProgramEngine {
           candidate.exercises.first.name == current.exercises.first.name;
       final nameMatch = candidate.name == current.name;
       final distance = (i - targetPosition).abs();
-      final isBetter = overlap > bestOverlap ||
-          (overlap == bestOverlap &&
-              anchorMatch &&
-              !bestAnchorMatch) ||
+      final isBetter =
+          overlap > bestOverlap ||
+          (overlap == bestOverlap && anchorMatch && !bestAnchorMatch) ||
           (overlap == bestOverlap &&
               anchorMatch == bestAnchorMatch &&
               nameMatch &&
@@ -230,10 +235,9 @@ class ProgramEngine {
     validateDays(fromDays);
     validateDays(toDays);
     final current = ProgramEngine.week(safeWeek, fromDays);
-    final safeCurrent = currentWorkoutIndex.clamp(
-      0,
-      current.workouts.length - 1,
-    ).toInt();
+    final safeCurrent = currentWorkoutIndex
+        .clamp(0, current.workouts.length - 1)
+        .toInt();
     final suggested = defaultWorkoutIndexForCadenceSwitch(
       week: safeWeek,
       fromDays: fromDays,
@@ -259,11 +263,12 @@ class ProgramEngine {
   }
 
   static ExercisePlan _prescribe(
-    String name,
+    BuiltInExercise exercise,
     bool primary,
     int micro,
     WeekKind kind,
   ) {
+    final name = exercise.name;
     if (kind == WeekKind.strength) {
       return ExercisePlan(
         name,
@@ -321,7 +326,7 @@ class ProgramEngine {
     );
   }
 
-  static List<(String, List<String>)> _templates(int days, int phase) {
+  static List<(String, List<BuiltInExercise>)> _templates(int days, int phase) {
     final p = _phase[phase]!;
     if (days == 3) {
       return [
@@ -330,7 +335,7 @@ class ProgramEngine {
         ('Full Body', [p[12], p[13], p[9], p[11]]),
       ];
     }
-    final four = <(String, List<String>)>[
+    final four = <(String, List<BuiltInExercise>)>[
       ('Upper Body A', [p[0], p[1], p[2], p[3]]),
       ('Pull & Calves', [p[4], p[5], p[6], p[7]]),
       ('Upper Body B', [p[8], p[9], p[10], p[11]]),
@@ -340,60 +345,60 @@ class ProgramEngine {
     return four;
   }
 
-  static const _phase = <int, List<String>>{
+  static const _phase = <int, List<BuiltInExercise>>{
     1: [
-      'Barbell Bench Press',
-      'Close-Grip Bench Press',
-      'Dumbbell Side Raise',
-      'Triceps Pressdown',
-      'Barbell Deadlift',
-      'Pull-up',
-      'One-Arm Dumbbell Row',
-      'Seated Calf Raise',
-      'Standing Military Press',
-      'Incline Barbell Bench',
-      'Seated Cable Row',
-      'Barbell Curl',
-      'Barbell Back Squat',
-      'Leg Press',
-      'Leg Curl',
-      'Leg Press Calf Raise',
+      BuiltInExercises.barbellBenchPress,
+      BuiltInExercises.closeGripBenchPress,
+      BuiltInExercises.dumbbellSideRaise,
+      BuiltInExercises.tricepsPressdown,
+      BuiltInExercises.barbellDeadlift,
+      BuiltInExercises.pullUp,
+      BuiltInExercises.oneArmDumbbellRow,
+      BuiltInExercises.seatedCalfRaise,
+      BuiltInExercises.standingMilitaryPress,
+      BuiltInExercises.inclineBarbellBench,
+      BuiltInExercises.seatedCableRow,
+      BuiltInExercises.barbellCurl,
+      BuiltInExercises.barbellBackSquat,
+      BuiltInExercises.legPress,
+      BuiltInExercises.legCurl,
+      BuiltInExercises.legPressCalfRaise,
     ],
     2: [
-      'Barbell Bench Press',
-      'Dip',
-      'Dumbbell Rear Delt Fly',
-      'EZ-Bar Skullcrusher',
-      'Trap-Bar Deadlift',
-      'Chin-up',
-      'Seated Cable Row',
-      'Standing Calf Raise',
-      'Seated Military Press',
-      'Reverse-Grip Bench Press',
-      'Barbell Row',
-      'Cable Curl',
-      'Barbell Front Squat',
-      'Romanian Deadlift',
-      'Walking Dumbbell Lunge',
-      'Seated Calf Raise',
+      BuiltInExercises.barbellBenchPress,
+      BuiltInExercises.dip,
+      BuiltInExercises.dumbbellRearDeltFly,
+      BuiltInExercises.ezBarSkullcrusher,
+      BuiltInExercises.trapBarDeadlift,
+      BuiltInExercises.chinUp,
+      BuiltInExercises.seatedCableRow,
+      BuiltInExercises.standingCalfRaise,
+      BuiltInExercises.seatedMilitaryPress,
+      BuiltInExercises.reverseGripBenchPress,
+      BuiltInExercises.barbellRow,
+      BuiltInExercises.cableCurl,
+      BuiltInExercises.barbellFrontSquat,
+      BuiltInExercises.romanianDeadlift,
+      BuiltInExercises.walkingDumbbellLunge,
+      BuiltInExercises.seatedCalfRaise,
     ],
     3: [
-      'Barbell Bench Press',
-      'Close-Grip Bench Press',
-      'Dumbbell Side Raise',
-      'Triceps Overhead Press',
-      'Sumo Deadlift',
-      'Pull-up',
-      'T-Bar Row',
-      'Seated Calf Raise',
-      'Push Press',
-      'Incline Barbell Bench',
-      'One-Arm Dumbbell Row',
-      'Alternating Dumbbell Curl',
-      'Barbell Back Squat',
-      'Romanian Deadlift',
-      'Bulgarian Split Squat',
-      'Leg Press Calf Raise',
+      BuiltInExercises.barbellBenchPress,
+      BuiltInExercises.closeGripBenchPress,
+      BuiltInExercises.dumbbellSideRaise,
+      BuiltInExercises.tricepsOverheadPress,
+      BuiltInExercises.sumoDeadlift,
+      BuiltInExercises.pullUp,
+      BuiltInExercises.tBarRow,
+      BuiltInExercises.seatedCalfRaise,
+      BuiltInExercises.pushPress,
+      BuiltInExercises.inclineBarbellBench,
+      BuiltInExercises.oneArmDumbbellRow,
+      BuiltInExercises.alternatingDumbbellCurl,
+      BuiltInExercises.barbellBackSquat,
+      BuiltInExercises.romanianDeadlift,
+      BuiltInExercises.bulgarianSplitSquat,
+      BuiltInExercises.legPressCalfRaise,
     ],
   };
 }
