@@ -10,7 +10,7 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -47,21 +47,38 @@ jobs:
       - name: Run tests
         run: flutter test
 
-      - name: Build release APK
-        run: flutter build apk --release --build-name 1.1.1 --build-number 3
-
-      - name: Publish APK to source branch
-        if: github.event_name == 'pull_request' && hashFiles('apk/Progression-Lab-1.1.1.apk') == ''
-        env:
-          TARGET_BRANCH: ${{ github.head_ref }}
+      - name: Read application version
+        id: version
+        shell: bash
         run: |
-          cp build/app/outputs/flutter-apk/app-release.apk /tmp/Progression-Lab-1.1.1.apk
-          git fetch origin "$TARGET_BRANCH"
-          git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
-          mkdir -p apk
-          cp /tmp/Progression-Lab-1.1.1.apk apk/Progression-Lab-1.1.1.apk
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apk/Progression-Lab-1.1.1.apk
-          git commit -m "Add installable Progression Lab 1.1.1 APK"
-          git push origin "$TARGET_BRANCH"
+          version_line="$(awk '/^version:/ {print $2; exit}' pubspec.yaml)"
+          if [[ ! "$version_line" =~ ^([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)$ ]]; then
+            echo "Invalid pubspec version: $version_line" >&2
+            exit 1
+          fi
+          echo "name=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          echo "number=${BASH_REMATCH[2]}" >> "$GITHUB_OUTPUT"
+
+      - name: Build release APK
+        run: >-
+          flutter build apk --release
+          --build-name "${{ steps.version.outputs.name }}"
+          --build-number "${{ steps.version.outputs.number }}"
+
+      - name: Prepare distributable
+        shell: bash
+        run: |
+          mkdir -p dist
+          apk_name="Progression-Lab-${{ steps.version.outputs.name }}.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/$apk_name"
+          (cd dist && sha256sum "$apk_name" > "$apk_name.sha256")
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Progression-Lab-${{ steps.version.outputs.name }}-build-${{ steps.version.outputs.number }}
+          path: |
+            dist/Progression-Lab-${{ steps.version.outputs.name }}.apk
+            dist/Progression-Lab-${{ steps.version.outputs.name }}.apk.sha256
+          if-no-files-found: error
+          retention-days: 30
