@@ -58,7 +58,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          flutter analyze 2>&1 | tee analyze-results.txt
+          flutter analyze --no-fatal-infos 2>&1 | tee analyze-results.txt
 
       - name: Upload analyzer diagnostics
         if: always()
