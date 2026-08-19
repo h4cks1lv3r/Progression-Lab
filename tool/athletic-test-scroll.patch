@@ -1,0 +1,17 @@
+--- a/test/navigation_widget_test.dart
++++ b/test/navigation_widget_test.dart
+@@ -381,7 +381,13 @@
+     await tester.pumpAndSettle();
+     expect(find.text('FOOT ROCKER TO CALF-ISOMETRIC'), findsNothing);
+     expect(find.textContaining('Foot Rocker'), findsOneWidget);
+-    expect(find.text('FINISH SESSION'), findsOneWidget);
++    final finishSession = find.text('FINISH SESSION');
++    await tester.scrollUntilVisible(
++      finishSession,
++      500,
++      scrollable: find.byType(Scrollable).last,
++    );
++    expect(finishSession, findsOneWidget);
+   });
+ 
+ }
