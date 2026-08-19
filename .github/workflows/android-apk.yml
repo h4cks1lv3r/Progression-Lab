@@ -22,7 +22,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v5
 
-      - name: Materialize Athletic and brand source
+      - name: Materialize application source
         shell: bash
         run: |
           cat tool/functional-brand.patch.part* | base64 --decode > /tmp/progression-target.patch.gz
@@ -38,6 +38,11 @@ jobs:
           git apply tool/athletic-test-scroll.patch
           git apply --check tool/launch-background-fix.patch
           git apply tool/launch-background-fix.patch
+          cat tool/high-priority.patch.part* | base64 --decode > /tmp/high-priority.patch.gz
+          echo "b4bdddd6d556681632c01e3bd60c9771cf316bbdd4841d2e1dc8e616e7a6711d  /tmp/high-priority.patch.gz" | sha256sum --check --strict
+          gzip --decompress --stdout /tmp/high-priority.patch.gz > /tmp/high-priority.patch
+          git apply --check /tmp/high-priority.patch
+          git apply /tmp/high-priority.patch
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
