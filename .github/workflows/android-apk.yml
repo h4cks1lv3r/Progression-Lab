@@ -34,6 +34,8 @@ jobs:
           git apply tool/analyzer-fixes.patch
           git apply --check tool/labpanel-material.patch
           git apply tool/labpanel-material.patch
+          git apply --check tool/athletic-test-scroll.patch
+          git apply tool/athletic-test-scroll.patch
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
