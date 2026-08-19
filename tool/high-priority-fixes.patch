@@ -81,7 +81,7 @@ index ec4445b..378abbb 100644
      );
      final flask = Path()
 diff --git a/test/navigation_widget_test.dart b/test/navigation_widget_test.dart
-index 52ba5d8..640ab14 100644
+index 52ba5d8..5fcb0c5 100644
 --- a/test/navigation_widget_test.dart
 +++ b/test/navigation_widget_test.dart
 @@ -404,7 +404,8 @@ void main() {
@@ -94,3 +94,18 @@ index 52ba5d8..640ab14 100644
      expect(find.text('Home'), findsOneWidget);
      expect(find.text('Programs'), findsOneWidget);
      expect(find.text('Progress'), findsOneWidget);
+@@ -447,9 +448,12 @@ void main() {
+       highlightValue: 'Barbell Bench Press · 185 lb × 6',
+     );
+ 
+-    final bytes = await WorkoutShareCardGenerator.generate(data);
++    final bytes = await tester.runAsync(
++      () => WorkoutShareCardGenerator.generate(data),
++    );
+ 
+-    expect(bytes.length, greaterThan(10000));
++    expect(bytes, isNotNull);
++    expect(bytes!.length, greaterThan(10000));
+     expect(bytes.take(8).toList(), [137, 80, 78, 71, 13, 10, 26, 10]);
+     expect(data.fileName, 'progression-lab-20260819-upper-body-a.png');
+   });
