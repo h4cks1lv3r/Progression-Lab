@@ -1,3 +1,32 @@
+diff --git a/lib/app_tour.dart b/lib/app_tour.dart
+index 7e10366..a6a4424 100644
+--- a/lib/app_tour.dart
++++ b/lib/app_tour.dart
+@@ -301,14 +301,18 @@ class _TourFactCard extends StatelessWidget {
+             ),
+           ),
+           const SizedBox(height: 8),
+-          Text(
+-            step.body,
+-            style: const TextStyle(
+-              color: BrandColors.muted,
+-              height: 1.42,
++          Expanded(
++            child: SingleChildScrollView(
++              child: Text(
++                step.body,
++                style: const TextStyle(
++                  color: BrandColors.muted,
++                  height: 1.42,
++                ),
++              ),
+             ),
+           ),
+-          const Spacer(),
++          const SizedBox(height: 10),
+           Row(
+             children: [
+               if (onBack != null)
 diff --git a/lib/main.dart b/lib/main.dart
 index 9ebc996..2ec3fc0 100644
 --- a/lib/main.dart
