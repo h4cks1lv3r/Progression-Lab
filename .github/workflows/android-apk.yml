@@ -56,7 +56,25 @@ jobs:
         run: flutter analyze
 
       - name: Run tests
-        run: flutter test
+        id: tests
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter test --reporter expanded 2>&1 | tee test-results.txt
+
+      - name: Upload test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-test-results-${{ github.sha }}
+          path: test-results.txt
+          if-no-files-found: warn
+          retention-days: 2
+
+      - name: Enforce test result
+        if: steps.tests.outcome != 'success'
+        run: exit 1
 
       - name: Read application version
         id: version
