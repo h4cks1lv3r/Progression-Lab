@@ -81,10 +81,22 @@ index ec4445b..378abbb 100644
      );
      final flask = Path()
 diff --git a/test/navigation_widget_test.dart b/test/navigation_widget_test.dart
-index 52ba5d8..5fcb0c5 100644
+index 52ba5d8..9f9d2a1 100644
 --- a/test/navigation_widget_test.dart
 +++ b/test/navigation_widget_test.dart
-@@ -404,7 +404,8 @@ void main() {
+@@ -395,6 +395,11 @@ void main() {
+   testWidgets('main navigation groups programs and keeps the tour replayable', (
+     tester,
+   ) async {
++    tester.view.physicalSize = const Size(430, 900);
++    tester.view.devicePixelRatio = 1;
++    addTearDown(tester.view.resetPhysicalSize);
++    addTearDown(tester.view.resetDevicePixelRatio);
++
+     final store = AppStore()
+       ..isLoaded = true
+       ..onboardingVersionSeen = 1;
+@@ -404,7 +409,8 @@ void main() {
      );
      await tester.pumpAndSettle();
  
@@ -94,7 +106,7 @@ index 52ba5d8..5fcb0c5 100644
      expect(find.text('Home'), findsOneWidget);
      expect(find.text('Programs'), findsOneWidget);
      expect(find.text('Progress'), findsOneWidget);
-@@ -447,9 +448,12 @@ void main() {
+@@ -447,9 +453,12 @@ void main() {
        highlightValue: 'Barbell Bench Press · 185 lb × 6',
      );
  
