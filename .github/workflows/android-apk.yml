@@ -22,22 +22,14 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v5
 
-      - name: Package source snapshot
+      - name: Materialize Athletic and brand source
         shell: bash
         run: |
-          tar \
-            --exclude=.git \
-            --exclude=.dart_tool \
-            --exclude=build \
-            -czf /tmp/Progression-Lab-source.tgz .
-
-      - name: Upload source snapshot
-        uses: actions/upload-artifact@v4
-        with:
-          name: Progression-Lab-source-${{ github.sha }}
-          path: /tmp/Progression-Lab-source.tgz
-          if-no-files-found: error
-          retention-days: 1
+          cat tool/functional-brand.patch.part* | base64 --decode > /tmp/progression-target.patch.gz
+          echo "5c8c28f177916585a53b8557b239a3b99c654b84efd44efa491e7284e33ec976  /tmp/progression-target.patch.gz" | sha256sum --check --strict
+          gzip --decompress --stdout /tmp/progression-target.patch.gz > /tmp/progression-target.patch
+          git apply --check /tmp/progression-target.patch
+          git apply /tmp/progression-target.patch
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
