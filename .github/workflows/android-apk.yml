@@ -53,7 +53,25 @@ jobs:
         run: flutter pub get
 
       - name: Analyze source
-        run: flutter analyze
+        id: analyze
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter analyze 2>&1 | tee analyze-results.txt
+
+      - name: Upload analyzer diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-analyze-results-${{ github.sha }}
+          path: analyze-results.txt
+          if-no-files-found: warn
+          retention-days: 2
+
+      - name: Enforce analyzer result
+        if: steps.analyze.outcome != 'success'
+        run: exit 1
 
       - name: Run tests
         id: tests
