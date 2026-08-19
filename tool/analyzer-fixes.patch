@@ -18,6 +18,28 @@ index 8b27db9..1065938 100644
  
  enum AthleticQuality {
    gait,
+diff --git a/lib/athletic_training.dart b/lib/athletic_training.dart
+index b236598..d84901c 100644
+--- a/lib/athletic_training.dart
++++ b/lib/athletic_training.dart
+@@ -441,6 +441,7 @@ class _ProgramCompletePanel extends StatelessWidget {
+   );
+ 
+   Future<void> _confirmRestart(BuildContext context) async {
++    final messenger = ScaffoldMessenger.of(context);
+     final confirmed = await showDialog<bool>(
+       context: context,
+       builder: (dialogContext) => AlertDialog(
+@@ -464,8 +465,7 @@ class _ProgramCompletePanel extends StatelessWidget {
+     try {
+       await store.restartAthleticProgram();
+     } on Object {
+-      if (!context.mounted) return;
+-      ScaffoldMessenger.of(context).showSnackBar(
++      messenger.showSnackBar(
+         const SnackBar(content: Text('Could not restart the program.')),
+       );
+     }
 diff --git a/lib/brand.dart b/lib/brand.dart
 index c962b8e..aa5c3b7 100644
 --- a/lib/brand.dart
