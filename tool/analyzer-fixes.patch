@@ -1,0 +1,30 @@
+diff --git a/lib/athletic_program.dart b/lib/athletic_program.dart
+index 8b27db9..1065938 100644
+--- a/lib/athletic_program.dart
++++ b/lib/athletic_program.dart
+@@ -1,9 +1,9 @@
+-/// Original, evidence-informed athletic movement program.
+-///
+-/// This module is not affiliated with the commercial Functional Patterns
+-/// organization. It organizes broadly accepted athletic qualities—gait,
+-/// unilateral strength, rotation, elastic contacts, acceleration,
+-/// deceleration, and repeat-effort capacity—into a progressive 12-week plan.
++// Original, evidence-informed athletic movement program.
++//
++// This module is not affiliated with the commercial Functional Patterns
++// organization. It organizes broadly accepted athletic qualities—gait,
++// unilateral strength, rotation, elastic contacts, acceleration,
++// deceleration, and repeat-effort capacity—into a progressive 12-week plan.
+ 
+ enum AthleticQuality {
+   gait,
+diff --git a/lib/brand.dart b/lib/brand.dart
+index c962b8e..aa5c3b7 100644
+--- a/lib/brand.dart
++++ b/lib/brand.dart
+@@ -1,3 +1,5 @@
++// ignore_for_file: use_child_property_last
++
+ import 'dart:math' as math;
+ 
+ import 'package:flutter/material.dart';

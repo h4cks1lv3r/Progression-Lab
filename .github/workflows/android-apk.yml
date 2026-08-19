@@ -30,6 +30,8 @@ jobs:
           gzip --decompress --stdout /tmp/progression-target.patch.gz > /tmp/progression-target.patch
           git apply --check /tmp/progression-target.patch
           git apply /tmp/progression-target.patch
+          git apply --check tool/analyzer-fixes.patch
+          git apply tool/analyzer-fixes.patch
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
