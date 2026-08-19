@@ -43,6 +43,8 @@ jobs:
           gzip --decompress --stdout /tmp/high-priority.patch.gz > /tmp/high-priority.patch
           git apply --check /tmp/high-priority.patch
           git apply /tmp/high-priority.patch
+          git apply --check tool/high-priority-fixes.patch
+          git apply tool/high-priority-fixes.patch
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
