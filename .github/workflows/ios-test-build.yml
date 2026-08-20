@@ -47,6 +47,11 @@ jobs:
           git apply --exclude=lib/brand.dart tool/route-typography-fix.patch
           git apply --check tool/brand-route-material.patch
           git apply tool/brand-route-material.patch
+          cat tool/data-portability.patch.part* | base64 --decode > /tmp/data-portability.patch.gz
+          echo "c390bb5e415f9c295666bcf1cffe659ac02893c99185aa4a6455df22f34b8aa4  /tmp/data-portability.patch.gz" | shasum -a 256 --check
+          gzip --decompress --stdout /tmp/data-portability.patch.gz > /tmp/data-portability.patch
+          git apply --check /tmp/data-portability.patch
+          git apply /tmp/data-portability.patch
 
       - name: Set up Flutter stable
         uses: subosito/flutter-action@v2
@@ -61,18 +66,20 @@ jobs:
           xcodebuild -version
           pod --version
 
-      - name: Generate iOS platform project
+      - name: Ensure iOS platform project exists
         shell: bash
         run: |
           set -euo pipefail
-          flutter create \
-            --platforms=ios \
-            --org com.h4cks1lv3r \
-            --project-name progression_lab \
-            --no-pub \
-            .
-          rm -f test/widget_test.dart
-          rm -rf .idea progression_lab.iml
+          if [[ ! -f ios/Runner.xcodeproj/project.pbxproj ]]; then
+            flutter create \
+              --platforms=ios \
+              --org com.h4cks1lv3r \
+              --project-name progression_lab \
+              --no-pub \
+              .
+            rm -f test/widget_test.dart
+            rm -rf .idea progression_lab.iml
+          fi
 
       - name: Configure Progression Lab for iOS
         shell: bash
@@ -98,52 +105,9 @@ jobs:
           project = Path('ios/Runner.xcodeproj/project.pbxproj')
           text = project.read_text()
           text = text.replace('com.h4cks1lv3r.progressionLab', 'com.h4cks1lv3r.progressionlab')
-          text = re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;', 'IPHONEOS_DEPLOYMENT_TARGET = 13.0;', text)
+          text = re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;', 'IPHONEOS_DEPLOYMENT_TARGET = 15.0;', text)
           project.write_text(text)
-
-          launch = Path('ios/Runner/Base.lproj/LaunchScreen.storyboard')
-          text = launch.read_text()
-          text = re.sub(
-              r'<color key="backgroundColor"[^>]*/>',
-              '<color key="backgroundColor" red="0.027" green="0.031" blue="0.067" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>',
-              text,
-              count=1,
-          )
-          launch.write_text(text)
           PY
-
-          ICON_SOURCE=""
-          for candidate in \
-            assets/brand/progression_lab_mark.png \
-            assets/images/progression_lab_mark.png \
-            assets/progression_lab_mark.png \
-            android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png \
-            android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png; do
-            if [[ -f "$candidate" ]]; then
-              ICON_SOURCE="$candidate"
-              break
-            fi
-          done
-
-          if [[ -z "$ICON_SOURCE" ]]; then
-            ICON_SOURCE="$(find android/app/src/main/res assets -type f -name '*.png' 2>/dev/null | head -n 1 || true)"
-          fi
-
-          if [[ -n "$ICON_SOURCE" && -f "$ICON_SOURCE" ]]; then
-            echo "Using branded icon source: $ICON_SOURCE"
-            for target in ios/Runner/Assets.xcassets/AppIcon.appiconset/*.png; do
-              width="$(sips -g pixelWidth "$target" | awk '/pixelWidth/ {print $2}')"
-              height="$(sips -g pixelHeight "$target" | awk '/pixelHeight/ {print $2}')"
-              sips -z "$height" "$width" "$ICON_SOURCE" --out "$target" >/dev/null
-            done
-            for target in ios/Runner/Assets.xcassets/LaunchImage.imageset/*.png; do
-              width="$(sips -g pixelWidth "$target" | awk '/pixelWidth/ {print $2}')"
-              height="$(sips -g pixelHeight "$target" | awk '/pixelHeight/ {print $2}')"
-              sips -z "$height" "$width" "$ICON_SOURCE" --out "$target" >/dev/null
-            done
-          else
-            echo "No branded PNG was found; keeping generated iOS placeholder icons."
-          fi
 
           plutil -lint "$PLIST"
           grep -n "PRODUCT_BUNDLE_IDENTIFIER" "$PROJECT" | head
@@ -199,7 +163,7 @@ jobs:
             Payload)
           rm -rf dist/Payload
 
-      - name: Package generated iOS project
+      - name: Package iOS project
         shell: bash
         run: |
           set -euo pipefail
