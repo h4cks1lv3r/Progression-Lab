@@ -75,6 +75,11 @@ jobs:
           git apply tool/daily-inputs-test-fixes-2.patch
           git apply --check tool/widget-test-viewport.patch
           git apply tool/widget-test-viewport.patch
+          cat tool/automatic-warmups-safe-sheets.patch.part* | base64 --decode > /tmp/automatic-warmups-safe-sheets.patch.gz
+          echo "4f4aa1424038b36b00fb220e73b92210b7ee9dcc1ba811b1e53b91eb39bd8d16  /tmp/automatic-warmups-safe-sheets.patch.gz" | sha256sum --check --strict
+          gzip --decompress --stdout /tmp/automatic-warmups-safe-sheets.patch.gz > /tmp/automatic-warmups-safe-sheets.patch
+          git apply --check /tmp/automatic-warmups-safe-sheets.patch
+          git apply /tmp/automatic-warmups-safe-sheets.patch
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
