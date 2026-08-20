@@ -25,6 +25,7 @@ jobs:
       - name: Materialize application source
         shell: bash
         run: |
+          set -euo pipefail
           cat tool/functional-brand.patch.part* | base64 --decode > /tmp/progression-target.patch.gz
           echo "5c8c28f177916585a53b8557b239a3b99c654b84efd44efa491e7284e33ec976  /tmp/progression-target.patch.gz" | sha256sum --check --strict
           gzip --decompress --stdout /tmp/progression-target.patch.gz > /tmp/progression-target.patch
@@ -49,6 +50,11 @@ jobs:
           git apply --exclude=lib/brand.dart tool/route-typography-fix.patch
           git apply --check tool/brand-route-material.patch
           git apply tool/brand-route-material.patch
+          cat tool/data-portability.patch.part* | base64 --decode > /tmp/data-portability.patch.gz
+          echo "c390bb5e415f9c295666bcf1cffe659ac02893c99185aa4a6455df22f34b8aa4  /tmp/data-portability.patch.gz" | sha256sum --check --strict
+          gzip --decompress --stdout /tmp/data-portability.patch.gz > /tmp/data-portability.patch
+          git apply --check /tmp/data-portability.patch
+          git apply /tmp/data-portability.patch
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
