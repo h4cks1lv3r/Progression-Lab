@@ -1,0 +1,224 @@
+name: iOS Test Builds
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios:
+    name: Verify and build iOS test artifacts
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Materialize application source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat tool/functional-brand.patch.part* | base64 --decode > /tmp/progression-target.patch.gz
+          echo "5c8c28f177916585a53b8557b239a3b99c654b84efd44efa491e7284e33ec976  /tmp/progression-target.patch.gz" | shasum -a 256 --check
+          gzip --decompress --stdout /tmp/progression-target.patch.gz > /tmp/progression-target.patch
+          git apply --check /tmp/progression-target.patch
+          git apply /tmp/progression-target.patch
+          git apply --check tool/analyzer-fixes.patch
+          git apply tool/analyzer-fixes.patch
+          git apply --check tool/labpanel-material.patch
+          git apply tool/labpanel-material.patch
+          git apply --check tool/athletic-test-scroll.patch
+          git apply tool/athletic-test-scroll.patch
+          git apply --check tool/launch-background-fix.patch
+          git apply tool/launch-background-fix.patch
+          cat tool/high-priority.patch.part* | base64 --decode > /tmp/high-priority.patch.gz
+          echo "b4bdddd6d556681632c01e3bd60c9771cf316bbdd4841d2e1dc8e616e7a6711d  /tmp/high-priority.patch.gz" | shasum -a 256 --check
+          gzip --decompress --stdout /tmp/high-priority.patch.gz > /tmp/high-priority.patch
+          git apply --check /tmp/high-priority.patch
+          git apply /tmp/high-priority.patch
+          git apply --check tool/high-priority-fixes.patch
+          git apply tool/high-priority-fixes.patch
+          git apply --check --exclude=lib/brand.dart tool/route-typography-fix.patch
+          git apply --exclude=lib/brand.dart tool/route-typography-fix.patch
+          git apply --check tool/brand-route-material.patch
+          git apply tool/brand-route-material.patch
+
+      - name: Set up Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Show tool versions
+        shell: bash
+        run: |
+          flutter --version
+          xcodebuild -version
+          pod --version
+
+      - name: Generate iOS platform project
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter create \
+            --platforms=ios \
+            --org com.h4cks1lv3r \
+            --project-name progression_lab \
+            .
+
+      - name: Configure Progression Lab for iOS
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PLIST="ios/Runner/Info.plist"
+          PROJECT="ios/Runner.xcodeproj/project.pbxproj"
+
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Progression Lab" "$PLIST" || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Progression Lab" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleName Progression Lab" "$PLIST" || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleName string Progression Lab" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string Save branded workout story images to Photos." "$PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryAddUsageDescription Save branded workout story images to Photos." "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string Select and share Progression Lab workout images." "$PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryUsageDescription Select and share Progression Lab workout images." "$PLIST"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          project = Path('ios/Runner.xcodeproj/project.pbxproj')
+          text = project.read_text()
+          text = text.replace('com.h4cks1lv3r.progressionLab', 'com.h4cks1lv3r.progressionlab')
+          text = re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;', 'IPHONEOS_DEPLOYMENT_TARGET = 13.0;', text)
+          project.write_text(text)
+
+          launch = Path('ios/Runner/Base.lproj/LaunchScreen.storyboard')
+          text = launch.read_text()
+          text = re.sub(
+              r'<color key="backgroundColor"[^>]*/>',
+              '<color key="backgroundColor" red="0.027" green="0.031" blue="0.067" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>',
+              text,
+              count=1,
+          )
+          launch.write_text(text)
+          PY
+
+          ICON_SOURCE=""
+          for candidate in \
+            assets/brand/progression_lab_mark.png \
+            assets/images/progression_lab_mark.png \
+            assets/progression_lab_mark.png \
+            android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png \
+            android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png; do
+            if [[ -f "$candidate" ]]; then
+              ICON_SOURCE="$candidate"
+              break
+            fi
+          done
+
+          if [[ -z "$ICON_SOURCE" ]]; then
+            ICON_SOURCE="$(find android/app/src/main/res assets -type f -name '*.png' 2>/dev/null | head -n 1 || true)"
+          fi
+
+          if [[ -n "$ICON_SOURCE" && -f "$ICON_SOURCE" ]]; then
+            echo "Using branded icon source: $ICON_SOURCE"
+            for target in ios/Runner/Assets.xcassets/AppIcon.appiconset/*.png; do
+              width="$(sips -g pixelWidth "$target" | awk '/pixelWidth/ {print $2}')"
+              height="$(sips -g pixelHeight "$target" | awk '/pixelHeight/ {print $2}')"
+              sips -z "$height" "$width" "$ICON_SOURCE" --out "$target" >/dev/null
+            done
+            for target in ios/Runner/Assets.xcassets/LaunchImage.imageset/*.png; do
+              width="$(sips -g pixelWidth "$target" | awk '/pixelWidth/ {print $2}')"
+              height="$(sips -g pixelHeight "$target" | awk '/pixelHeight/ {print $2}')"
+              sips -z "$height" "$width" "$ICON_SOURCE" --out "$target" >/dev/null
+            done
+          else
+            echo "No branded PNG was found; keeping generated iOS placeholder icons."
+          fi
+
+          plutil -lint "$PLIST"
+          grep -n "PRODUCT_BUNDLE_IDENTIFIER" "$PROJECT" | head
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze source
+        run: flutter analyze --no-fatal-infos
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Read application version
+        id: version
+        shell: bash
+        run: |
+          version_line="$(awk '/^version:/ {print $2; exit}' pubspec.yaml)"
+          if [[ ! "$version_line" =~ ^([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)$ ]]; then
+            echo "Invalid pubspec version: $version_line" >&2
+            exit 1
+          fi
+          echo "name=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          echo "number=${BASH_REMATCH[2]}" >> "$GITHUB_OUTPUT"
+
+      - name: Build iOS Simulator app
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build ios \
+            --simulator \
+            --release \
+            --build-name "${{ steps.version.outputs.name }}" \
+            --build-number "${{ steps.version.outputs.number }}"
+          mkdir -p dist
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/ios/iphonesimulator/Runner.app \
+            "dist/Progression-Lab-${{ steps.version.outputs.name }}-iOS-Simulator.app.zip"
+
+      - name: Build unsigned iPhone app
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build ios \
+            --release \
+            --no-codesign \
+            --build-name "${{ steps.version.outputs.name }}" \
+            --build-number "${{ steps.version.outputs.number }}"
+          mkdir -p dist/Payload
+          cp -R build/ios/iphoneos/Runner.app dist/Payload/Runner.app
+          (cd dist && zip -qry \
+            "Progression-Lab-${{ steps.version.outputs.name }}-unsigned.ipa" \
+            Payload)
+          rm -rf dist/Payload
+
+      - name: Package generated iOS project
+        shell: bash
+        run: |
+          set -euo pipefail
+          ditto -c -k --sequesterRsrc --keepParent ios \
+            "dist/Progression-Lab-${{ steps.version.outputs.name }}-iOS-Project.zip"
+          (
+            cd dist
+            shasum -a 256 \
+              "Progression-Lab-${{ steps.version.outputs.name }}-iOS-Simulator.app.zip" \
+              "Progression-Lab-${{ steps.version.outputs.name }}-unsigned.ipa" \
+              "Progression-Lab-${{ steps.version.outputs.name }}-iOS-Project.zip" \
+              > "Progression-Lab-${{ steps.version.outputs.name }}-iOS.sha256"
+          )
+
+      - name: Upload iOS test artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Progression-Lab-${{ steps.version.outputs.name }}-iOS-build-${{ steps.version.outputs.number }}
+          path: |
+            dist/Progression-Lab-${{ steps.version.outputs.name }}-iOS-Simulator.app.zip
+            dist/Progression-Lab-${{ steps.version.outputs.name }}-unsigned.ipa
+            dist/Progression-Lab-${{ steps.version.outputs.name }}-iOS-Project.zip
+            dist/Progression-Lab-${{ steps.version.outputs.name }}-iOS.sha256
+          if-no-files-found: error
+          retention-days: 30
