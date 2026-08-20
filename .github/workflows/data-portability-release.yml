@@ -1,0 +1,108 @@
+name: Data Portability Test Release
+
+on:
+  push:
+    branches:
+      - agent/data-portability-backup
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message || '', '[release-apk]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Check out source branch
+        uses: actions/checkout@v5
+        with:
+          ref: agent/data-portability-backup
+
+      - name: Check generated implementation
+        id: source
+        shell: bash
+        run: |
+          if compgen -G 'tool/data-portability.patch.part*' > /dev/null; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Materialize application source
+        if: steps.source.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat tool/functional-brand.patch.part* | base64 --decode > /tmp/progression-target.patch.gz
+          echo "5c8c28f177916585a53b8557b239a3b99c654b84efd44efa491e7284e33ec976  /tmp/progression-target.patch.gz" | sha256sum --check --strict
+          gzip -dc /tmp/progression-target.patch.gz > /tmp/progression-target.patch
+          git apply /tmp/progression-target.patch
+          git apply tool/analyzer-fixes.patch
+          git apply tool/labpanel-material.patch
+          git apply tool/athletic-test-scroll.patch
+          git apply tool/launch-background-fix.patch
+          cat tool/high-priority.patch.part* | base64 --decode > /tmp/high-priority.patch.gz
+          echo "b4bdddd6d556681632c01e3bd60c9771cf316bbdd4841d2e1dc8e616e7a6711d  /tmp/high-priority.patch.gz" | sha256sum --check --strict
+          gzip -dc /tmp/high-priority.patch.gz > /tmp/high-priority.patch
+          git apply /tmp/high-priority.patch
+          git apply tool/high-priority-fixes.patch
+          git apply --exclude=lib/brand.dart tool/route-typography-fix.patch
+          git apply tool/brand-route-material.patch
+          cat tool/data-portability.patch.part* | base64 --decode > /tmp/data-portability.patch.gz
+          gzip -dc /tmp/data-portability.patch.gz > /tmp/data-portability.patch
+          git apply /tmp/data-portability.patch
+
+      - name: Set up Java 17
+        if: steps.source.outputs.ready == 'true'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Flutter stable
+        if: steps.source.outputs.ready == 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        if: steps.source.outputs.ready == 'true'
+        run: flutter pub get
+
+      - name: Format generated Dart source
+        if: steps.source.outputs.ready == 'true'
+        run: dart format lib test
+
+      - name: Analyze
+        if: steps.source.outputs.ready == 'true'
+        run: flutter analyze --no-fatal-infos
+
+      - name: Test
+        if: steps.source.outputs.ready == 'true'
+        run: flutter test
+
+      - name: Build APK
+        if: steps.source.outputs.ready == 'true'
+        run: flutter build apk --release --build-name 1.6.0 --build-number 9
+
+      - name: Publish APK to source branch
+        if: steps.source.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp build/app/outputs/flutter-apk/app-release.apk /tmp/Progression-Lab-1.6.0.apk
+          git reset --hard HEAD
+          git clean -fd
+          mkdir -p apk
+          cp /tmp/Progression-Lab-1.6.0.apk apk/Progression-Lab-1.6.0.apk
+          sha256sum apk/Progression-Lab-1.6.0.apk > apk/Progression-Lab-1.6.0.apk.sha256
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apk/Progression-Lab-1.6.0.apk apk/Progression-Lab-1.6.0.apk.sha256
+          git commit -m "Add Progression Lab 1.6.0 test APK [release-apk]"
+          git push origin HEAD:agent/data-portability-backup
