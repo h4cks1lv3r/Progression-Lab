@@ -70,7 +70,7 @@ index 844609d..6d44469 100644
      ];
      if (selected.isEmpty) {
 diff --git a/test/data_portability_test.dart b/test/data_portability_test.dart
-index 6a95553..bd68dfe 100644
+index 6a95553..73646e0 100644
 --- a/test/data_portability_test.dart
 +++ b/test/data_portability_test.dart
 @@ -1,6 +1,4 @@
@@ -80,6 +80,30 @@ index 6a95553..bd68dfe 100644
  import 'package:archive/archive.dart';
  import 'package:flutter/material.dart';
  import 'package:flutter/services.dart';
+@@ -385,9 +383,20 @@ void main() {
+     expect(find.text('YOUR DATA, YOURS'), findsOneWidget);
+     expect(find.text('Automatic backups'), findsOneWidget);
+     expect(find.text('Export Progression Lab backup'), findsOneWidget);
+-    expect(find.text('Restore or import a file'), findsOneWidget);
+-    expect(find.text('Export portable CSV package'), findsOneWidget);
+-    expect(find.text('Export Strong-compatible CSV'), findsOneWidget);
++
++    final scrollable = find.byType(Scrollable).first;
++    for (final label in <String>[
++      'Restore or import a file',
++      'Export portable CSV package',
++      'Export Strong-compatible CSV',
++    ]) {
++      await tester.scrollUntilVisible(
++        find.text(label),
++        260,
++        scrollable: scrollable,
++      );
++      expect(find.text(label), findsOneWidget);
++    }
+   });
+ }
+ 
 diff --git a/test/navigation_widget_test.dart b/test/navigation_widget_test.dart
 index b56a093..e484110 100644
 --- a/test/navigation_widget_test.dart
