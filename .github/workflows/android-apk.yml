@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - main
+      - agent/daily-inputs-gemini-lab
 
 permissions:
   contents: read
