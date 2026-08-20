@@ -45,8 +45,10 @@ jobs:
           git apply /tmp/high-priority.patch
           git apply --check tool/high-priority-fixes.patch
           git apply tool/high-priority-fixes.patch
-          git apply --check tool/route-typography-fix.patch
-          git apply tool/route-typography-fix.patch
+          git apply --check --exclude=lib/brand.dart tool/route-typography-fix.patch
+          git apply --exclude=lib/brand.dart tool/route-typography-fix.patch
+          git apply --check tool/brand-route-material.patch
+          git apply tool/brand-route-material.patch
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
