@@ -1,0 +1,30 @@
+diff --git a/lib/gemini_nano.dart b/lib/gemini_nano.dart
+--- a/lib/gemini_nano.dart
++++ b/lib/gemini_nano.dart
+@@ -80,7 +80,7 @@ class GeminiNanoService {
+     try {
+       final result = await _channel.invokeMethod<Object?>('download');
+       if (result is Map) return GeminiNanoStatus.fromMap(result);
+-      return status();
++      return await status();
+     } on MissingPluginException {
+       return const GeminiNanoStatus(
+         availability: GeminiNanoAvailability.unsupported,
+@@ -104,7 +104,7 @@ class GeminiNanoService {
+         'prompt': prompt,
+       });
+       if (value is! Map || value['text'] is! String) {
+-        throw const PlatformException(
++        throw PlatformException(
+           code: 'invalid_response',
+           message: 'Gemini Nano returned an invalid response.',
+         );
+@@ -116,7 +116,7 @@ class GeminiNanoService {
+             : null,
+       );
+     } on MissingPluginException {
+-      throw const PlatformException(
++      throw PlatformException(
+         code: 'unsupported',
+         message: 'Gemini Nano narration is not available on this platform.',
+       );
