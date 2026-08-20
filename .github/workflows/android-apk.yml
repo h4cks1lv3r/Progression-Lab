@@ -71,6 +71,8 @@ jobs:
           git apply tool/daily-inputs-analyzer-fixes.patch
           git apply --check tool/daily-inputs-test-fixes.patch
           git apply tool/daily-inputs-test-fixes.patch
+          git apply --check tool/daily-inputs-test-fixes-2.patch
+          git apply tool/daily-inputs-test-fixes-2.patch
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
