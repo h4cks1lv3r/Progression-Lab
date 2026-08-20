@@ -1,0 +1,345 @@
+diff --git a/lib/main.dart b/lib/main.dart
+index 2329faf..3dc644e 100644
+--- a/lib/main.dart
++++ b/lib/main.dart
+@@ -45,6 +45,11 @@ class _ProgressionLabAppState extends State<ProgressionLabApp> {
+       debugShowCheckedModeBanner: false,
+       title: 'Progression Lab',
+       theme: ProgressionBrand.theme(),
++      builder: (context, child) => Material(
++        type: MaterialType.transparency,
++        textStyle: Theme.of(context).textTheme.bodyMedium,
++        child: child ?? const SizedBox.shrink(),
++      ),
+       home: Shell(store: store),
+     ),
+   );
+diff --git a/lib/brand.dart b/lib/brand.dart
+index 3a7cda6..0866297 100644
+--- a/lib/brand.dart
++++ b/lib/brand.dart
+@@ -229,22 +229,26 @@ class BrandBackdrop extends StatelessWidget {
+   final Widget? child;
+ 
+   @override
+-  Widget build(BuildContext context) => DecoratedBox(
+-    decoration: const BoxDecoration(
+-      color: BrandColors.ink,
+-      gradient: RadialGradient(
+-        center: Alignment(-.85, -1.0),
+-        radius: 1.35,
+-        colors: [Color(0x332B0A57), BrandColors.ink],
+-        stops: [0, .76],
++  Widget build(BuildContext context) => Material(
++    type: MaterialType.transparency,
++    textStyle: Theme.of(context).textTheme.bodyMedium,
++    child: DecoratedBox(
++      decoration: const BoxDecoration(
++        color: BrandColors.ink,
++        gradient: RadialGradient(
++          center: Alignment(-.85, -1.0),
++          radius: 1.35,
++          colors: [Color(0x332B0A57), BrandColors.ink],
++          stops: [0, .76],
++        ),
++      ),
++      child: Stack(
++        fit: StackFit.expand,
++        children: [
++          const IgnorePointer(child: CustomPaint(painter: _LabGridPainter())),
++          ?child,
++        ],
+       ),
+-    ),
+-    child: Stack(
+-      fit: StackFit.expand,
+-      children: [
+-        const IgnorePointer(child: CustomPaint(painter: _LabGridPainter())),
+-        ?child,
+-      ],
+     ),
+   );
+ }
+diff --git a/lib/program_navigator.dart b/lib/program_navigator.dart
+index 822d0fa..94f2798 100644
+--- a/lib/program_navigator.dart
++++ b/lib/program_navigator.dart
+@@ -373,19 +373,20 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
+         ),
+       ).where((week) => _visibleKinds.contains(week.kind)).toList();
+ 
+-      return ColoredBox(
++      return Material(
+         color: _ink,
+-        child: CustomScrollView(
+-          slivers: [
+-            SliverToBoxAdapter(
+-              child: Center(
+-                child: ConstrainedBox(
+-                  constraints: const BoxConstraints(maxWidth: 980),
+-                  child: Padding(
+-                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+-                    child: Column(
+-                      crossAxisAlignment: CrossAxisAlignment.start,
+-                      children: [
++        child: SafeArea(
++          child: CustomScrollView(
++            slivers: [
++              SliverToBoxAdapter(
++                child: Center(
++                  child: ConstrainedBox(
++                    constraints: const BoxConstraints(maxWidth: 980),
++                    child: Padding(
++                      padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
++                      child: Column(
++                        crossAxisAlignment: CrossAxisAlignment.start,
++                        children: [
+                         Row(
+                           crossAxisAlignment: CrossAxisAlignment.start,
+                           children: [
+@@ -486,51 +487,52 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
+                               setState(() => _visibleKinds = next),
+                         ),
+                         const SizedBox(height: 18),
+-                      ],
++                        ],
++                      ),
+                     ),
+                   ),
+                 ),
+               ),
+-            ),
+-            SliverToBoxAdapter(
+-              child: Center(
+-                child: ConstrainedBox(
+-                  constraints: const BoxConstraints(maxWidth: 980),
+-                  child: Padding(
+-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+-                    child: AnimatedSwitcher(
+-                      duration: const Duration(milliseconds: 360),
+-                      switchInCurve: Curves.easeOutCubic,
+-                      switchOutCurve: Curves.easeInCubic,
+-                      transitionBuilder: (child, animation) {
+-                        final offset = Tween<Offset>(
+-                          begin: const Offset(.055, 0),
+-                          end: Offset.zero,
+-                        ).animate(animation);
+-                        return FadeTransition(
+-                          opacity: animation,
+-                          child: SlideTransition(
+-                            position: offset,
+-                            child: child,
++              SliverToBoxAdapter(
++                child: Center(
++                  child: ConstrainedBox(
++                    constraints: const BoxConstraints(maxWidth: 980),
++                    child: Padding(
++                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
++                      child: AnimatedSwitcher(
++                        duration: const Duration(milliseconds: 360),
++                        switchInCurve: Curves.easeOutCubic,
++                        switchOutCurve: Curves.easeInCubic,
++                        transitionBuilder: (child, animation) {
++                          final offset = Tween<Offset>(
++                            begin: const Offset(.055, 0),
++                            end: Offset.zero,
++                          ).animate(animation);
++                          return FadeTransition(
++                            opacity: animation,
++                            child: SlideTransition(
++                              position: offset,
++                              child: child,
++                            ),
++                          );
++                        },
++                        child: _WeekGrid(
++                          key: ValueKey(
++                            'phase-$_phase-${_visibleKinds.hashCode}',
+                           ),
+-                        );
+-                      },
+-                      child: _WeekGrid(
+-                        key: ValueKey(
+-                          'phase-$_phase-${_visibleKinds.hashCode}',
++                          weeks: weeks,
++                          currentWeek: current.number,
++                          currentWorkout: widget.store.workoutIndex,
++                          store: widget.store,
++                          onOpenWorkout: widget.onOpenWorkout,
+                         ),
+-                        weeks: weeks,
+-                        currentWeek: current.number,
+-                        currentWorkout: widget.store.workoutIndex,
+-                        store: widget.store,
+-                        onOpenWorkout: widget.onOpenWorkout,
+                       ),
+                     ),
+                   ),
+                 ),
+               ),
+-            ),
+-          ],
++            ],
++          ),
+         ),
+       );
+     },
+diff --git a/lib/progress_dashboard.dart b/lib/progress_dashboard.dart
+index a407551..34c4a63 100644
+--- a/lib/progress_dashboard.dart
++++ b/lib/progress_dashboard.dart
+@@ -170,11 +170,12 @@ class _ProgressDashboardState extends State<ProgressDashboard>
+               .clamp(0, points.length - 1)
+               .toInt()];
+ 
+-    return ColoredBox(
++    return Material(
+       color: _ink,
+-      child: ListView(
+-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
+-        children: [
++      child: SafeArea(
++        child: ListView(
++          padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
++          children: [
+           _Header(
+             exerciseCount: exercises.length,
+             setCount: widget.store.logs.length,
+@@ -265,7 +266,8 @@ class _ProgressDashboardState extends State<ProgressDashboard>
+               },
+             ),
+           ],
+-        ],
++          ],
++        ),
+       ),
+     );
+   }
+diff --git a/lib/athletic_training.dart b/lib/athletic_training.dart
+index 2201200..9740d43 100644
+--- a/lib/athletic_training.dart
++++ b/lib/athletic_training.dart
+@@ -26,7 +26,8 @@ class AthleticTrainingPage extends StatelessWidget {
+           ? null
+           : runAssessments.last;
+       return BrandBackdrop(
+-        child: CustomScrollView(
++        child: SafeArea(
++          child: CustomScrollView(
+             key: const PageStorageKey('athletic-training-page'),
+             slivers: [
+               SliverToBoxAdapter(
+@@ -146,7 +147,8 @@ class AthleticTrainingPage extends StatelessWidget {
+                   ),
+                 ),
+               ),
+-          ],
++            ],
++          ),
+         ),
+       );
+     },
+diff --git a/test/navigation_widget_test.dart b/test/navigation_widget_test.dart
+index 4bd6b1f..4d000bf 100644
+--- a/test/navigation_widget_test.dart
++++ b/test/navigation_widget_test.dart
+@@ -40,14 +40,22 @@ void main() {
+ 
+     await tester.pumpWidget(
+       MaterialApp(
+-        theme: ThemeData(brightness: Brightness.dark, useMaterial3: true),
+-        home: Scaffold(
+-          body: ProgramNavigatorPage(store: store, onOpenWorkout: (_, _, _) {}),
+-        ),
++        theme: ProgressionBrand.theme(),
++        home: ProgramNavigatorPage(store: store, onOpenWorkout: (_, _, _) {}),
+       ),
+     );
+     await tester.pumpAndSettle();
+ 
++    final programTitleContext = tester.element(find.text('PROGRAM'));
++    final programTextStyle = DefaultTextStyle.of(programTitleContext).style;
++    expect(programTextStyle.fontFamily, 'Roboto');
++    expect(programTextStyle.fontFamily, isNot('monospace'));
++    expect(programTextStyle.decoration, isNot(TextDecoration.underline));
++    expect(
++      find.ancestor(of: find.text('PROGRAM'), matching: find.byType(Material)),
++      findsWidgets,
++    );
++
+     expect(find.text('P2 · M3'), findsOneWidget);
+     await tester.tap(find.text('5 DAYS').first);
+     await tester.pumpAndSettle();
+@@ -369,11 +377,24 @@ void main() {
+     await tester.pumpWidget(
+       MaterialApp(
+         theme: ProgressionBrand.theme(),
+-        home: Scaffold(body: AthleticTrainingPage(store: store)),
++        home: AthleticTrainingPage(store: store),
+       ),
+     );
+     await tester.pumpAndSettle();
+ 
++    final athleticTitleContext = tester.element(find.text('ATHLETIC FUNCTIONAL'));
++    final athleticTextStyle = DefaultTextStyle.of(athleticTitleContext).style;
++    expect(athleticTextStyle.fontFamily, 'Roboto');
++    expect(athleticTextStyle.fontFamily, isNot('monospace'));
++    expect(athleticTextStyle.decoration, isNot(TextDecoration.underline));
++    expect(
++      find.ancestor(
++        of: find.text('ATHLETIC FUNCTIONAL'),
++        matching: find.byType(Material),
++      ),
++      findsWidgets,
++    );
++
+     expect(find.text('ATHLETIC FUNCTIONAL'), findsOneWidget);
+     expect(find.text('TRAINING'), findsOneWidget);
+     expect(find.text('WEEK 5 OF 12'), findsOneWidget);
+diff --git a/pubspec.yaml b/pubspec.yaml
+index a5c9dad..f1c76b3 100644
+--- a/pubspec.yaml
++++ b/pubspec.yaml
+@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+ # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
+ # In Windows, build-name is used as the major, minor, and patch parts
+ # of the product and file versions while build-number is used as the build suffix.
+-version: 1.5.0+7
++version: 1.5.1+8
+ 
+ environment:
+   sdk: ^3.12.2
+diff --git a/android/app/build.gradle.kts b/android/app/build.gradle.kts
+index 4c59597..9f317f2 100644
+--- a/android/app/build.gradle.kts
++++ b/android/app/build.gradle.kts
+@@ -21,8 +21,8 @@ android {
+         // For more information, see: https://flutter.dev/to/review-gradle-config.
+         minSdk = flutter.minSdkVersion
+         targetSdk = flutter.targetSdkVersion
+-        versionCode = 7
+-        versionName = "1.5.0"
++        versionCode = 8
++        versionName = "1.5.1"
+     }
+ 
+     buildTypes {
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 6893525..47ad7aa 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,5 +1,14 @@
+ # Changelog
+ 
++## 1.5.1+8 — 2026-08-19
++
++### Corrected
++
++- Restores the intended Roboto/Material typography on the standalone Strength Program and Athletic Functional Training routes.
++- Removes Flutter's red fallback text and yellow double-underlines by giving branded route surfaces a Material text-style boundary.
++- Keeps standalone Strength, Athletic, and Progress screens clear of the Android status and navigation bars.
++- Adds regression coverage for Material ancestry on directly routed program screens.
++
+ ## 1.5.0+7 — 2026-08-19
+ 
+ ### Added
