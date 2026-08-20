@@ -1,0 +1,350 @@
+=== FLUTTER PUB GET ===
+Resolving dependencies...
+Downloading packages...
++ archive 3.6.1 (4.1.0 available)
++ crypto 3.0.7
+  material_color_utilities 0.13.0 (0.13.1 available)
+  test_api 0.7.12 (0.7.13 available)
++ typed_data 1.4.0
+  vm_service 15.2.0 (15.3.0 available)
+Changed 3 dependencies!
+4 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Upgrading analysis_options.yaml to exclude build and platform directories.
+
+=== DART FORMAT ===
+Formatted lib/app_tour.dart
+Formatted lib/athletic_history.dart
+Formatted lib/athletic_program.dart
+Formatted lib/athletic_training.dart
+Formatted lib/brand.dart
+Formatted lib/data_management_screen.dart
+Formatted lib/data_portability.dart
+Formatted lib/data_portability_core.dart
+Formatted lib/exercise_library_screen.dart
+Formatted lib/main.dart
+Formatted lib/program_navigator.dart
+Formatted lib/progress_dashboard.dart
+Formatted lib/share_card.dart
+Formatted lib/store.dart
+Formatted test/data_portability_test.dart
+Formatted test/navigation_widget_test.dart
+Formatted test/program_test.dart
+Formatted 21 files (17 changed) in 0.37 seconds.
+
+=== FLUTTER ANALYZE ===
+Analyzing Progression-Lab...                                    
+
+   info • The 'if' statement could be replaced by a null-aware assignment. Try using the '??=' operator to conditionally assign a value • lib/data_management_screen.dart:128:5 • prefer_conditional_assignment
+   info • The import of 'dart:typed_data' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/services.dart'. Try removing the import directive • lib/data_portability_bridge.dart:1:8 • unnecessary_import
+   info • The import of 'dart:typed_data' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/services.dart'. Try removing the import directive • test/data_portability_test.dart:2:8 • unnecessary_import
+
+3 issues found. (ran in 8.1s)
+
+=== FLUTTER TEST ===
+
+::group::✅ Passing tests
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: program boundaries generates the verified 48-week, three-phase program
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: program boundaries exposes phase and microcycle helpers
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: program boundaries rejects unsupported cadences and non-authored weeks
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: program boundaries cadences produce the selected number of workouts
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: prescriptions volume deloads use verified primary and accessory targets
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: prescriptions microcycle 15 includes an AMRAP prescription
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: cadence mapping keeps equivalent push and pull sessions aligned
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: cadence mapping uses the anchor lift to break an exercise-overlap tie
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: cadence mapping maps the fifth session to its closest four-day equivalent
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: cadence mapping preview is pure and clamps an obsolete source index
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: store cadence changes and recovery default cadence switch preserves week and maps next workout
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: store cadence changes and recovery explicit next workout wins without resetting the microcycle
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: store cadence changes and recovery invalid switch inputs fail before state changes
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: store cadence changes and recovery load repairs cadence, week, workout, unit, and bad log rows
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: store cadence changes and recovery completion uses the current cadence and wraps after week 48
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: store cadence changes and recovery failed cadence persistence rolls back the in-memory switch
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: unit conversion switching units converts every historical weight exactly once
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: unit conversion invalid unit fails without relabeling or converting data
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: unit conversion failed unit persistence restores the original values
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: PR comparison recognizes higher estimated strength
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: workout log persistence migrates legacy logs additively and preserves their data
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: workout log persistence set edits commit only through update and persist notes
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: workout log persistence draft input round-trips through the existing store
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: workout log persistence skipping records status, clears the draft, and advances
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: workout log persistence retroactive completion preserves current position and metadata
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: workout log persistence slot dates and slot counts follow every supported cadence
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: workout log persistence set slot and substituted draft round-trip additively
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: workout log persistence retroactive draft does not replace the current workout draft
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: custom exercise library fresh install needs no custom rows for the complete default program
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: custom exercise library custom exercises add, rename, soft-delete, and persist separately
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: custom exercise library built-in and custom names cannot be shadowed
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: custom exercise library malformed custom rows cannot break the built-in program
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: exercise library covers every authored exercise
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: athletic functional program authors twelve weeks with four complete coached sessions each
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: athletic functional program completion advances independently from the strength program
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: athletic functional program the last session completes without silently wrapping
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: athletic functional program restart creates a new run while preserving prior history
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: athletic functional program field measures persist with the active athletic run
+::endgroup::
+::group::❌ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: athletic functional program schema six migrates additively through onboarding schema eight (failed)
+Expected: <8>
+  Actual: <9>
+
+package:matcher                                     expect
+package:flutter_test/src/widget_tester.dart 473:18  expect
+test/program_test.dart 912:9                        main.<fn>.<fn>
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart: athletic functional program tour and preferred program choices persist locally
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/data_portability_test.dart: Progression Lab backup format round-trips exact state with manifest, checksums, and CSV files
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/data_portability_test.dart: Progression Lab backup format rejects a backup whose payload no longer matches its checksum
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/data_portability_test.dart: Progression Lab backup format restore refuses data from a future app schema
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/data_portability_test.dart: CSV codecs and import adapters quoted CSV cells preserve commas, quotes, and line breaks
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/data_portability_test.dart: CSV codecs and import adapters detects and parses Strong exports including human duration
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/data_portability_test.dart: CSV codecs and import adapters detects Hevy and preserves zero-based set order metadata
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/data_portability_test.dart: CSV codecs and import adapters detects FitNotes and reads the populated alternate weight column
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/data_portability_test.dart: CSV codecs and import adapters supports a user-defined generic mapping
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/data_portability_test.dart: CSV codecs and import adapters duplicate signatures stay stable across display-unit conversion
+::endgroup::
+::group::❌ /home/runner/work/Progression-Lab/Progression-Lab/test/data_portability_test.dart: store import and automatic protection imports rich set data, maps exercises, skips duplicates, and undoes (failed)
+Expected: throws <Instance of 'StateError'>
+  Actual: <Instance of 'Future<DataImportBatch>'>
+   Which: emitted <Instance of 'DataImportBatch'>
+
+package:matcher                                    expectLater
+package:flutter_test/src/widget_tester.dart 507:8  expectLater
+test/data_portability_test.dart 338:15             main.<fn>.<fn>
+===== asynchronous gap ===========================
+dart:async                                         _CustomZone.registerUnaryCallback
+test/data_portability_test.dart 311:23             main.<fn>.<fn>
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/data_portability_test.dart: store import and automatic protection does not archive every set but archives completed workouts
+::endgroup::
+::group::❌ /home/runner/work/Progression-Lab/Progression-Lab/test/data_portability_test.dart: Backup & data exposes protection and migration actions (failed)
+══╡ EXCEPTION CAUGHT BY WIDGETS LIBRARY ╞═══════════════════════════════════════════════════════════
+The following assertion was thrown building Builder:
+setState() callback argument returned a Future.
+The setState() method on _DataManagementScreenState#64a01(lifecycle state: created) was called with
+a closure or method that returned a Future. Maybe it is marked as "async".
+Instead of performing asynchronous work inside a call to setState(), first execute the work (without
+updating the widget state), and then synchronously update the state inside a call to setState().
+
+The relevant error-causing widget was:
+  MaterialApp
+  MaterialApp:file:///home/runner/work/Progression-Lab/Progression-Lab/test/data_portability_test.dart:389:7
+
+When the exception was thrown, this was the stack:
+#0      State.setState.<anonymous closure> (package:flutter/src/widgets/framework.dart:1204:9)
+#1      State.setState (package:flutter/src/widgets/framework.dart:1220:6)
+#2      _DataManagementScreenState._refreshBackups (package:progression_lab/data_management_screen.dart:34:5)
+#3      _DataManagementScreenState.initState (package:progression_lab/data_management_screen.dart:30:5)
+#4      StatefulElement._firstBuild (package:flutter/src/widgets/framework.dart:5963:55)
+#5      ComponentElement.mount (package:flutter/src/widgets/framework.dart:5806:5)
+...     Normal element mounting (260 frames)
+#265    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#266    MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7277:36)
+#267    MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7292:32)
+...     Normal element mounting (467 frames)
+#734    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#735    Element.updateChild (package:flutter/src/widgets/framework.dart:4066:20)
+#736    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#737    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#738    ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#739    _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#740    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#741    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#742    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#743    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#744    StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#745    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#746    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#747    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#748    ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#749    _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#750    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#751    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#752    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#753    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#754    StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#755    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#756    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#757    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#758    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#759    StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#760    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#761    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#762    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#763    ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#764    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#765    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#766    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#767    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#768    StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#769    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#770    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#771    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#772    ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#773    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#774    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#775    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#776    ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#777    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#778    _RawViewElement._updateChild (package:flutter/src/widgets/view.dart:488:16)
+#779    _RawViewElement.update (package:flutter/src/widgets/view.dart:575:5)
+#780    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#781    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#782    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#783    StatelessElement.update (package:flutter/src/widgets/framework.dart:5908:5)
+#784    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#785    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#786    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#787    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#788    StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#789    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#790    RootElement._rebuild (package:flutter/src/widgets/binding.dart:2091:16)
+#791    RootElement.update (package:flutter/src/widgets/binding.dart:2069:5)
+#792    RootElement.performRebuild (package:flutter/src/widgets/binding.dart:2083:7)
+#793    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#794    BuildScope._tryRebuild (package:flutter/src/widgets/framework.dart:2763:15)
+#795    BuildScope._flushDirtyElements (package:flutter/src/widgets/framework.dart:2820:11)
+#796    BuildOwner.buildScope (package:flutter/src/widgets/framework.dart:3124:18)
+#797    AutomatedTestWidgetsFlutterBinding.drawFrame (package:flutter_test/src/binding.dart:2432:19)
+#798    RendererBinding._handlePersistentFrameCallback (package:flutter/src/rendering/binding.dart:558:5)
+#799    SchedulerBinding._invokeFrameCallback (package:flutter/src/scheduler/binding.dart:1430:15)
+#800    SchedulerBinding.handleDrawFrame (package:flutter/src/scheduler/binding.dart:1345:9)
+#801    AutomatedTestWidgetsFlutterBinding.pump.<anonymous closure> (package:flutter_test/src/binding.dart:2261:9)
+#804    TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#805    AutomatedTestWidgetsFlutterBinding.pump (package:flutter_test/src/binding.dart:2250:27)
+#806    WidgetTester.pumpWidget.<anonymous closure> (package:flutter_test/src/widget_tester.dart:598:22)
+#809    TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#810    WidgetTester.pumpWidget (package:flutter_test/src/widget_tester.dart:595:27)
+#811    main.<anonymous closure> (file:///home/runner/work/Progression-Lab/Progression-Lab/test/data_portability_test.dart:388:18)
+#812    testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:29)
+<asynchronous suspension>
+#813    TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 5 frames from dart:async and package:stack_trace)
+
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TextWidgetFinder:<Found 0 widgets with text "YOUR DATA, YOURS": []>
+   Which: means none were found but one was expected
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///home/runner/work/Progression-Lab/Progression-Lab/test/data_portability_test.dart:396:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///home/runner/work/Progression-Lab/Progression-Lab/test/data_portability_test.dart line 396
+The test description was:
+  Backup & data exposes protection and migration actions
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following message was thrown:
+Multiple exceptions (2) were detected during the running of the current test, and at least one was
+unexpected.
+════════════════════════════════════════════════════════════════════════════════════════════════════
+Test failed. See exception logs above.
+The test description was: Backup & data exposes protection and migration actions
+
+::endgroup::
+::group::❌ /home/runner/work/Progression-Lab/Progression-Lab/test/navigation_widget_test.dart: cadence sheet preserves cycle and accepts an exact next workout (failed)
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following assertion was thrown running a test:
+pumpAndSettle timed out
+
+When the exception was thrown, this was the stack:
+#0      WidgetTester.pumpAndSettle.<anonymous closure> (package:flutter_test/src/widget_tester.dart:717:11)
+<asynchronous suspension>
+#1      TestAsyncUtils.guard.<anonymous closure> (package:flutter_test/src/test_async_utils.dart:130:27)
+<asynchronous suspension>
+#2      main.<anonymous closure> (file:///home/runner/work/Progression-Lab/Progression-Lab/test/navigation_widget_test.dart:86:5)
+<asynchronous suspension>
+#3      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#4      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+The test description was:
+  cadence sheet preserves cycle and accepts an exact next workout
+════════════════════════════════════════════════════════════════════════════════════════════════════
+Test failed. See exception logs above.
+The test description was: cadence sheet preserves cycle and accepts an exact next workout
+
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/navigation_widget_test.dart: progress dashboard never needs fake data for an empty history
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/navigation_widget_test.dart: progress dashboard selects one exercise and metric at a time
+::endgroup::
+::group::❌ /home/runner/work/Progression-Lab/Progression-Lab/test/navigation_widget_test.dart: logged set edits require the explicit save button (failed)
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TextWidgetFinder:<Found 0 widgets with text "SAVED": []>
+   Which: means none were found but one was expected
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///home/runner/work/Progression-Lab/Progression-Lab/test/navigation_widget_test.dart:190:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///home/runner/work/Progression-Lab/Progression-Lab/test/navigation_widget_test.dart line 190
+The test description was:
+  logged set edits require the explicit save button
+════════════════════════════════════════════════════════════════════════════════════════════════════
+Test failed. See exception logs above.
+The test description was: logged set edits require the explicit save button
+
+::endgroup::
+::group::❌ /home/runner/work/Progression-Lab/Progression-Lab/test/navigation_widget_test.dart: library CRUD is exposed only for custom exercises (failed)
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TypeWidgetFinder:<Found 0 widgets with type "PopupMenuButton<String>": []>
+   Which: means none were found but one was expected
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///home/runner/work/Progression-Lab/Progression-Lab/test/navigation_widget_test.dart:214:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///home/runner/work/Progression-Lab/Progression-Lab/test/navigation_widget_test.dart line 214
+The test description was:
+  library CRUD is exposed only for custom exercises
+════════════════════════════════════════════════════════════════════════════════════════════════════
+Test failed. See exception logs above.
+The test description was: library CRUD is exposed only for custom exercises
+
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/navigation_widget_test.dart: week browser renders the active cadence workout slots
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/navigation_widget_test.dart: week states and logged history use the performed substitution
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/navigation_widget_test.dart: athletic section exposes the current week and coached routine
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/navigation_widget_test.dart: main navigation groups programs and keeps the tour replayable
+✅ /home/runner/work/Progression-Lab/Progression-Lab/test/navigation_widget_test.dart: workout story card generator produces a branded PNG
+::endgroup::
+
+::error::56 tests passed, 6 failed.
+
+RESULT pub=0 format=0 analyze=0 test=1
