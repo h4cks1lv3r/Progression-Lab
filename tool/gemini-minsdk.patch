@@ -1,0 +1,12 @@
+diff --git a/android/app/build.gradle.kts b/android/app/build.gradle.kts
+--- a/android/app/build.gradle.kts
++++ b/android/app/build.gradle.kts
+@@ -19,7 +19,7 @@ android {
+         applicationId = "com.h4cks1lv3.iron_cadence"
+         // You can update the following values to match your application needs.
+         // For more information, see: https://flutter.dev/to/review-gradle-config.
+-        minSdk = 26
++        minSdk = 31
+         targetSdk = flutter.targetSdkVersion
+         versionCode = 10
+         versionName = "1.7.0"
