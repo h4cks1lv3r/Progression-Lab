@@ -1,0 +1,154 @@
+name: Repair Data Portability
+
+on:
+  push:
+    branches:
+      - agent/data-portability-backup
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: ${{ !contains(github.event.head_commit.message || '', '[portability-repaired]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Check out source branch
+        uses: actions/checkout@v5
+        with:
+          ref: agent/data-portability-backup
+          fetch-depth: 0
+
+      - name: Check generated implementation
+        id: source
+        shell: bash
+        run: |
+          if compgen -G 'tool/data-portability.patch.part*' > /dev/null; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Materialize source before repair
+        if: steps.source.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat tool/functional-brand.patch.part* | base64 --decode > /tmp/progression-target.patch.gz
+          gzip -dc /tmp/progression-target.patch.gz > /tmp/progression-target.patch
+          git apply /tmp/progression-target.patch
+          git apply tool/analyzer-fixes.patch
+          git apply tool/labpanel-material.patch
+          git apply tool/athletic-test-scroll.patch
+          git apply tool/launch-background-fix.patch
+          cat tool/high-priority.patch.part* | base64 --decode > /tmp/high-priority.patch.gz
+          gzip -dc /tmp/high-priority.patch.gz > /tmp/high-priority.patch
+          git apply /tmp/high-priority.patch
+          git apply tool/high-priority-fixes.patch
+          git apply --exclude=lib/brand.dart tool/route-typography-fix.patch
+          git apply tool/brand-route-material.patch
+          cat tool/data-portability.patch.part* | base64 --decode > /tmp/data-portability.patch.gz
+          gzip -dc /tmp/data-portability.patch.gz > /tmp/data-portability.patch
+          git apply /tmp/data-portability.patch
+
+      - name: Snapshot generated source
+        if: steps.source.outputs.ready == 'true'
+        shell: bash
+        run: |
+          mkdir -p /tmp/portability-before
+          rsync -a --exclude=.git ./ /tmp/portability-before/
+
+      - name: Apply compatibility repairs
+        if: steps.source.outputs.ready == 'true'
+        run: python3 tool/repair_data_portability.py
+
+      - name: Set up Java 17
+        if: steps.source.outputs.ready == 'true'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Flutter stable
+        if: steps.source.outputs.ready == 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve, format, analyze, and test
+        if: steps.source.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          dart format lib test
+          flutter analyze --no-fatal-infos
+          flutter test
+
+      - name: Generate repair patch
+        if: steps.source.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK=/tmp/portability-repaired
+          rm -rf "$WORK"
+          mkdir -p "$WORK"
+          rsync -a --exclude=.git ./ "$WORK/"
+          cd /tmp/portability-before
+          git init -q
+          git config user.name repair
+          git config user.email repair@example.invalid
+          git add -A
+          git commit -qm baseline
+          rsync -a --delete --exclude=.git "$WORK/" /tmp/portability-before/
+          git diff --binary > /tmp/data-portability-repair.patch
+          if [[ -s /tmp/data-portability-repair.patch ]]; then
+            cp /tmp/data-portability-repair.patch "$GITHUB_WORKSPACE/tool/data-portability-repair.patch"
+          fi
+
+      - name: Reset and wire repair patch
+        if: steps.source.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard HEAD
+          git clean -fd
+          if [[ ! -s tool/data-portability-repair.patch && -s /tmp/data-portability-repair.patch ]]; then
+            cp /tmp/data-portability-repair.patch tool/data-portability-repair.patch
+          fi
+          if [[ -s tool/data-portability-repair.patch ]]; then
+            python3 - <<'PY'
+          from pathlib import Path
+          for path in [Path('.github/workflows/android-apk.yml'), Path('.github/workflows/ios-test-build.yml')]:
+              text = path.read_text()
+              if 'data-portability-repair.patch' in text:
+                  continue
+              marker = '          git apply /tmp/data-portability.patch\n'
+              if marker not in text:
+                  raise SystemExit(f'Missing data-portability marker in {path}')
+              block = marker + '          git apply --check tool/data-portability-repair.patch\n          git apply tool/data-portability-repair.patch\n'
+              path.write_text(text.replace(marker, block, 1))
+          PY
+          fi
+          rm -f .github/workflows/repair-data-portability.yml
+          rm -f tool/repair_data_portability.py
+
+      - name: Commit validated repairs
+        if: steps.source.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No repair patch was needed.'
+            exit 0
+          fi
+          git commit -m "Validate data portability compatibility [portability-repaired]"
+          git push origin HEAD:agent/data-portability-backup
