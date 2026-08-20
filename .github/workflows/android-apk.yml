@@ -50,7 +50,17 @@ jobs:
           git apply --exclude=lib/brand.dart tool/route-typography-fix.patch
           git apply --check tool/brand-route-material.patch
           git apply tool/brand-route-material.patch
-          cat tool/daily-inputs-gemini-lab.patch.part* | base64 --decode > /tmp/daily-inputs-gemini-lab.patch.gz
+          cat \
+            tool/daily-inputs-gemini-lab.patch.part00 \
+            tool/daily-inputs-gemini-lab.patch.part01 \
+            tool/daily-inputs-gemini-lab.patch.part02 \
+            tool/daily-inputs-gemini-lab.patch.part03 \
+            tool/daily-inputs-gemini-lab.patch.part04 \
+            tool/daily-inputs-gemini-lab.patch.part05a \
+            tool/daily-inputs-gemini-lab.patch.part05b \
+            tool/daily-inputs-gemini-lab.patch.part06 \
+            tool/daily-inputs-gemini-lab.patch.part07 \
+            | base64 --decode > /tmp/daily-inputs-gemini-lab.patch.gz
           echo "bc8de05195ef3ad7a4e06081dc1bd73350a98648f0576594dbc92095f4bd5a91  /tmp/daily-inputs-gemini-lab.patch.gz" | sha256sum --check --strict
           gzip --decompress --stdout /tmp/daily-inputs-gemini-lab.patch.gz > /tmp/daily-inputs-gemini-lab.patch
           git apply --check /tmp/daily-inputs-gemini-lab.patch
