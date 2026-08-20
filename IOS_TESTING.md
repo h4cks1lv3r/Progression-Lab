@@ -1,6 +1,6 @@
 # Progression Lab iOS testing
 
-Progression Lab now has an iOS test-build workflow in `.github/workflows/ios-test-build.yml`.
+Progression Lab now includes a committed `ios/` platform project and an iOS test-build workflow in `.github/workflows/ios-test-build.yml`.
 
 ## Artifacts
 
@@ -29,7 +29,7 @@ Apple requires every iPhone app to be signed with a valid certificate and provis
 
 To test on a physical device, use one of these paths:
 
-- Open the generated iOS project in Xcode, select an Apple Development team, connect the iPhone, and run the app.
+- Open the committed `ios/Runner.xcworkspace` project in Xcode, select an Apple Development team, connect the iPhone, and run the app.
 - Re-sign the unsigned IPA with an Apple Development certificate and matching provisioning profile.
 - Configure App Store Connect signing and distribute a signed build through TestFlight.
 
@@ -40,5 +40,5 @@ The repository does not contain Apple signing certificates, provisioning profile
 - Bundle identifier: `com.h4cks1lv3r.progressionlab`
 - Display name: `Progression Lab`
 - Minimum deployment target: iOS 13.0
-- Branded app icon and launch artwork are generated from the Android launcher asset.
+- Branded app icon and launch artwork are generated from the Progression Lab launcher asset.
 - Photo-library usage descriptions are included for workout-story images.
