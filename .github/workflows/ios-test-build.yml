@@ -175,7 +175,7 @@ jobs:
           set -euo pipefail
           flutter build ios \
             --simulator \
-            --release \
+            --debug \
             --build-name "${{ steps.version.outputs.name }}" \
             --build-number "${{ steps.version.outputs.number }}"
           mkdir -p dist
