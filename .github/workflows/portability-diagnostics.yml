@@ -1,0 +1,116 @@
+name: Portability Diagnostics
+
+on:
+  push:
+    branches:
+      - agent/data-portability-backup
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    if: ${{ !contains(github.event.head_commit.message || '', '[diagnostics]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Check out source branch
+        uses: actions/checkout@v5
+        with:
+          ref: agent/data-portability-backup
+
+      - name: Check generated patch
+        id: source
+        shell: bash
+        run: |
+          if compgen -G 'tool/data-portability.patch.part*' > /dev/null; then
+            echo ready=true >> "$GITHUB_OUTPUT"
+          else
+            echo ready=false >> "$GITHUB_OUTPUT"
+            echo 'Data portability patch has not been generated yet.' > /tmp/diagnostics.txt
+          fi
+
+      - name: Materialize source
+        if: steps.source.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -uo pipefail
+          exec > >(tee /tmp/materialize.log) 2>&1
+          set -e
+          cat tool/functional-brand.patch.part* | base64 --decode > /tmp/progression-target.patch.gz
+          gzip -dc /tmp/progression-target.patch.gz > /tmp/progression-target.patch
+          git apply /tmp/progression-target.patch
+          git apply tool/analyzer-fixes.patch
+          git apply tool/labpanel-material.patch
+          git apply tool/athletic-test-scroll.patch
+          git apply tool/launch-background-fix.patch
+          cat tool/high-priority.patch.part* | base64 --decode > /tmp/high-priority.patch.gz
+          gzip -dc /tmp/high-priority.patch.gz > /tmp/high-priority.patch
+          git apply /tmp/high-priority.patch
+          git apply tool/high-priority-fixes.patch
+          git apply --exclude=lib/brand.dart tool/route-typography-fix.patch
+          git apply tool/brand-route-material.patch
+          cat tool/data-portability.patch.part* | base64 --decode > /tmp/data-portability.patch.gz
+          gzip -dc /tmp/data-portability.patch.gz > /tmp/data-portability.patch
+          git apply /tmp/data-portability.patch
+          if [[ -f tool/data-portability-repair.patch ]]; then
+            git apply tool/data-portability-repair.patch
+          fi
+
+      - name: Set up Java
+        if: steps.source.outputs.ready == 'true'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Flutter
+        if: steps.source.outputs.ready == 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Run diagnostics
+        if: steps.source.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set +e
+          {
+            echo '=== FLUTTER PUB GET ==='
+            flutter pub get
+            PUB=$?
+            echo
+            echo '=== DART FORMAT ==='
+            dart format lib test
+            FORMAT=$?
+            echo
+            echo '=== FLUTTER ANALYZE ==='
+            flutter analyze --no-fatal-infos
+            ANALYZE=$?
+            echo
+            echo '=== FLUTTER TEST ==='
+            flutter test
+            TEST=$?
+            echo
+            echo "RESULT pub=$PUB format=$FORMAT analyze=$ANALYZE test=$TEST"
+          } 2>&1 | tee /tmp/diagnostics.txt
+          exit 0
+
+      - name: Publish diagnostic report to branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard HEAD
+          git clean -fd
+          cp /tmp/diagnostics.txt PORTABILITY_DIAGNOSTICS.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PORTABILITY_DIAGNOSTICS.txt
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Update portability diagnostics [diagnostics]"
+          git pull --rebase origin agent/data-portability-backup
+          git push origin HEAD:agent/data-portability-backup
