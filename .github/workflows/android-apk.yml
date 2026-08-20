@@ -55,6 +55,8 @@ jobs:
           gzip --decompress --stdout /tmp/data-portability.patch.gz > /tmp/data-portability.patch
           git apply --check /tmp/data-portability.patch
           git apply /tmp/data-portability.patch
+          git apply --check tool/data-portability-fixes.patch
+          git apply tool/data-portability-fixes.patch
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
