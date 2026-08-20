@@ -30,7 +30,7 @@ Formatted lib/store.dart
 Formatted test/data_portability_test.dart
 Formatted test/navigation_widget_test.dart
 Formatted test/program_test.dart
-Formatted 21 files (17 changed) in 0.37 seconds.
+Formatted 21 files (17 changed) in 0.30 seconds.
 
 === FLUTTER ANALYZE ===
 Analyzing Progression-Lab...                                    
@@ -39,7 +39,7 @@ Analyzing Progression-Lab...
    info • The import of 'dart:typed_data' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/services.dart'. Try removing the import directive • lib/data_portability_bridge.dart:1:8 • unnecessary_import
    info • The import of 'dart:typed_data' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/services.dart'. Try removing the import directive • test/data_portability_test.dart:2:8 • unnecessary_import
 
-3 issues found. (ran in 8.1s)
+3 issues found. (ran in 6.6s)
 
 === FLUTTER TEST ===
 
@@ -122,7 +122,7 @@ test/data_portability_test.dart 311:23             main.<fn>.<fn>
 ══╡ EXCEPTION CAUGHT BY WIDGETS LIBRARY ╞═══════════════════════════════════════════════════════════
 The following assertion was thrown building Builder:
 setState() callback argument returned a Future.
-The setState() method on _DataManagementScreenState#64a01(lifecycle state: created) was called with
+The setState() method on _DataManagementScreenState#0f217(lifecycle state: created) was called with
 a closure or method that returned a Future. Maybe it is marked as "async".
 Instead of performing asynchronous work inside a call to setState(), first execute the work (without
 updating the widget state), and then synchronously update the state inside a call to setState().
