@@ -69,7 +69,10 @@ jobs:
             --platforms=ios \
             --org com.h4cks1lv3r \
             --project-name progression_lab \
+            --no-pub \
             .
+          rm -f test/widget_test.dart
+          rm -rf .idea progression_lab.iml
 
       - name: Configure Progression Lab for iOS
         shell: bash
