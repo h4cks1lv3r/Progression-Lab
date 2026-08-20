@@ -1,0 +1,136 @@
+diff --git a/lib/data_management_screen.dart b/lib/data_management_screen.dart
+index 51c9085..5cd3407 100644
+--- a/lib/data_management_screen.dart
++++ b/lib/data_management_screen.dart
+@@ -27,11 +27,18 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
+   void initState() {
+     super.initState();
+     controller = DataPortabilityController(widget.store);
+-    _refreshBackups();
++    _backups = controller.automaticBackups();
+   }
+ 
+   void _refreshBackups() {
+-    setState(() => _backups = controller.automaticBackups());
++    final backups = controller.automaticBackups();
++    if (!mounted) {
++      _backups = backups;
++      return;
++    }
++    setState(() {
++      _backups = backups;
++    });
+   }
+ 
+   Future<void> _run(
+@@ -128,14 +135,12 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
+ 
+   Future<void> _configureCsvImport(CsvImportCandidate candidate) async {
+     var mapping = candidate.inspection.suggestedMapping;
+-    if (mapping == null) {
+-      mapping = await Navigator.push<CsvImportMapping>(
++    mapping ??= await Navigator.push<CsvImportMapping>(
+         context,
+         MaterialPageRoute(
+           builder: (_) => CsvMappingScreen(inspection: candidate.inspection),
+         ),
+       );
+-    }
+     if (mapping == null || !mounted) return;
+     var sourceWeightUnit = widget.store.unit;
+     if (WorkoutCsvImporter.needsWeightUnitChoice(
+diff --git a/lib/data_portability_bridge.dart b/lib/data_portability_bridge.dart
+index ea956b4..6784bec 100644
+--- a/lib/data_portability_bridge.dart
++++ b/lib/data_portability_bridge.dart
+@@ -1,5 +1,3 @@
+-import 'dart:typed_data';
+-
+ import 'package:flutter/services.dart';
+ 
+ class PortablePickedFile {
+diff --git a/lib/store.dart b/lib/store.dart
+index 844609d..6d44469 100644
+--- a/lib/store.dart
++++ b/lib/store.dart
+@@ -615,10 +615,13 @@ class AppStore extends ChangeNotifier {
+     bool skipDuplicates = true,
+     Map<String, String> exerciseMappings = const {},
+   }) async {
++    final duplicateSignatures = <String>{
++      ...plan.duplicateSignatures,
++      ...knownImportSignatures,
++    };
+     final selected = [
+       for (final workout in plan.workouts)
+-        if (!skipDuplicates ||
+-            !plan.duplicateSignatures.contains(workout.signature))
++        if (!skipDuplicates || !duplicateSignatures.contains(workout.signature))
+           workout,
+     ];
+     if (selected.isEmpty) {
+diff --git a/test/data_portability_test.dart b/test/data_portability_test.dart
+index 6a95553..bd68dfe 100644
+--- a/test/data_portability_test.dart
++++ b/test/data_portability_test.dart
+@@ -1,6 +1,4 @@
+ import 'dart:convert';
+-import 'dart:typed_data';
+-
+ import 'package:archive/archive.dart';
+ import 'package:flutter/material.dart';
+ import 'package:flutter/services.dart';
+diff --git a/test/navigation_widget_test.dart b/test/navigation_widget_test.dart
+index b56a093..e484110 100644
+--- a/test/navigation_widget_test.dart
++++ b/test/navigation_widget_test.dart
+@@ -14,6 +14,7 @@ import 'package:progression_lab/store.dart';
+ void main() {
+   TestWidgetsFlutterBinding.ensureInitialized();
+   const storageChannel = MethodChannel('iron_cadence/storage');
++  const portabilityChannel = MethodChannel('progression_lab/data_portability');
+ 
+   setUp(() {
+     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+@@ -22,11 +23,19 @@ void main() {
+           if (call.method == 'read') return null;
+           throw PlatformException(code: 'unknown_method');
+         });
++    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
++        .setMockMethodCallHandler(portabilityChannel, (call) async {
++          if (call.method == 'writeAutomaticBackup') return '/backup/test.plab';
++          if (call.method == 'listAutomaticBackups') return <Object?>[];
++          return null;
++        });
+   });
+ 
+   tearDown(() {
+     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+         .setMockMethodCallHandler(storageChannel, null);
++    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
++        .setMockMethodCallHandler(portabilityChannel, null);
+   });
+ 
+   testWidgets('cadence sheet preserves cycle and accepts an exact next workout', (
+diff --git a/test/program_test.dart b/test/program_test.dart
+index 8ca024b..3afcdf9 100644
+--- a/test/program_test.dart
++++ b/test/program_test.dart
+@@ -883,7 +883,7 @@ void main() {
+       expect(assessment.notes, 'Same shoes and surface');
+     });
+ 
+-    test('schema six migrates additively through onboarding schema eight', () async {
++    test('schema six migrates additively through the current schema', () async {
+       storedValue = jsonEncode({
+         'schemaVersion': 6,
+         'days': 4,
+@@ -904,7 +904,7 @@ void main() {
+       expect(store.athleticSessionIndex, 0);
+       expect(store.athleticHistory, isEmpty);
+       final migrated = jsonDecode(storedValue!) as Map<String, dynamic>;
+-      expect(migrated['schemaVersion'], 8);
++      expect(migrated['schemaVersion'], AppStore.schemaVersion);
+       expect(migrated['athleticProgramRun'], 1);
+       expect(migrated['athleticHistory'], isEmpty);
+       expect(migrated['onboardingVersionSeen'], 0);
