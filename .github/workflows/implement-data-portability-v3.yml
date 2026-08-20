@@ -1,0 +1,137 @@
+name: Implement Data Portability v3
+
+on:
+  push:
+    branches:
+      - agent/data-portability-backup
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data-portability-generator
+  cancel-in-progress: true
+
+jobs:
+  implement:
+    if: ${{ !contains(github.event.head_commit.message || '', '[data-portability-v3]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out full branch history
+        uses: actions/checkout@v5
+        with:
+          ref: agent/data-portability-backup
+          fetch-depth: 0
+
+      - name: Recover and fix generator
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f tool/generate_data_portability.py ]]; then
+            cp tool/generate_data_portability.py /tmp/generate_data_portability.py
+          else
+            COMMIT=$(git rev-list --all -- tool/generate_data_portability.py | head -1)
+            test -n "$COMMIT"
+            git show "$COMMIT":tool/generate_data_portability.py > /tmp/generate_data_portability.py
+          fi
+          cp /tmp/generate_data_portability.py tool/generate_data_portability.py
+          python3 tool/fix_data_portability_generator_v3.py
+
+      - name: Materialize current application source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat tool/functional-brand.patch.part* | base64 --decode > /tmp/progression-target.patch.gz
+          gzip -dc /tmp/progression-target.patch.gz > /tmp/progression-target.patch
+          git apply /tmp/progression-target.patch
+          git apply tool/analyzer-fixes.patch
+          git apply tool/labpanel-material.patch
+          git apply tool/athletic-test-scroll.patch
+          git apply tool/launch-background-fix.patch
+          cat tool/high-priority.patch.part* | base64 --decode > /tmp/high-priority.patch.gz
+          gzip -dc /tmp/high-priority.patch.gz > /tmp/high-priority.patch
+          git apply /tmp/high-priority.patch
+          git apply tool/high-priority-fixes.patch
+          git apply --exclude=lib/brand.dart tool/route-typography-fix.patch
+          git apply tool/brand-route-material.patch
+
+      - name: Generate replacement portability patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK=/tmp/portability-materialized-v3
+          rm -rf "$WORK"
+          mkdir -p "$WORK"
+          rsync -a --exclude=.git ./ "$WORK/"
+          cd "$WORK"
+          git init -q
+          git config user.name generator
+          git config user.email generator@example.invalid
+          git add -A
+          git commit -qm baseline
+          python3 "$GITHUB_WORKSPACE/tool/generate_data_portability.py" "$WORK"
+          git diff --binary > /tmp/data-portability-v3.patch
+          test -s /tmp/data-portability-v3.patch
+          gzip -9 -c /tmp/data-portability-v3.patch > /tmp/data-portability-v3.patch.gz
+          sha256sum /tmp/data-portability-v3.patch.gz | awk '{print $1}' > /tmp/data-portability-v3.sha
+
+      - name: Reset checkout and package replacement
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard HEAD
+          git clean -fd
+          base64 -w 0 /tmp/data-portability-v3.patch.gz > /tmp/data-portability-v3.b64
+          rm -f tool/data-portability.patch.part*
+          split -b 58000 -d -a 2 /tmp/data-portability-v3.b64 tool/data-portability.patch.part
+          cp /tmp/portability-materialized-v3/DATA_PORTABILITY.md DATA_PORTABILITY.md
+
+      - name: Update platform materializers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          sha = Path('/tmp/data-portability-v3.sha').read_text().strip()
+          blocks = {
+              Path('.github/workflows/android-apk.yml'): f'''          cat tool/data-portability.patch.part* | base64 --decode > /tmp/data-portability.patch.gz\n          echo "{sha}  /tmp/data-portability.patch.gz" | sha256sum --check --strict\n          gzip -dc /tmp/data-portability.patch.gz > /tmp/data-portability.patch\n          git apply --check /tmp/data-portability.patch\n          git apply /tmp/data-portability.patch\n''',
+              Path('.github/workflows/ios-test-build.yml'): f'''          cat tool/data-portability.patch.part* | base64 --decode > /tmp/data-portability.patch.gz\n          echo "{sha}  /tmp/data-portability.patch.gz" | shasum -a 256 --check\n          gzip -dc /tmp/data-portability.patch.gz > /tmp/data-portability.patch\n          git apply --check /tmp/data-portability.patch\n          git apply /tmp/data-portability.patch\n''',
+          }
+          pattern = re.compile(
+              r'          cat tool/data-portability\.patch\.part\*.*?'
+              r'          git apply /tmp/data-portability\.patch\n',
+              re.S,
+          )
+          marker = '          git apply tool/brand-route-material.patch\n'
+          for path, block in blocks.items():
+              text = pattern.sub('', path.read_text())
+              if marker not in text:
+                  raise SystemExit(f'Missing materialization marker in {path}')
+              path.write_text(text.replace(marker, marker + block, 1))
+          PY
+
+      - name: Remove obsolete implementation machinery
+        shell: bash
+        run: |
+          rm -f .github/workflows/data-portability-source-snapshot.yml
+          rm -f .github/workflows/implement-data-portability.yml
+          rm -f .github/workflows/implement-data-portability-v2.yml
+          rm -f .github/workflows/implement-data-portability-v3.yml
+          rm -f tool/generate_data_portability.py
+          rm -f tool/fix_data_portability_generator.py
+          rm -f tool/fix_data_portability_generator_v3.py
+
+      - name: Commit and push v3 implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Regenerate data portability [data-portability-v3]"
+          git pull --rebase origin agent/data-portability-backup
+          git push origin HEAD:agent/data-portability-backup
