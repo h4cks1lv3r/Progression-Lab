@@ -1,27 +1,28 @@
-name: Data Portability Source Snapshot
+name: Materialize Current Application Source
 
 on:
   push:
     branches:
       - agent/data-portability-backup
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  snapshot:
+  materialize:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
-      - name: Check out source
+      - name: Check out source branch
         uses: actions/checkout@v5
+        with:
+          ref: agent/data-portability-backup
+          fetch-depth: 0
 
-      - name: Materialize application source
+      - name: Apply the released source layers
         shell: bash
         run: |
           set -euo pipefail
@@ -50,19 +51,48 @@ jobs:
           git apply --check tool/brand-route-material.patch
           git apply tool/brand-route-material.patch
 
-      - name: Package materialized source
+      - name: Make CI build the committed source directly
         shell: bash
         run: |
-          tar \
-            --exclude=.git \
-            --exclude=.dart_tool \
-            --exclude=build \
-            -czf /tmp/Progression-Lab-materialized-source.tgz .
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
 
-      - name: Upload materialized source
-        uses: actions/upload-artifact@v4
-        with:
-          name: Progression-Lab-materialized-source-${{ github.sha }}
-          path: /tmp/Progression-Lab-materialized-source.tgz
-          if-no-files-found: error
-          retention-days: 2
+          def remove_step(path: str, next_name: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              marker = "      - name: Materialize application source\n"
+              if marker not in text:
+                  return
+              start = text.index(marker)
+              end_marker = f"      - name: {next_name}\n"
+              end = text.index(end_marker, start)
+              file.write_text(text[:start] + text[end:])
+
+          remove_step('.github/workflows/android-apk.yml', 'Set up Java 17')
+          remove_step('.github/workflows/ios-test-build.yml', 'Set up Flutter stable')
+          PY
+          rm -f .github/workflows/ios-publish-source.yml
+          rm -f .github/workflows/data-portability-source-snapshot.yml
+
+      - name: Commit the materialized source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- \
+            .github/workflows \
+            CHANGELOG.md \
+            android \
+            ios \
+            lib \
+            pubspec.lock \
+            pubspec.yaml \
+            test
+          if git diff --cached --quiet; then
+            echo "No source changes to commit."
+            exit 0
+          fi
+          git commit -m "Materialize Progression Lab 1.5.1 source"
+          git push origin HEAD:agent/data-portability-backup
