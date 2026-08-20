@@ -1,0 +1,65 @@
+name: Data Portability Source Snapshot
+
+on:
+  push:
+    branches:
+      - agent/data-portability-backup
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Materialize application source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat tool/functional-brand.patch.part* | base64 --decode > /tmp/progression-target.patch.gz
+          echo "5c8c28f177916585a53b8557b239a3b99c654b84efd44efa491e7284e33ec976  /tmp/progression-target.patch.gz" | sha256sum --check --strict
+          gzip --decompress --stdout /tmp/progression-target.patch.gz > /tmp/progression-target.patch
+          git apply --check /tmp/progression-target.patch
+          git apply /tmp/progression-target.patch
+          git apply --check tool/analyzer-fixes.patch
+          git apply tool/analyzer-fixes.patch
+          git apply --check tool/labpanel-material.patch
+          git apply tool/labpanel-material.patch
+          git apply --check tool/athletic-test-scroll.patch
+          git apply tool/athletic-test-scroll.patch
+          git apply --check tool/launch-background-fix.patch
+          git apply tool/launch-background-fix.patch
+          cat tool/high-priority.patch.part* | base64 --decode > /tmp/high-priority.patch.gz
+          echo "b4bdddd6d556681632c01e3bd60c9771cf316bbdd4841d2e1dc8e616e7a6711d  /tmp/high-priority.patch.gz" | sha256sum --check --strict
+          gzip --decompress --stdout /tmp/high-priority.patch.gz > /tmp/high-priority.patch
+          git apply --check /tmp/high-priority.patch
+          git apply /tmp/high-priority.patch
+          git apply --check tool/high-priority-fixes.patch
+          git apply tool/high-priority-fixes.patch
+          git apply --check --exclude=lib/brand.dart tool/route-typography-fix.patch
+          git apply --exclude=lib/brand.dart tool/route-typography-fix.patch
+          git apply --check tool/brand-route-material.patch
+          git apply tool/brand-route-material.patch
+
+      - name: Package materialized source
+        shell: bash
+        run: |
+          tar \
+            --exclude=.git \
+            --exclude=.dart_tool \
+            --exclude=build \
+            -czf /tmp/Progression-Lab-materialized-source.tgz .
+
+      - name: Upload materialized source
+        uses: actions/upload-artifact@v4
+        with:
+          name: Progression-Lab-materialized-source-${{ github.sha }}
+          path: /tmp/Progression-Lab-materialized-source.tgz
+          if-no-files-found: error
+          retention-days: 2
