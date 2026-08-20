@@ -1,0 +1,11 @@
+diff --git a/test/navigation_widget_test.dart b/test/navigation_widget_test.dart
+--- a/test/navigation_widget_test.dart
++++ b/test/navigation_widget_test.dart
+@@ -157,8 +157,6 @@ void main() {
+     await tester.pumpAndSettle();
+     expect(find.text('WORKING WEIGHT'), findsOneWidget);
+     expect(find.byType(CustomPaint), findsWidgets);
+-    await tester.scrollUntilVisible(find.textContaining('185 lb × 6'), 300);
+-    await tester.pumpAndSettle();
+     expect(find.textContaining('185 lb × 6'), findsWidgets);
+   });
