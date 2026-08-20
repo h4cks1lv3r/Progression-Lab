@@ -14,11 +14,13 @@ diff --git a/test/daily_inputs_lab_test.dart b/test/daily_inputs_lab_test.dart
 diff --git a/test/navigation_widget_test.dart b/test/navigation_widget_test.dart
 --- a/test/navigation_widget_test.dart
 +++ b/test/navigation_widget_test.dart
-@@ -152,5 +152,7 @@ void main() {
+@@ -152,7 +152,7 @@ void main() {
      await tester.tap(find.text('Weight'));
      await tester.pumpAndSettle();
 +    await tester.drag(find.byType(ListView), const Offset(0, -520));
 +    await tester.pumpAndSettle();
      expect(find.text('WORKING WEIGHT'), findsOneWidget);
      expect(find.byType(CustomPaint), findsWidgets);
-     await tester.scrollUntilVisible(find.textContaining('185 lb × 6'), 300);
+-    await tester.scrollUntilVisible(find.textContaining('185 lb × 6'), 300);
+-    await tester.pumpAndSettle();
+     expect(find.textContaining('185 lb × 6'), findsWidgets);
