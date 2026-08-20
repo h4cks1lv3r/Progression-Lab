@@ -69,6 +69,8 @@ jobs:
           git apply tool/gemini-minsdk.patch
           git apply --check tool/daily-inputs-analyzer-fixes.patch
           git apply tool/daily-inputs-analyzer-fixes.patch
+          git apply --check tool/daily-inputs-test-fixes.patch
+          git apply tool/daily-inputs-test-fixes.patch
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
