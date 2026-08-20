@@ -1,0 +1,152 @@
+name: Publish iOS Platform Source
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/athletic-functional-brand
+
+permissions:
+  contents: write
+
+jobs:
+  publish-ios-source:
+    name: Generate and commit the iOS project
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source branch
+        uses: actions/checkout@v5
+        with:
+          ref: agent/athletic-functional-brand
+
+      - name: Check whether iOS source is already present
+        id: source
+        shell: bash
+        run: |
+          if [[ -f ios/Runner.xcodeproj/project.pbxproj ]]; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Materialize application source
+        if: steps.source.outputs.needed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat tool/functional-brand.patch.part* | base64 --decode > /tmp/progression-target.patch.gz
+          echo "5c8c28f177916585a53b8557b239a3b99c654b84efd44efa491e7284e33ec976  /tmp/progression-target.patch.gz" | shasum -a 256 --check
+          gzip --decompress --stdout /tmp/progression-target.patch.gz > /tmp/progression-target.patch
+          git apply --check /tmp/progression-target.patch
+          git apply /tmp/progression-target.patch
+          git apply --check tool/analyzer-fixes.patch
+          git apply tool/analyzer-fixes.patch
+          git apply --check tool/labpanel-material.patch
+          git apply tool/labpanel-material.patch
+          git apply --check tool/athletic-test-scroll.patch
+          git apply tool/athletic-test-scroll.patch
+          git apply --check tool/launch-background-fix.patch
+          git apply tool/launch-background-fix.patch
+          cat tool/high-priority.patch.part* | base64 --decode > /tmp/high-priority.patch.gz
+          echo "b4bdddd6d556681632c01e3bd60c9771cf316bbdd4841d2e1dc8e616e7a6711d  /tmp/high-priority.patch.gz" | shasum -a 256 --check
+          gzip --decompress --stdout /tmp/high-priority.patch.gz > /tmp/high-priority.patch
+          git apply --check /tmp/high-priority.patch
+          git apply /tmp/high-priority.patch
+          git apply --check tool/high-priority-fixes.patch
+          git apply tool/high-priority-fixes.patch
+          git apply --check --exclude=lib/brand.dart tool/route-typography-fix.patch
+          git apply --exclude=lib/brand.dart tool/route-typography-fix.patch
+          git apply --check tool/brand-route-material.patch
+          git apply tool/brand-route-material.patch
+
+      - name: Set up Flutter stable
+        if: steps.source.outputs.needed == 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate iOS platform project
+        if: steps.source.outputs.needed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter create \
+            --platforms=ios \
+            --org com.h4cks1lv3r \
+            --project-name progression_lab \
+            --no-pub \
+            .
+          rm -f test/widget_test.dart
+          rm -rf .idea progression_lab.iml
+
+      - name: Configure Progression Lab for iOS
+        if: steps.source.outputs.needed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          PLIST="ios/Runner/Info.plist"
+          PROJECT="ios/Runner.xcodeproj/project.pbxproj"
+
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Progression Lab" "$PLIST" || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Progression Lab" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleName Progression Lab" "$PLIST" || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleName string Progression Lab" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string Save branded workout story images to Photos." "$PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryAddUsageDescription Save branded workout story images to Photos." "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string Select and share Progression Lab workout images." "$PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryUsageDescription Select and share Progression Lab workout images." "$PLIST"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          project = Path('ios/Runner.xcodeproj/project.pbxproj')
+          text = project.read_text()
+          text = text.replace('com.h4cks1lv3r.progressionLab', 'com.h4cks1lv3r.progressionlab')
+          text = re.sub(r'IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;', 'IPHONEOS_DEPLOYMENT_TARGET = 13.0;', text)
+          project.write_text(text)
+
+          launch = Path('ios/Runner/Base.lproj/LaunchScreen.storyboard')
+          text = launch.read_text()
+          text = re.sub(
+              r'<color key="backgroundColor"[^>]*/>',
+              '<color key="backgroundColor" red="0.027" green="0.031" blue="0.067" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>',
+              text,
+              count=1,
+          )
+          launch.write_text(text)
+          PY
+
+          ICON_SOURCE="android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png"
+          if [[ -f "$ICON_SOURCE" ]]; then
+            for target in ios/Runner/Assets.xcassets/AppIcon.appiconset/*.png; do
+              width="$(sips -g pixelWidth "$target" | awk '/pixelWidth/ {print $2}')"
+              height="$(sips -g pixelHeight "$target" | awk '/pixelHeight/ {print $2}')"
+              sips -z "$height" "$width" "$ICON_SOURCE" --out "$target" >/dev/null
+            done
+            for target in ios/Runner/Assets.xcassets/LaunchImage.imageset/*.png; do
+              width="$(sips -g pixelWidth "$target" | awk '/pixelWidth/ {print $2}')"
+              height="$(sips -g pixelHeight "$target" | awk '/pixelHeight/ {print $2}')"
+              sips -z "$height" "$width" "$ICON_SOURCE" --out "$target" >/dev/null
+            done
+          fi
+
+          plutil -lint "$PLIST"
+
+      - name: Commit generated iOS platform source
+        if: steps.source.outputs.needed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- ios
+          if git diff --cached --quiet; then
+            echo "No iOS source changes to publish."
+            exit 0
+          fi
+          git commit -m "Add generated iOS platform project"
+          git push origin HEAD:agent/athletic-functional-brand
