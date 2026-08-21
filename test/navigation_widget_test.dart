@@ -176,7 +176,7 @@ void main() {
     expect(store.logs.single.notes, 'Paused reps');
   });
 
-  testWidgets('exercise library searches built-ins and custom exercises', (
+  testWidgets('exercise library searches the expanded built-in catalog', (
     tester,
   ) async {
     usePhoneSurface(tester, size: const Size(1080, 1920));
@@ -195,11 +195,9 @@ void main() {
     await tester.pump();
     expect(find.text('Barbell Bench Press'), findsWidgets);
 
-    await store.addCustomExercise('Researcher Offset Row');
-    await tester.enterText(search, 'Researcher Offset Row');
+    await tester.enterText(search, 'Captain’s Chair Leg Lift');
     await tester.pump();
-    expect(find.text('Researcher Offset Row'), findsWidgets);
-    expect(store.customExercises.single.name, 'Researcher Offset Row');
+    expect(find.text('Captain’s Chair Leg Lift'), findsWidgets);
   });
 
   testWidgets('Athletic training opens the current coached session', (
