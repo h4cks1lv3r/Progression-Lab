@@ -1,0 +1,75 @@
+name: Complete Backlog Patch History
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - agent/daily-inputs-gemini-lab
+
+permissions:
+  contents: read
+
+jobs:
+  history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: agent/daily-inputs-gemini-lab
+          fetch-depth: 0
+
+      - name: Export historical patch blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/backlog-patch-history/blobs
+          git log --all --date=iso-strict --format='%H %ad %an %s' -- \
+            'tool/complete-backlog.patch.part*' \
+            > /tmp/backlog-patch-history/history.txt
+          git log --all --raw --date=iso-strict --format='COMMIT %H %ad %s' -- \
+            'tool/complete-backlog.patch.part*' \
+            > /tmp/backlog-patch-history/raw-history.txt
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          output = Path('/tmp/backlog-patch-history/blobs')
+          paths = subprocess.check_output(
+              ['git', 'ls-files', 'tool/complete-backlog.patch.part*'],
+              text=True,
+          ).splitlines()
+          commits = subprocess.check_output(
+              ['git', 'rev-list', '--all', '--', *paths],
+              text=True,
+          ).splitlines()
+
+          index = []
+          for commit in commits:
+              for path in paths:
+                  result = subprocess.run(
+                      ['git', 'show', f'{commit}:{path}'],
+                      capture_output=True,
+                  )
+                  if result.returncode != 0:
+                      continue
+                  safe = path.replace('/', '__')
+                  target = output / f'{commit}__{safe}'
+                  target.write_bytes(result.stdout)
+                  index.append(f'{commit}\t{path}\t{len(result.stdout)}\t{target.name}')
+          Path('/tmp/backlog-patch-history/blob-index.tsv').write_text(
+              '\n'.join(index) + ('\n' if index else '')
+          )
+          PY
+
+          tar -C /tmp -czf /tmp/backlog-patch-history.tgz backlog-patch-history
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: complete-backlog-patch-history-${{ github.sha }}
+          path: /tmp/backlog-patch-history.tgz
+          retention-days: 3
