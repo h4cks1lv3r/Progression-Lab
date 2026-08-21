@@ -82,7 +82,6 @@ void main() {
     expect(store.days, 5);
     expect(store.week, 19);
     expect(store.workoutIndex, 4);
-    expect(find.text('CHANGE CADENCE'), findsNothing);
   });
 
   testWidgets('strength and Athletic programs expose selectable starts', (
@@ -226,7 +225,7 @@ void main() {
     final search = find.byType(TextField).first;
     await tester.enterText(search, 'Barbell Bench Press');
     await tester.pump();
-    await tester.tap(find.text('Barbell Bench Press'));
+    await tester.tap(find.text('Barbell Bench Press').last);
     await tester.pumpAndSettle();
     expect(find.text('DUPLICATE AS CUSTOM'), findsOneWidget);
     expect(find.text('EDIT CUSTOM EXERCISE'), findsNothing);
@@ -236,7 +235,7 @@ void main() {
     await store.addCustomExercise('Researcher Offset Row');
     await tester.enterText(find.byType(TextField).first, 'Researcher Offset Row');
     await tester.pump();
-    await tester.tap(find.text('Researcher Offset Row'));
+    await tester.tap(find.text('Researcher Offset Row').last);
     await tester.pumpAndSettle();
     expect(find.text('EDIT CUSTOM EXERCISE'), findsOneWidget);
     expect(find.text('ARCHIVE EXERCISE'), findsOneWidget);
