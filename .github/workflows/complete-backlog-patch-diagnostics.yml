@@ -15,57 +15,116 @@ permissions:
 jobs:
   diagnostics:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
         with:
           ref: agent/daily-inputs-gemini-lab
 
-      - name: Decode available patch payloads
+      - name: Decode and repair the complete-backlog payload
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p /tmp/patch-diagnostics
           python3 - <<'PY'
+          from __future__ import annotations
+
           import base64
           import gzip
+          import hashlib
           import json
           from pathlib import Path
 
           root = Path('tool')
           output = Path('/tmp/patch-diagnostics')
-          candidates = {
-              'canonical-part00': [root / 'complete-backlog.patch.part00'],
-              'group00-split': sorted(root.glob('complete-backlog.patch.part00[a-z]')),
-              'group01-split': sorted(root.glob('complete-backlog.patch.part01[a-z]')),
-              'group02-split': sorted(root.glob('complete-backlog.patch.part02[a-z]')),
-              'part03': [root / 'complete-backlog.patch.part03'],
+          expected = 'b2c07b2a83c1e83419fb78356626b9ad49da4559dd202308e804f47b87961e3d'
+
+          def compact(paths: list[Path]) -> str:
+              return ''.join(''.join(path.read_text().split()) for path in paths)
+
+          group00_paths = sorted(root.glob('complete-backlog.patch.part00[a-z]'))
+          group01_paths = sorted(root.glob('complete-backlog.patch.part01[a-z]'))
+          group02_paths = sorted(root.glob('complete-backlog.patch.part02[a-z]'))
+          group03_paths = [root / 'complete-backlog.patch.part03']
+
+          group00 = compact(group00_paths)
+          tail = b''.join(
+              base64.b64decode(compact(paths), validate=True)
+              for paths in (group01_paths, group02_paths, group03_paths)
+          )
+
+          report = {
+              'expected_sha256': expected,
+              'group00_chars': len(group00),
+              'group00_mod4': len(group00) % 4,
+              'group00_files': [str(path) for path in group00_paths],
+              'tail_bytes': len(tail),
           }
-          report = {}
-          for name, paths in candidates.items():
-              compact = ''.join(''.join(path.read_text().split()) for path in paths)
-              entry = {
-                  'files': [str(path) for path in paths],
-                  'chars': len(compact),
-                  'mod4': len(compact) % 4,
-                  'prefix': compact[:16],
-                  'suffix': compact[-16:],
-              }
+
+          # The second split file is one character longer than the intended
+          # 9,000-character chunks. Test its two boundaries first, then every
+          # position in that file. The expected compressed SHA makes recovery
+          # deterministic rather than heuristic.
+          prefix_len = len(''.join(group00_paths[0].read_text().split()))
+          suspect = ''.join(group00_paths[1].read_text().split())
+          candidate_positions = [0, len(suspect) - 1]
+          candidate_positions.extend(
+              index for index in range(1, len(suspect) - 1)
+          )
+
+          recovered = None
+          for local_index in candidate_positions:
+              global_index = prefix_len + local_index
+              repaired_text = group00[:global_index] + group00[global_index + 1:]
               try:
-                  decoded = base64.b64decode(compact, validate=True)
-                  entry['decoded_bytes'] = len(decoded)
-                  (output / f'{name}.decoded.bin').write_bytes(decoded)
-                  try:
-                      patch = gzip.decompress(decoded)
-                      entry['gzip_ok'] = True
-                      entry['patch_bytes'] = len(patch)
-                      (output / f'{name}.patch').write_bytes(patch)
-                  except Exception as exc:
-                      entry['gzip_ok'] = False
-                      entry['gzip_error'] = repr(exc)
-              except Exception as exc:
-                  entry['decode_error'] = repr(exc)
-              report[name] = entry
+                  head = base64.b64decode(repaired_text, validate=True)
+              except Exception:
+                  continue
+              compressed = head + tail
+              digest = hashlib.sha256(compressed).hexdigest()
+              if digest != expected:
+                  continue
+              try:
+                  patch = gzip.decompress(compressed)
+              except Exception:
+                  continue
+              recovered = {
+                  'local_index': local_index,
+                  'global_index': global_index,
+                  'removed_character': group00[global_index],
+                  'compressed': compressed,
+                  'patch': patch,
+                  'sha256': digest,
+              }
+              break
+
+          if recovered is None:
+              # Preserve the useful decoded pieces for offline inspection.
+              (output / 'group01.decoded.bin').write_bytes(
+                  base64.b64decode(compact(group01_paths), validate=True)
+              )
+              (output / 'group02.decoded.bin').write_bytes(
+                  base64.b64decode(compact(group02_paths), validate=True)
+              )
+              (output / 'group03.decoded.bin').write_bytes(
+                  base64.b64decode(compact(group03_paths), validate=True)
+              )
+              report['recovered'] = False
+              (output / 'report.json').write_text(json.dumps(report, indent=2))
+              print(json.dumps(report, indent=2))
+              raise SystemExit('Could not recover the expected compressed payload.')
+
+          report.update({
+              'recovered': True,
+              'removed_local_index': recovered['local_index'],
+              'removed_global_index': recovered['global_index'],
+              'removed_character': recovered['removed_character'],
+              'compressed_bytes': len(recovered['compressed']),
+              'patch_bytes': len(recovered['patch']),
+              'actual_sha256': recovered['sha256'],
+          })
+          (output / 'complete-backlog.patch.gz').write_bytes(recovered['compressed'])
+          (output / 'complete-backlog.patch').write_bytes(recovered['patch'])
           (output / 'report.json').write_text(json.dumps(report, indent=2))
           print(json.dumps(report, indent=2))
           PY
