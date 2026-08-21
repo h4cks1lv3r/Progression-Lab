@@ -1,0 +1,66 @@
+name: Materialized Source Snapshot
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/daily-inputs-gemini-lab
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Materialize application source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat tool/functional-brand.patch.part* | base64 --decode > /tmp/progression-target.patch.gz
+          echo "5c8c28f177916585a53b8557b239a3b99c654b84efd44efa491e7284e33ec976  /tmp/progression-target.patch.gz" | sha256sum --check --strict
+          gzip -dc /tmp/progression-target.patch.gz > /tmp/progression-target.patch
+          git apply /tmp/progression-target.patch
+          git apply tool/analyzer-fixes.patch
+          git apply tool/labpanel-material.patch
+          git apply tool/athletic-test-scroll.patch
+          git apply tool/launch-background-fix.patch
+          cat tool/high-priority.patch.part* | base64 --decode > /tmp/high-priority.patch.gz
+          echo "b4bdddd6d556681632c01e3bd60c9771cf316bbdd4841d2e1dc8e616e7a6711d  /tmp/high-priority.patch.gz" | sha256sum --check --strict
+          gzip -dc /tmp/high-priority.patch.gz > /tmp/high-priority.patch
+          git apply /tmp/high-priority.patch
+          git apply tool/high-priority-fixes.patch
+          git apply --exclude=lib/brand.dart tool/route-typography-fix.patch
+          git apply tool/brand-route-material.patch
+          cat tool/daily-inputs-gemini-lab.patch.part00 tool/daily-inputs-gemini-lab.patch.part01 tool/daily-inputs-gemini-lab.patch.part02 tool/daily-inputs-gemini-lab.patch.part03 tool/daily-inputs-gemini-lab.patch.part04 tool/daily-inputs-gemini-lab.patch.part05a tool/daily-inputs-gemini-lab.patch.part05b tool/daily-inputs-gemini-lab.patch.part06 tool/daily-inputs-gemini-lab.patch.part07 | base64 --decode > /tmp/daily-inputs-gemini-lab.patch.gz
+          echo "bc8de05195ef3ad7a4e06081dc1bd73350a98648f0576594dbc92095f4bd5a91  /tmp/daily-inputs-gemini-lab.patch.gz" | sha256sum --check --strict
+          gzip -dc /tmp/daily-inputs-gemini-lab.patch.gz > /tmp/daily-inputs-gemini-lab.patch
+          git apply /tmp/daily-inputs-gemini-lab.patch
+          git apply tool/gemini-minsdk.patch
+          git apply tool/daily-inputs-analyzer-fixes.patch
+          git apply tool/daily-inputs-test-fixes.patch
+          git apply tool/daily-inputs-test-fixes-2.patch
+          git apply tool/widget-test-viewport.patch
+          cat tool/automatic-warmups-safe-sheets.patch.part* | base64 --decode > /tmp/automatic-warmups-safe-sheets.patch.gz
+          echo "4f4aa1424038b36b00fb220e73b92210b7ee9dcc1ba811b1e53b91eb39bd8d16  /tmp/automatic-warmups-safe-sheets.patch.gz" | sha256sum --check --strict
+          gzip -dc /tmp/automatic-warmups-safe-sheets.patch.gz > /tmp/automatic-warmups-safe-sheets.patch
+          git apply /tmp/automatic-warmups-safe-sheets.patch
+          cat tool/program-start-position.patch.part* | base64 --decode > /tmp/program-start-position.patch.gz
+          echo "d1358eb924d40b046e557c5470a7e506e4fb9d940329a3dc769ee8cc49ef4ccc  /tmp/program-start-position.patch.gz" | sha256sum --check --strict
+          gzip -dc /tmp/program-start-position.patch.gz > /tmp/program-start-position.patch
+          git apply /tmp/program-start-position.patch
+
+      - name: Package source
+        shell: bash
+        run: |
+          rm -rf .git build .dart_tool
+          tar -czf /tmp/Progression-Lab-1.9.0-materialized-source.tgz .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Progression-Lab-1.9.0-materialized-source
+          path: /tmp/Progression-Lab-1.9.0-materialized-source.tgz
+          retention-days: 2
