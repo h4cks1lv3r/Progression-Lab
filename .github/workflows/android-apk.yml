@@ -86,8 +86,16 @@ jobs:
           git apply --check /tmp/program-start-position.patch
           git apply /tmp/program-start-position.patch
           cat \
-            tool/complete-backlog.patch.part00 \
-            tool/complete-backlog.patch.part01 \
+            tool/complete-backlog.patch.part00a \
+            tool/complete-backlog.patch.part00b \
+            tool/complete-backlog.patch.part00c \
+            tool/complete-backlog.patch.part00d \
+            tool/complete-backlog.patch.part00e \
+            tool/complete-backlog.patch.part01a \
+            tool/complete-backlog.patch.part01b \
+            tool/complete-backlog.patch.part01c \
+            tool/complete-backlog.patch.part01d \
+            tool/complete-backlog.patch.part01e \
             tool/complete-backlog.patch.part02a \
             tool/complete-backlog.patch.part02b \
             tool/complete-backlog.patch.part02c \
