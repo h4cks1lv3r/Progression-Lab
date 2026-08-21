@@ -1,0 +1,123 @@
+name: Progression Lab 2.1 Main Finalizer
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  finalize-main:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Include the validated integration branch when still outstanding
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin feature/external-integrations-and-followups >/dev/null 2>&1; then
+            git fetch origin feature/external-integrations-and-followups
+            if ! git merge-base --is-ancestor origin/feature/external-integrations-and-followups HEAD; then
+              git merge --no-edit origin/feature/external-integrations-and-followups
+            fi
+          fi
+          test -f lib/integrations_hub.dart
+          test -f lib/health_sync.dart
+          test -f lib/external_activity.dart
+          test -f lib/cloud_backup_sync.dart
+          test -f lib/personal_experiments.dart
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Validate the merged application
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          dart format lib test
+          flutter analyze --no-fatal-infos
+          flutter test --reporter expanded
+          flutter build apk --release --build-name 2.1.0 --build-number 14
+
+      - name: Normalize version and remove temporary implementation workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          pubspec = Path('pubspec.yaml')
+          pubspec.write_text(
+              re.sub(
+                  r'^version:\s*\S+',
+                  'version: 2.1.0+14',
+                  pubspec.read_text(),
+                  count=1,
+                  flags=re.M,
+              )
+          )
+          gradle = Path('android/app/build.gradle.kts')
+          text = gradle.read_text()
+          text = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 14', text)
+          text = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "2.1.0"', text)
+          gradle.write_text(text)
+          PY
+          rm -f \
+            .github/workflows/implement-remaining-integrations.yml \
+            .github/workflows/finalize-external-integrations.yml \
+            .github/workflows/validate-ios-and-merge-main.yml \
+            .github/workflows/sync-main-into-feature.yml \
+            .github/workflows/update-2-1-docs.yml \
+            .github/workflows/release-gate-2-1.yml \
+            .github/workflows/post-merge-2-1-finalizer.yml
+
+      - name: Commit clean validated main source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Finalize clean Progression Lab 2.1 main source"
+          fi
+          git push origin HEAD:main
+
+      - name: Prepare APK artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk dist/Progression-Lab-2.1.0.apk
+          (cd dist && sha256sum Progression-Lab-2.1.0.apk > Progression-Lab-2.1.0.apk.sha256)
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Progression-Lab-2.1.0-build-14
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
