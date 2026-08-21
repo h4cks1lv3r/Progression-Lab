@@ -54,9 +54,6 @@ jobs:
           )
           group3 = read('complete-backlog.patch.part03')
 
-          # Three one-character transport errors were isolated against the
-          # original gzip checksum, uncompressed CRC, and git-apply result.
-          # Repair those errors deterministically before decoding.
           if group0[11102] != 'p':
               raise SystemExit(f'Unexpected group-0 character at 11102: {group0[11102]!r}')
           group0 = group0[:11102] + 'P' + group0[11103:]
@@ -77,11 +74,8 @@ jobs:
               raise SystemExit(f'Complete-backlog gzip checksum mismatch: {digest}')
 
           patch = gzip.decompress(compressed)
-          expected_length = 562260
-          if len(patch) != expected_length:
-              raise SystemExit(
-                  f'Complete-backlog patch length mismatch: {len(patch)} != {expected_length}'
-              )
+          if len(patch) != 562260:
+              raise SystemExit(f'Complete-backlog patch length mismatch: {len(patch)}')
           if not patch.startswith(b'diff --git '):
               raise SystemExit('Recovered payload is not a git patch.')
 
@@ -109,7 +103,6 @@ jobs:
           retention-days: 3
 
       - name: Commit materialized source
-        if: github.event_name == 'push'
         shell: bash
         run: |
           set -euo pipefail
