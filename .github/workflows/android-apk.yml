@@ -69,7 +69,11 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          flutter test --reporter expanded 2>&1 | tee test-results.txt
+          for test_file in test/*_test.dart; do
+            echo "=== Running ${test_file} ==="
+            timeout --signal=INT --kill-after=10s 120s \
+              flutter test "${test_file}" --reporter expanded
+          done 2>&1 | tee test-results.txt
 
       - name: Upload test diagnostics
         if: always()
