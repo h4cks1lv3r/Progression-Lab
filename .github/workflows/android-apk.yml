@@ -17,95 +17,11 @@ jobs:
   build:
     name: Verify and build release APK
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Check out source
         uses: actions/checkout@v5
-
-      - name: Materialize application source
-        shell: bash
-        run: |
-          cat tool/functional-brand.patch.part* | base64 --decode > /tmp/progression-target.patch.gz
-          echo "5c8c28f177916585a53b8557b239a3b99c654b84efd44efa491e7284e33ec976  /tmp/progression-target.patch.gz" | sha256sum --check --strict
-          gzip --decompress --stdout /tmp/progression-target.patch.gz > /tmp/progression-target.patch
-          git apply --check /tmp/progression-target.patch
-          git apply /tmp/progression-target.patch
-          git apply --check tool/analyzer-fixes.patch
-          git apply tool/analyzer-fixes.patch
-          git apply --check tool/labpanel-material.patch
-          git apply tool/labpanel-material.patch
-          git apply --check tool/athletic-test-scroll.patch
-          git apply tool/athletic-test-scroll.patch
-          git apply --check tool/launch-background-fix.patch
-          git apply tool/launch-background-fix.patch
-          cat tool/high-priority.patch.part* | base64 --decode > /tmp/high-priority.patch.gz
-          echo "b4bdddd6d556681632c01e3bd60c9771cf316bbdd4841d2e1dc8e616e7a6711d  /tmp/high-priority.patch.gz" | sha256sum --check --strict
-          gzip --decompress --stdout /tmp/high-priority.patch.gz > /tmp/high-priority.patch
-          git apply --check /tmp/high-priority.patch
-          git apply /tmp/high-priority.patch
-          git apply --check tool/high-priority-fixes.patch
-          git apply tool/high-priority-fixes.patch
-          git apply --check --exclude=lib/brand.dart tool/route-typography-fix.patch
-          git apply --exclude=lib/brand.dart tool/route-typography-fix.patch
-          git apply --check tool/brand-route-material.patch
-          git apply tool/brand-route-material.patch
-          cat \
-            tool/daily-inputs-gemini-lab.patch.part00 \
-            tool/daily-inputs-gemini-lab.patch.part01 \
-            tool/daily-inputs-gemini-lab.patch.part02 \
-            tool/daily-inputs-gemini-lab.patch.part03 \
-            tool/daily-inputs-gemini-lab.patch.part04 \
-            tool/daily-inputs-gemini-lab.patch.part05a \
-            tool/daily-inputs-gemini-lab.patch.part05b \
-            tool/daily-inputs-gemini-lab.patch.part06 \
-            tool/daily-inputs-gemini-lab.patch.part07 \
-            | base64 --decode > /tmp/daily-inputs-gemini-lab.patch.gz
-          echo "bc8de05195ef3ad7a4e06081dc1bd73350a98648f0576594dbc92095f4bd5a91  /tmp/daily-inputs-gemini-lab.patch.gz" | sha256sum --check --strict
-          gzip --decompress --stdout /tmp/daily-inputs-gemini-lab.patch.gz > /tmp/daily-inputs-gemini-lab.patch
-          git apply --check /tmp/daily-inputs-gemini-lab.patch
-          git apply /tmp/daily-inputs-gemini-lab.patch
-          git apply --check tool/gemini-minsdk.patch
-          git apply tool/gemini-minsdk.patch
-          git apply --check tool/daily-inputs-analyzer-fixes.patch
-          git apply tool/daily-inputs-analyzer-fixes.patch
-          git apply --check tool/daily-inputs-test-fixes.patch
-          git apply tool/daily-inputs-test-fixes.patch
-          git apply --check tool/daily-inputs-test-fixes-2.patch
-          git apply tool/daily-inputs-test-fixes-2.patch
-          git apply --check tool/widget-test-viewport.patch
-          git apply tool/widget-test-viewport.patch
-          cat tool/automatic-warmups-safe-sheets.patch.part* | base64 --decode > /tmp/automatic-warmups-safe-sheets.patch.gz
-          echo "4f4aa1424038b36b00fb220e73b92210b7ee9dcc1ba811b1e53b91eb39bd8d16  /tmp/automatic-warmups-safe-sheets.patch.gz" | sha256sum --check --strict
-          gzip --decompress --stdout /tmp/automatic-warmups-safe-sheets.patch.gz > /tmp/automatic-warmups-safe-sheets.patch
-          git apply --check /tmp/automatic-warmups-safe-sheets.patch
-          git apply /tmp/automatic-warmups-safe-sheets.patch
-          cat tool/program-start-position.patch.part* | base64 --decode > /tmp/program-start-position.patch.gz
-          echo "d1358eb924d40b046e557c5470a7e506e4fb9d940329a3dc769ee8cc49ef4ccc  /tmp/program-start-position.patch.gz" | sha256sum --check --strict
-          gzip --decompress --stdout /tmp/program-start-position.patch.gz > /tmp/program-start-position.patch
-          git apply --check /tmp/program-start-position.patch
-          git apply /tmp/program-start-position.patch
-          cat \
-            tool/complete-backlog.patch.part00a \
-            tool/complete-backlog.patch.part00b \
-            tool/complete-backlog.patch.part00c \
-            tool/complete-backlog.patch.part00d \
-            tool/complete-backlog.patch.part00e \
-            tool/complete-backlog.patch.part01a \
-            tool/complete-backlog.patch.part01b \
-            tool/complete-backlog.patch.part01c \
-            tool/complete-backlog.patch.part01d \
-            tool/complete-backlog.patch.part01e \
-            tool/complete-backlog.patch.part02a \
-            tool/complete-backlog.patch.part02b \
-            tool/complete-backlog.patch.part02c \
-            tool/complete-backlog.patch.part02d \
-            tool/complete-backlog.patch.part03 \
-            | base64 --decode > /tmp/complete-backlog.patch.gz
-          echo "b2c07b2a83c1e83419fb78356626b9ad49da4559dd202308e804f47b87961e3d  /tmp/complete-backlog.patch.gz" | sha256sum --check --strict
-          gzip --decompress --stdout /tmp/complete-backlog.patch.gz > /tmp/complete-backlog.patch
-          git apply --check /tmp/complete-backlog.patch
-          git apply /tmp/complete-backlog.patch
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
@@ -141,7 +57,7 @@ jobs:
           name: flutter-analyze-results-${{ github.sha }}
           path: analyze-results.txt
           if-no-files-found: warn
-          retention-days: 2
+          retention-days: 3
 
       - name: Enforce analyzer result
         if: steps.analyze.outcome != 'success'
@@ -162,7 +78,7 @@ jobs:
           name: flutter-test-results-${{ github.sha }}
           path: test-results.txt
           if-no-files-found: warn
-          retention-days: 2
+          retention-days: 3
 
       - name: Enforce test result
         if: steps.tests.outcome != 'success'
@@ -189,6 +105,7 @@ jobs:
       - name: Prepare distributable
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p dist
           apk_name="Progression-Lab-${{ steps.version.outputs.name }}.apk"
           cp build/app/outputs/flutter-apk/app-release.apk "dist/$apk_name"
