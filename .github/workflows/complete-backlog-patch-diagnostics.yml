@@ -1,0 +1,75 @@
+name: Complete Backlog Patch Diagnostics
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/daily-inputs-gemini-lab
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: agent/daily-inputs-gemini-lab
+
+      - name: Decode available patch payloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/patch-diagnostics
+          python3 - <<'PY'
+          import base64
+          import gzip
+          import json
+          from pathlib import Path
+
+          root = Path('tool')
+          output = Path('/tmp/patch-diagnostics')
+          candidates = {
+              'canonical-part00': [root / 'complete-backlog.patch.part00'],
+              'group00-split': sorted(root.glob('complete-backlog.patch.part00[a-z]')),
+              'group01-split': sorted(root.glob('complete-backlog.patch.part01[a-z]')),
+              'group02-split': sorted(root.glob('complete-backlog.patch.part02[a-z]')),
+              'part03': [root / 'complete-backlog.patch.part03'],
+          }
+          report = {}
+          for name, paths in candidates.items():
+              compact = ''.join(''.join(path.read_text().split()) for path in paths)
+              entry = {
+                  'files': [str(path) for path in paths],
+                  'chars': len(compact),
+                  'mod4': len(compact) % 4,
+                  'prefix': compact[:16],
+                  'suffix': compact[-16:],
+              }
+              try:
+                  decoded = base64.b64decode(compact, validate=True)
+                  entry['decoded_bytes'] = len(decoded)
+                  (output / f'{name}.decoded.bin').write_bytes(decoded)
+                  try:
+                      patch = gzip.decompress(decoded)
+                      entry['gzip_ok'] = True
+                      entry['patch_bytes'] = len(patch)
+                      (output / f'{name}.patch').write_bytes(patch)
+                  except Exception as exc:
+                      entry['gzip_ok'] = False
+                      entry['gzip_error'] = repr(exc)
+              except Exception as exc:
+                  entry['decode_error'] = repr(exc)
+              report[name] = entry
+          (output / 'report.json').write_text(json.dumps(report, indent=2))
+          print(json.dumps(report, indent=2))
+          PY
+          tar -C /tmp -czf /tmp/complete-backlog-patch-diagnostics.tgz patch-diagnostics
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: complete-backlog-patch-diagnostics-${{ github.sha }}
+          path: /tmp/complete-backlog-patch-diagnostics.tgz
+          retention-days: 3
