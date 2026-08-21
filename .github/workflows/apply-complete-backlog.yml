@@ -25,30 +25,119 @@ jobs:
           ref: agent/daily-inputs-gemini-lab
           fetch-depth: 0
 
+      - name: Recover the complete backlog patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from __future__ import annotations
+
+          import base64
+          import gzip
+          import hashlib
+          import subprocess
+          from pathlib import Path
+
+          root = Path('tool')
+          groups = {
+              'canonical-part00': [root / 'complete-backlog.patch.part00'],
+              'all-split-parts': [
+                  root / 'complete-backlog.patch.part00a',
+                  root / 'complete-backlog.patch.part00b',
+                  root / 'complete-backlog.patch.part00c',
+                  root / 'complete-backlog.patch.part00d',
+                  root / 'complete-backlog.patch.part00e',
+                  root / 'complete-backlog.patch.part01a',
+                  root / 'complete-backlog.patch.part01b',
+                  root / 'complete-backlog.patch.part01c',
+                  root / 'complete-backlog.patch.part01d',
+                  root / 'complete-backlog.patch.part01e',
+                  root / 'complete-backlog.patch.part02a',
+                  root / 'complete-backlog.patch.part02b',
+                  root / 'complete-backlog.patch.part02c',
+                  root / 'complete-backlog.patch.part02d',
+                  root / 'complete-backlog.patch.part03',
+              ],
+              'canonical-00-plus-later-splits': [
+                  root / 'complete-backlog.patch.part00',
+                  root / 'complete-backlog.patch.part01a',
+                  root / 'complete-backlog.patch.part01b',
+                  root / 'complete-backlog.patch.part01c',
+                  root / 'complete-backlog.patch.part01d',
+                  root / 'complete-backlog.patch.part01e',
+                  root / 'complete-backlog.patch.part02a',
+                  root / 'complete-backlog.patch.part02b',
+                  root / 'complete-backlog.patch.part02c',
+                  root / 'complete-backlog.patch.part02d',
+                  root / 'complete-backlog.patch.part03',
+              ],
+          }
+
+          allowed = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=')
+          expected = 'b2c07b2a83c1e83419fb78356626b9ad49da4559dd202308e804f47b87961e3d'
+          selected: tuple[str, bytes, bytes] | None = None
+
+          for name, paths in groups.items():
+              if not all(path.exists() for path in paths):
+                  print(f'{name}: skipped because at least one file is missing')
+                  continue
+
+              raw = ''.join(path.read_text(encoding='utf-8') for path in paths)
+              compact = ''.join(raw.split())
+              bad = [(index, character) for index, character in enumerate(compact) if character not in allowed]
+              print(
+                  f'{name}: files={len(paths)} chars={len(compact)} mod4={len(compact) % 4} '
+                  f'prefix={compact[:12]!r} suffix={compact[-12:]!r} invalid={bad[:8]}'
+              )
+              if bad:
+                  continue
+
+              try:
+                  compressed = base64.b64decode(compact, validate=True)
+              except Exception as exc:
+                  print(f'{name}: base64 decode failed: {exc}')
+                  continue
+
+              digest = hashlib.sha256(compressed).hexdigest()
+              try:
+                  patch = gzip.decompress(compressed)
+              except Exception as exc:
+                  print(f'{name}: gzip decode failed; sha256={digest}: {exc}')
+                  continue
+
+              Path(f'/tmp/{name}.patch').write_bytes(patch)
+              check = subprocess.run(
+                  ['git', 'apply', '--check', f'/tmp/{name}.patch'],
+                  text=True,
+                  capture_output=True,
+              )
+              print(
+                  f'{name}: compressed={len(compressed)} patch={len(patch)} sha256={digest} '
+                  f'expected={digest == expected} git_apply={check.returncode}'
+              )
+              if check.stdout:
+                  print(check.stdout)
+              if check.stderr:
+                  print(check.stderr)
+
+              if check.returncode == 0 and selected is None:
+                  selected = (name, compressed, patch)
+                  if digest == expected:
+                      break
+
+          if selected is None:
+              raise SystemExit('No complete-backlog candidate decoded and applied cleanly.')
+
+          name, compressed, patch = selected
+          print(f'Selected candidate: {name}')
+          Path('/tmp/complete-backlog.patch.gz').write_bytes(compressed)
+          Path('/tmp/complete-backlog.patch').write_bytes(patch)
+          PY
+
       - name: Apply the complete backlog layer
         shell: bash
         run: |
           set -euo pipefail
-          cat \
-            tool/complete-backlog.patch.part00a \
-            tool/complete-backlog.patch.part00b \
-            tool/complete-backlog.patch.part00c \
-            tool/complete-backlog.patch.part00d \
-            tool/complete-backlog.patch.part00e \
-            tool/complete-backlog.patch.part01a \
-            tool/complete-backlog.patch.part01b \
-            tool/complete-backlog.patch.part01c \
-            tool/complete-backlog.patch.part01d \
-            tool/complete-backlog.patch.part01e \
-            tool/complete-backlog.patch.part02a \
-            tool/complete-backlog.patch.part02b \
-            tool/complete-backlog.patch.part02c \
-            tool/complete-backlog.patch.part02d \
-            tool/complete-backlog.patch.part03 \
-            | base64 --decode > /tmp/complete-backlog.patch.gz
-          echo "b2c07b2a83c1e83419fb78356626b9ad49da4559dd202308e804f47b87961e3d  /tmp/complete-backlog.patch.gz" | sha256sum --check --strict
-          gzip -dc /tmp/complete-backlog.patch.gz > /tmp/complete-backlog.patch
-          git apply --check /tmp/complete-backlog.patch
           git apply /tmp/complete-backlog.patch
 
       - name: Package materialized source
