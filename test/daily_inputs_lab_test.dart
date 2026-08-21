@@ -60,7 +60,7 @@ void main() {
       expect(saved['schemaVersion'], AppStore.schemaVersion);
     });
 
-    test('schema eight migrates additively with AI disabled by default', () async {
+    test('schema eight migrates additively to the current schema with AI disabled by default', () async {
       storedValue = jsonEncode({
         'schemaVersion': 8,
         'days': 4,
@@ -78,7 +78,7 @@ void main() {
       expect(store.aiAnalysisEnabled, isFalse);
       expect(store.labDataDomains, containsAll(LabDataDomain.values));
       final migrated = jsonDecode(storedValue!) as Map<String, dynamic>;
-      expect(migrated['schemaVersion'], 10);
+      expect(migrated['schemaVersion'], AppStore.schemaVersion);
       expect(migrated['aiAnalysisEnabled'], isFalse);
       expect(migrated['labDataDomains'], hasLength(LabDataDomain.values.length));
     });

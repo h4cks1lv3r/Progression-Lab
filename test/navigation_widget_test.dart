@@ -83,7 +83,8 @@ void main() {
     final confirm = find.text('SWITCH TO 5 DAYS');
     await tester.ensureVisible(confirm);
     await tester.tap(confirm);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
 
     expect(store.days, 5);
     expect(store.week, 19);
@@ -246,51 +247,39 @@ void main() {
     expect(store.logs.single.weight, 190);
     expect(store.logs.single.reps, 6);
     expect(store.logs.single.notes, 'Paused reps');
-    expect(find.text('SAVED'), findsOneWidget);
+    expect(find.text('SAVE SET'), findsOneWidget);
   });
 
-  testWidgets('library CRUD is exposed only for custom exercises', (
+  testWidgets('library exposes protected built-ins and editable custom exercises', (
     tester,
   ) async {
     final store = AppStore();
     await tester.pumpWidget(
       MaterialApp(
-        theme: ThemeData(brightness: Brightness.dark, useMaterial3: true),
+        theme: ProgressionBrand.theme(),
         home: ExerciseLibraryScreen(store: store),
       ),
     );
+    await tester.pump();
 
     expect(find.text('Barbell Bench Press'), findsOneWidget);
-    expect(find.byType(PopupMenuButton<String>), findsNothing);
+    expect(find.text('CREATE EXERCISE'), findsOneWidget);
 
-    await tester.tap(find.text('ADD EXERCISE'));
+    await tester.tap(find.text('Barbell Bench Press'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'Belt Squat');
-    await tester.tap(find.text('SAVE'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Belt Squat'), findsOneWidget);
-    expect(find.byType(PopupMenuButton<String>), findsOneWidget);
-
-    await tester.tap(find.byType(PopupMenuButton<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('EDIT'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'Cable Pull-Through');
-    await tester.tap(find.text('SAVE'));
-    await tester.pumpAndSettle();
-    expect(find.text('Cable Pull-Through'), findsOneWidget);
-
-    await tester.tap(find.byType(PopupMenuButton<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('DELETE'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('DELETE').last);
+    expect(find.text('DUPLICATE AS CUSTOM'), findsOneWidget);
+    expect(find.text('EDIT CUSTOM EXERCISE'), findsNothing);
+    Navigator.of(tester.element(find.text('DUPLICATE AS CUSTOM'))).pop();
     await tester.pumpAndSettle();
 
-    expect(find.text('Cable Pull-Through'), findsNothing);
-    expect(store.customExercises.single.isArchived, isTrue);
-    expect(find.text('Barbell Bench Press'), findsOneWidget);
+    await store.addCustomExercise('Researcher Offset Row');
+    await tester.pump();
+    expect(find.text('Researcher Offset Row'), findsOneWidget);
+
+    await tester.tap(find.text('Researcher Offset Row'));
+    await tester.pumpAndSettle();
+    expect(find.text('EDIT CUSTOM EXERCISE'), findsOneWidget);
+    expect(find.text('ARCHIVE EXERCISE'), findsOneWidget);
   });
 
   testWidgets('week browser renders the active cadence workout slots', (

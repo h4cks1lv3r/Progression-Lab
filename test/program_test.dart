@@ -686,18 +686,18 @@ void main() {
       'custom exercises add, rename, soft-delete, and persist separately',
       () async {
         final store = AppStore();
-        final custom = await store.addCustomExercise('  Belt Squat  ');
-        expect(custom.name, 'Belt Squat');
+        final custom = await store.addCustomExercise('  Researcher Offset Row  ');
+        expect(custom.name, 'Researcher Offset Row');
         expect(
           store.selectableExercises.map((item) => item.name),
-          contains('Belt Squat'),
+          contains('Researcher Offset Row'),
         );
 
-        await store.renameCustomExercise(custom.id, 'Cable Pull-Through');
-        expect(store.customExercises.single.name, 'Cable Pull-Through');
+        await store.renameCustomExercise(custom.id, 'Researcher Cable Sweep');
+        expect(store.customExercises.single.name, 'Researcher Cable Sweep');
         store.logs.add(
           SetLog(
-            exercise: 'Cable Pull-Through',
+            exercise: 'Researcher Cable Sweep',
             weight: 30,
             reps: 12,
             date: DateTime(2026, 8, 18),
@@ -709,14 +709,14 @@ void main() {
         expect(store.customExercises.single.isArchived, isTrue);
         expect(
           store.selectableExercises.map((item) => item.name),
-          isNot(contains('Cable Pull-Through')),
+          isNot(contains('Researcher Cable Sweep')),
         );
-        expect(store.logs.single.exercise, 'Cable Pull-Through');
+        expect(store.logs.single.exercise, 'Researcher Cable Sweep');
 
         final restored = AppStore();
         await restored.load();
         expect(restored.customExercises.single.isArchived, isTrue);
-        expect(restored.logs.single.exercise, 'Cable Pull-Through');
+        expect(restored.logs.single.exercise, 'Researcher Cable Sweep');
       },
     );
 
@@ -726,9 +726,9 @@ void main() {
         store.addCustomExercise('barbell bench press'),
         throwsA(isA<ArgumentError>()),
       );
-      await store.addCustomExercise('Belt Squat');
+      await store.addCustomExercise('Researcher Offset Row');
       await expectLater(
-        store.addCustomExercise('BELT SQUAT'),
+        store.addCustomExercise('RESEARCHER OFFSET ROW'),
         throwsA(isA<ArgumentError>()),
       );
       expect(store.customExercises, hasLength(1));
@@ -883,7 +883,7 @@ void main() {
       expect(assessment.notes, 'Same shoes and surface');
     });
 
-    test('schema six migrates additively through program-run schema ten', () async {
+    test('schema six migrates additively through the current schema', () async {
       storedValue = jsonEncode({
         'schemaVersion': 6,
         'days': 4,
@@ -904,7 +904,7 @@ void main() {
       expect(store.athleticSessionIndex, 0);
       expect(store.athleticHistory, isEmpty);
       final migrated = jsonDecode(storedValue!) as Map<String, dynamic>;
-      expect(migrated['schemaVersion'], 10);
+      expect(migrated['schemaVersion'], AppStore.schemaVersion);
       expect(migrated['strengthProgramRun'], 1);
       expect(migrated['athleticProgramRun'], 1);
       expect(migrated['athleticHistory'], isEmpty);
