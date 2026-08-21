@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.0.0+13 — 2026-08-21
+
+### Added
+
+- Unified the previously separate training, Daily Inputs, Lab, and data-portability branches into normal committed Flutter source.
+- Added versioned `.plab` backup and restore, automatic rolling backups, safety backups, validation, and rollback behavior.
+- Added comprehensive CSV export, Strong-compatible export, and Strong, Hevy, FitNotes, portable ZIP, and generic CSV import with preview, mapping, duplicate detection, and undo.
+- Added Exercise Library 2.0 with more than 500 built-in exercises, stable IDs, aliases, muscle/equipment metadata, tracking types, filters, favorites, history-safe custom exercises, and ranked substitutions.
+- Added full Abs/Core coverage, including Captain’s Chair Leg Lift with Captain’s Chair Leg Raise and vertical-knee-raise aliases.
+- Added bodyweight, weighted-bodyweight, assisted-bodyweight, repetitions-only, duration, distance, and combined tracking semantics.
+- Added a branded structured custom-exercise creator with muscle, equipment, movement, unit, progression, and history-safety controls.
+- Added app-wide safe-layout components for screens, sticky actions, bottom sheets, dialogs, and keyboard-aware forms.
+- Added a source-controlled mature, direct, evidence-led product voice with restrained current cultural energy.
+- Added comprehensive portable CSV files for supplements, meals, hydration, recovery, bodyweight, workout responses, Lab preferences, and full custom-exercise metadata.
+- Added catalog, bodyweight, backup, export, system-inset, migration, and unified workflow regression tests.
+
+### Changed
+
+- Advanced local storage to the unified current schema while preserving older Strength and Athletic history as program run 1.
+- Made the committed source tree authoritative; Android and iOS workflows now build it directly without layered source-materialization patches.
+- Standard bodyweight exercises no longer require weight. Weighted and assisted variants use explicit Added Weight and Assistance fields.
+- The exercise picker and substitution system now use canonical exercise identities rather than display names alone.
+- Portable CSV exports exclude private Lab conversation text by default.
+- Updated project documentation for version 2.0.0 and the current Android/iOS build process.
+
+### Corrected
+
+- Kept primary workout actions clear of Android gesture navigation, three-button navigation, the iOS home indicator, display cutouts, and the keyboard.
+- Corrected Captain’s Chair Leg Lift to use bodyweight-repetition tracking and bodyweight equipment metadata.
+- Repaired the consolidated AppStore scope and aligned legacy tests with the current schema and catalog.
+
 ## 1.9.0+12 — 2026-08-20
 
 ### Added
@@ -97,4 +128,4 @@
 - Active workouts are still memory-only; process-death recovery needs the planned database/session rebuild.
 - The working history model still uses SharedPreferences rather than canonical-unit SQLite storage.
 - The primary-lift classifier remains positional and needs normalized slot metadata.
-- Production signing, backup/export/import, target-load automation, substitutions, and diagnostics remain future work.
+- Production signing, target-load automation, direct health-platform sync, and diagnostics remain future work.
