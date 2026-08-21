@@ -7,16 +7,48 @@ export 'exercise_models.dart';
 /// Canonical exercise lookup and discovery logic shared by the library,
 /// workout substitutions, imports, charts, and The Lab.
 abstract final class ExerciseLibrary {
+  static const _captainsChairLegLift = BuiltInExercise(
+    id: 'captains_chair_leg_lift',
+    name: 'Captain’s Chair Leg Lift',
+    primaryMuscle: MuscleGroup.rectusAbdominis,
+    equipment: ExerciseEquipment.bodyweight,
+    movementPattern: MovementPattern.spinalFlexion,
+    trackingType: ExerciseTrackingType.bodyweightReps,
+    aliases: [
+      'Captain’s Chair Leg Raise',
+      'Captain Chair Leg Raise',
+      'Captains Chair Leg Lift',
+      'Vertical Knee Raise Station Leg Raise',
+      'VK Raise',
+      'Roman Chair Leg Raise',
+    ],
+    secondaryMuscles: [MuscleGroup.hipFlexors, MuscleGroup.obliques],
+    notes:
+        'Straight-leg captain’s-chair raise. Log repetitions; use the separate weighted variant for added load.',
+  );
+
+  /// Corrected canonical catalog used by every user-facing lookup. Keeping the
+  /// repair at this boundary also preserves the stable ID from older builds.
+  static final List<BuiltInExercise> _catalog = [
+    for (final exercise in BuiltInExercises.values)
+      if (exercise.id == _captainsChairLegLift.id)
+        _captainsChairLegLift
+      else
+        exercise,
+  ];
+
   static final Map<String, BuiltInExercise> _builtInById = {
-    for (final exercise in BuiltInExercises.values) exercise.id: exercise,
+    for (final exercise in _catalog) exercise.id: exercise,
   };
 
   static final Map<String, BuiltInExercise> _builtInByNormalizedName = {
-    for (final exercise in BuiltInExercises.values) ...{
+    for (final exercise in _catalog) ...{
       normalize(exercise.name): exercise,
       for (final alias in exercise.aliases) normalize(alias): exercise,
     },
   };
+
+  static List<BuiltInExercise> get builtIns => List.unmodifiable(_catalog);
 
   static String normalize(String value) => value
       .trim()
@@ -74,7 +106,7 @@ abstract final class ExerciseLibrary {
     Set<String> favoriteBuiltInIds = const {},
   }) {
     final options = <ExerciseOption>[
-      for (final exercise in BuiltInExercises.values)
+      for (final exercise in _catalog)
         ExerciseOption.builtIn(
           exercise,
           isFavorite: favoriteBuiltInIds.contains(exercise.id),
@@ -108,7 +140,7 @@ abstract final class ExerciseLibrary {
 
     final candidates = <ExerciseOption>[
       if (!customOnly)
-        for (final exercise in BuiltInExercises.values)
+        for (final exercise in _catalog)
           ExerciseOption.builtIn(
             exercise,
             isFavorite: favoriteBuiltInIds.contains(exercise.id),
@@ -215,7 +247,7 @@ abstract final class ExerciseLibrary {
   static void validateCatalog() {
     final ids = <String>{};
     final names = <String>{};
-    for (final exercise in BuiltInExercises.values) {
+    for (final exercise in _catalog) {
       if (exercise.id.trim().isEmpty || !ids.add(exercise.id)) {
         throw StateError('Duplicate or empty built-in exercise ID: ${exercise.id}');
       }
