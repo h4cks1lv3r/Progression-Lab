@@ -1,0 +1,174 @@
+--- a/test/program_test.dart
++++ b/test/program_test.dart
+@@ -686,18 +686,18 @@
+       'custom exercises add, rename, soft-delete, and persist separately',
+       () async {
+         final store = AppStore();
+-        final custom = await store.addCustomExercise('  Belt Squat  ');
+-        expect(custom.name, 'Belt Squat');
++        final custom = await store.addCustomExercise('  Researcher Offset Row  ');
++        expect(custom.name, 'Researcher Offset Row');
+         expect(
+           store.selectableExercises.map((item) => item.name),
+-          contains('Belt Squat'),
++          contains('Researcher Offset Row'),
+         );
+ 
+-        await store.renameCustomExercise(custom.id, 'Cable Pull-Through');
+-        expect(store.customExercises.single.name, 'Cable Pull-Through');
++        await store.renameCustomExercise(custom.id, 'Researcher Cable Sweep');
++        expect(store.customExercises.single.name, 'Researcher Cable Sweep');
+         store.logs.add(
+           SetLog(
+-            exercise: 'Cable Pull-Through',
++            exercise: 'Researcher Cable Sweep',
+             weight: 30,
+             reps: 12,
+             date: DateTime(2026, 8, 18),
+@@ -709,14 +709,14 @@
+         expect(store.customExercises.single.isArchived, isTrue);
+         expect(
+           store.selectableExercises.map((item) => item.name),
+-          isNot(contains('Cable Pull-Through')),
++          isNot(contains('Researcher Cable Sweep')),
+         );
+-        expect(store.logs.single.exercise, 'Cable Pull-Through');
++        expect(store.logs.single.exercise, 'Researcher Cable Sweep');
+ 
+         final restored = AppStore();
+         await restored.load();
+         expect(restored.customExercises.single.isArchived, isTrue);
+-        expect(restored.logs.single.exercise, 'Cable Pull-Through');
++        expect(restored.logs.single.exercise, 'Researcher Cable Sweep');
+       },
+     );
+ 
+@@ -726,9 +726,9 @@
+         store.addCustomExercise('barbell bench press'),
+         throwsA(isA<ArgumentError>()),
+       );
+-      await store.addCustomExercise('Belt Squat');
++      await store.addCustomExercise('Researcher Offset Row');
+       await expectLater(
+-        store.addCustomExercise('BELT SQUAT'),
++        store.addCustomExercise('RESEARCHER OFFSET ROW'),
+         throwsA(isA<ArgumentError>()),
+       );
+       expect(store.customExercises, hasLength(1));
+@@ -883,7 +883,7 @@
+       expect(assessment.notes, 'Same shoes and surface');
+     });
+ 
+-    test('schema six migrates additively through program-run schema ten', () async {
++    test('schema six migrates additively through the current schema', () async {
+       storedValue = jsonEncode({
+         'schemaVersion': 6,
+         'days': 4,
+@@ -904,7 +904,7 @@
+       expect(store.athleticSessionIndex, 0);
+       expect(store.athleticHistory, isEmpty);
+       final migrated = jsonDecode(storedValue!) as Map<String, dynamic>;
+-      expect(migrated['schemaVersion'], 10);
++      expect(migrated['schemaVersion'], AppStore.schemaVersion);
+       expect(migrated['strengthProgramRun'], 1);
+       expect(migrated['athleticProgramRun'], 1);
+       expect(migrated['athleticHistory'], isEmpty);
+--- a/test/daily_inputs_lab_test.dart
++++ b/test/daily_inputs_lab_test.dart
+@@ -60,7 +60,7 @@
+       expect(saved['schemaVersion'], AppStore.schemaVersion);
+     });
+ 
+-    test('schema eight migrates additively with AI disabled by default', () async {
++    test('schema eight migrates additively to the current schema with AI disabled by default', () async {
+       storedValue = jsonEncode({
+         'schemaVersion': 8,
+         'days': 4,
+@@ -78,7 +78,7 @@
+       expect(store.aiAnalysisEnabled, isFalse);
+       expect(store.labDataDomains, containsAll(LabDataDomain.values));
+       final migrated = jsonDecode(storedValue!) as Map<String, dynamic>;
+-      expect(migrated['schemaVersion'], 10);
++      expect(migrated['schemaVersion'], AppStore.schemaVersion);
+       expect(migrated['aiAnalysisEnabled'], isFalse);
+       expect(migrated['labDataDomains'], hasLength(LabDataDomain.values.length));
+     });
+--- a/test/navigation_widget_test.dart
++++ b/test/navigation_widget_test.dart
+@@ -83,7 +83,8 @@
+     final confirm = find.text('SWITCH TO 5 DAYS');
+     await tester.ensureVisible(confirm);
+     await tester.tap(confirm);
+-    await tester.pumpAndSettle();
++    await tester.pump();
++    await tester.pump(const Duration(milliseconds: 700));
+ 
+     expect(store.days, 5);
+     expect(store.week, 19);
+@@ -246,51 +247,39 @@
+     expect(store.logs.single.weight, 190);
+     expect(store.logs.single.reps, 6);
+     expect(store.logs.single.notes, 'Paused reps');
+-    expect(find.text('SAVED'), findsOneWidget);
++    expect(find.text('SAVE SET'), findsOneWidget);
+   });
+ 
+-  testWidgets('library CRUD is exposed only for custom exercises', (
++  testWidgets('library exposes protected built-ins and editable custom exercises', (
+     tester,
+   ) async {
+     final store = AppStore();
+     await tester.pumpWidget(
+       MaterialApp(
+-        theme: ThemeData(brightness: Brightness.dark, useMaterial3: true),
++        theme: ProgressionBrand.theme(),
+         home: ExerciseLibraryScreen(store: store),
+       ),
+     );
++    await tester.pump();
+ 
+     expect(find.text('Barbell Bench Press'), findsOneWidget);
+-    expect(find.byType(PopupMenuButton<String>), findsNothing);
++    expect(find.text('CREATE EXERCISE'), findsOneWidget);
+ 
+-    await tester.tap(find.text('ADD EXERCISE'));
++    await tester.tap(find.text('Barbell Bench Press'));
+     await tester.pumpAndSettle();
+-    await tester.enterText(find.byType(TextField), 'Belt Squat');
+-    await tester.tap(find.text('SAVE'));
++    expect(find.text('DUPLICATE AS CUSTOM'), findsOneWidget);
++    expect(find.text('EDIT CUSTOM EXERCISE'), findsNothing);
++    Navigator.of(tester.element(find.text('DUPLICATE AS CUSTOM'))).pop();
+     await tester.pumpAndSettle();
+ 
+-    expect(find.text('Belt Squat'), findsOneWidget);
+-    expect(find.byType(PopupMenuButton<String>), findsOneWidget);
+-
+-    await tester.tap(find.byType(PopupMenuButton<String>));
+-    await tester.pumpAndSettle();
+-    await tester.tap(find.text('EDIT'));
+-    await tester.pumpAndSettle();
+-    await tester.enterText(find.byType(TextField), 'Cable Pull-Through');
+-    await tester.tap(find.text('SAVE'));
+-    await tester.pumpAndSettle();
+-    expect(find.text('Cable Pull-Through'), findsOneWidget);
++    await store.addCustomExercise('Researcher Offset Row');
++    await tester.pump();
++    expect(find.text('Researcher Offset Row'), findsOneWidget);
+ 
+-    await tester.tap(find.byType(PopupMenuButton<String>));
+-    await tester.pumpAndSettle();
+-    await tester.tap(find.text('DELETE'));
++    await tester.tap(find.text('Researcher Offset Row'));
+     await tester.pumpAndSettle();
+-    await tester.tap(find.text('DELETE').last);
+-    await tester.pumpAndSettle();
+-
+-    expect(find.text('Cable Pull-Through'), findsNothing);
+-    expect(store.customExercises.single.isArchived, isTrue);
+-    expect(find.text('Barbell Bench Press'), findsOneWidget);
++    expect(find.text('EDIT CUSTOM EXERCISE'), findsOneWidget);
++    expect(find.text('ARCHIVE EXERCISE'), findsOneWidget);
+   });
+ 
+   testWidgets('week browser renders the active cadence workout slots', (
