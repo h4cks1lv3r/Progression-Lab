@@ -1018,6 +1018,10 @@ class AppStore extends ChangeNotifier {
       await save();
     } on Object {
       labDataDomains = previous;
+      notifyListeners();
+      rethrow;
+    }
+  }
 
   DataImportBatch? get lastImportBatch =>
       importHistory.isEmpty ? null : importHistory.last;
