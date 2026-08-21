@@ -73,7 +73,7 @@ class LoggedWorkoutScreen extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           Text(
-            'WEEK ${record.week} • $state • ${_date(record.scheduledDate)}',
+            'RUN ${record.programRun} • WEEK ${record.week} • $state • ${_date(record.scheduledDate)}',
             style: const TextStyle(color: Colors.white60),
           ),
           Text(

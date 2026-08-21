@@ -3,21 +3,29 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'app_tour.dart';
+import 'athletic_program.dart';
+import 'athletic_training.dart';
+import 'brand.dart';
+import 'daily_inputs_screen.dart';
 import 'exercise_library_screen.dart';
+import 'lab_screen.dart';
 import 'logged_sets.dart';
 import 'program.dart';
 import 'program_navigator.dart';
 import 'progress_dashboard.dart';
+import 'share_card.dart';
 import 'store.dart';
+import 'warmup.dart';
 
 void main() => runApp(const ProgressionLabApp());
 
-const ink = Color(0xFF090C10);
-const panel = Color(0xFF121821);
-const lime = Color(0xFFB9FF3B);
-const cyan = Color(0xFF37D7FF);
-const violet = Color(0xFF8B5CF6);
-const muted = Color(0xFF8A97A8);
+const ink = BrandColors.ink;
+const panel = BrandColors.panel;
+const lime = BrandColors.violet;
+const cyan = BrandColors.cyan;
+const violet = BrandColors.purple;
+const muted = BrandColors.muted;
 
 class ProgressionLabApp extends StatefulWidget {
   const ProgressionLabApp({super.key});
@@ -39,82 +47,11 @@ class _ProgressionLabAppState extends State<ProgressionLabApp> {
     builder: (context, _) => MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Progression Lab',
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: ink,
-        colorScheme: const ColorScheme.dark(
-          primary: lime,
-          onPrimary: ink,
-          secondary: cyan,
-          onSecondary: ink,
-          tertiary: violet,
-          surface: panel,
-          onSurface: Color(0xFFF5F7FA),
-          error: Color(0xFFFF5D73),
-        ),
-        fontFamily: 'Roboto',
-        useMaterial3: true,
-        splashFactory: InkSparkle.splashFactory,
-        pageTransitionsTheme: const PageTransitionsTheme(
-          builders: {
-            TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
-          },
-        ),
-        appBarTheme: const AppBarTheme(
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          backgroundColor: Colors.transparent,
-          foregroundColor: Color(0xFFF5F7FA),
-        ),
-        navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: const Color(0xF20D1219),
-          indicatorColor: lime.withValues(alpha: .16),
-          labelTextStyle: WidgetStateProperty.resolveWith(
-            (states) => TextStyle(
-              color: states.contains(WidgetState.selected)
-                  ? Colors.white
-                  : muted,
-              fontSize: 11,
-              fontWeight: states.contains(WidgetState.selected)
-                  ? FontWeight.w800
-                  : FontWeight.w600,
-            ),
-          ),
-        ),
-        navigationRailTheme: NavigationRailThemeData(
-          backgroundColor: const Color(0xFF0D1219),
-          indicatorColor: lime.withValues(alpha: .16),
-          selectedIconTheme: const IconThemeData(color: lime),
-          unselectedIconTheme: const IconThemeData(color: muted),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(48, 52),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            textStyle: const TextStyle(
-              fontWeight: FontWeight.w900,
-              letterSpacing: .5,
-            ),
-          ),
-        ),
-        cardTheme: CardThemeData(
-          color: panel,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-            side: BorderSide(color: Colors.white.withValues(alpha: .06)),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white.withValues(alpha: .055),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide.none,
-          ),
-        ),
+      theme: ProgressionBrand.theme(),
+      builder: (context, child) => Material(
+        type: MaterialType.transparency,
+        textStyle: Theme.of(context).textTheme.bodyMedium,
+        child: child ?? const SizedBox.shrink(),
       ),
       home: Shell(store: store),
     ),
@@ -124,101 +61,291 @@ class _ProgressionLabAppState extends State<ProgressionLabApp> {
 class Shell extends StatefulWidget {
   const Shell({super.key, required this.store});
   final AppStore store;
+
   @override
   State<Shell> createState() => _ShellState();
 }
 
 class _ShellState extends State<Shell> {
-  int index = 0;
+  static const _tourVersion = 1;
 
-  static const _destinations = [
-    NavigationDestination(icon: Icon(Icons.bolt_rounded), label: 'Today'),
-    NavigationDestination(
-      icon: Icon(Icons.view_timeline_rounded),
-      label: 'Program',
+  final _homePrimaryKey = GlobalKey(debugLabel: 'home-primary');
+  final _programsOverviewKey = GlobalKey(debugLabel: 'programs-overview');
+  final _progressNavKey = GlobalKey(debugLabel: 'progress-nav');
+  final _moreNavKey = GlobalKey(debugLabel: 'more-nav');
+  final _helpGuidesKey = GlobalKey(debugLabel: 'help-guides');
+
+  int index = 0;
+  int? _tourStep;
+  bool _autoTourHandled = false;
+
+  List<NavigationDestination> get _destinations => [
+    const NavigationDestination(
+      icon: Icon(Icons.home_rounded),
+      label: 'Home',
+    ),
+    const NavigationDestination(
+      icon: Icon(Icons.dashboard_customize_rounded),
+      label: 'Programs',
     ),
     NavigationDestination(
-      icon: Icon(Icons.query_stats_rounded),
+      icon: KeyedSubtree(
+        key: _progressNavKey,
+        child: const Icon(Icons.query_stats_rounded),
+      ),
       label: 'Progress',
     ),
-    NavigationDestination(icon: Icon(Icons.tune_rounded), label: 'Setup'),
+    NavigationDestination(
+      icon: KeyedSubtree(
+        key: _moreNavKey,
+        child: const Icon(Icons.more_horiz_rounded),
+      ),
+      label: 'More',
+    ),
   ];
+
+  List<AppTourStep> get _tourSteps => [
+    AppTourStep(
+      targetKey: _homePrimaryKey,
+      title: 'Start with the next session',
+      body:
+          'Home keeps one clear action in front of you. Switch between Strength and Athletic only when you need to.',
+    ),
+    AppTourStep(
+      targetKey: _programsOverviewKey,
+      title: 'Both programs live together',
+      body:
+          'Programs contains the 48-week Strength plan and 12-week Athletic plan. Each keeps its own progress.',
+    ),
+    AppTourStep(
+      targetKey: _progressNavKey,
+      title: 'See what is changing',
+      body:
+          'Progress brings together logged sets, records, workout history, charts, and Athletic field assessments.',
+    ),
+    AppTourStep(
+      targetKey: _moreNavKey,
+      title: 'Tools stay out of the way',
+      body:
+          'More contains setup, the exercise library, help, and advanced controls so Home stays focused.',
+    ),
+    AppTourStep(
+      targetKey: _helpGuidesKey,
+      title: 'Replay this tour anytime',
+      body:
+          'Open More → Help & Guides → App Tour whenever you want this walkthrough again.',
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    widget.store.addListener(_maybeStartAutomaticTour);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeStartAutomaticTour();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant Shell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.store != widget.store) {
+      oldWidget.store.removeListener(_maybeStartAutomaticTour);
+      widget.store.addListener(_maybeStartAutomaticTour);
+      _autoTourHandled = false;
+      _maybeStartAutomaticTour();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.store.removeListener(_maybeStartAutomaticTour);
+    super.dispose();
+  }
+
+  void _maybeStartAutomaticTour() {
+    if (!mounted || _autoTourHandled || !widget.store.isLoaded) return;
+    _autoTourHandled = true;
+    if (widget.store.onboardingVersionSeen < _tourVersion) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _startTour();
+      });
+    }
+  }
+
+  void _startTour() {
+    setState(() {
+      index = 0;
+      _tourStep = 0;
+    });
+  }
+
+  void _showTourStep(int step) {
+    final page = switch (step) {
+      0 => 0,
+      1 => 1,
+      2 => 2,
+      _ => 3,
+    };
+    setState(() {
+      index = page;
+      _tourStep = step;
+    });
+  }
+
+  void _nextTourStep() {
+    final current = _tourStep;
+    if (current == null) return;
+    if (current >= _tourSteps.length - 1) {
+      unawaited(_closeTour(skipped: false));
+    } else {
+      _showTourStep(current + 1);
+    }
+  }
+
+  void _previousTourStep() {
+    final current = _tourStep;
+    if (current == null || current == 0) return;
+    _showTourStep(current - 1);
+  }
+
+  Future<void> _closeTour({required bool skipped}) async {
+    setState(() => _tourStep = null);
+    try {
+      await widget.store.markOnboardingSeen(_tourVersion);
+    } on Object {
+      // The tour remains dismissible even if local persistence is unavailable.
+    }
+    if (!mounted || !skipped) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Tour skipped. Replay it from More → Help & Guides.'),
+      ),
+    );
+  }
+
+  void _openStrengthProgram() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProgramNavigatorPage(
+          store: widget.store,
+          onOpenWorkout: _openStrengthWorkout,
+        ),
+      ),
+    );
+  }
+
+  void _openStrengthWorkout(
+    ProgramWeek week,
+    int workoutIndex,
+    bool retroactive,
+  ) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WorkoutScreen(
+          store: widget.store,
+          week: week,
+          workout: week.workouts[workoutIndex],
+          workoutIndex: workoutIndex,
+          retroactive: retroactive,
+          scheduledDate: widget.store.dateForSlot(week.number, workoutIndex),
+        ),
+      ),
+    );
+  }
+
+  void _openAthleticProgram() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AthleticTrainingPage(store: widget.store),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final pages = [
       TodayPage(
         store: widget.store,
-        onOpenProgram: () => setState(() => index = 1),
+        primaryActionKey: _homePrimaryKey,
+        onOpenPrograms: () => setState(() => index = 1),
       ),
-      ProgramNavigatorPage(
+      ProgramsHubPage(
         store: widget.store,
-        onOpenWorkout: (week, workoutIndex, retroactive) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => WorkoutScreen(
-                store: widget.store,
-                week: week,
-                workout: week.workouts[workoutIndex],
-                workoutIndex: workoutIndex,
-                retroactive: retroactive,
-                scheduledDate: widget.store.dateForSlot(
-                  week.number,
-                  workoutIndex,
-                ),
-              ),
-            ),
-          );
-        },
+        overviewKey: _programsOverviewKey,
+        onOpenStrength: _openStrengthProgram,
+        onOpenAthletic: _openAthleticProgram,
       ),
       ProgressDashboard(store: widget.store),
-      SettingsPage(store: widget.store),
+      SettingsPage(
+        store: widget.store,
+        helpGuidesKey: _helpGuidesKey,
+        onReplayTour: _startTour,
+      ),
     ];
-    final body = SafeArea(
-      child: IndexedStack(index: index, children: pages),
+    final body = BrandBackdrop(
+      child: SafeArea(
+        child: IndexedStack(index: index, children: pages),
+      ),
     );
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 760;
-        if (!wide) {
-          return Scaffold(
-            body: body,
-            bottomNavigationBar: NavigationBar(
-              selectedIndex: index,
-              onDestinationSelected: (value) => setState(() => index = value),
-              destinations: _destinations,
-            ),
-          );
-        }
-        return Scaffold(
-          body: Row(
-            children: [
-              SafeArea(
-                child: NavigationRail(
+        final destinations = _destinations;
+        final scaffold = wide
+            ? Scaffold(
+                body: Row(
+                  children: [
+                    SafeArea(
+                      child: NavigationRail(
+                        selectedIndex: index,
+                        onDestinationSelected: (value) =>
+                            setState(() => index = value),
+                        labelType: NavigationRailLabelType.all,
+                        leading: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 18),
+                          child: _Mark(),
+                        ),
+                        destinations: destinations
+                            .map(
+                              (destination) => NavigationRailDestination(
+                                icon: destination.icon,
+                                selectedIcon: destination.selectedIcon,
+                                label: Text(destination.label),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ),
+                    const VerticalDivider(width: 1, color: Colors.white10),
+                    Expanded(child: body),
+                  ],
+                ),
+              )
+            : Scaffold(
+                body: body,
+                bottomNavigationBar: NavigationBar(
                   selectedIndex: index,
                   onDestinationSelected: (value) =>
                       setState(() => index = value),
-                  labelType: NavigationRailLabelType.all,
-                  leading: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 18),
-                    child: _Mark(),
-                  ),
-                  destinations: _destinations
-                      .map(
-                        (destination) => NavigationRailDestination(
-                          icon: destination.icon,
-                          selectedIcon: destination.selectedIcon,
-                          label: Text(destination.label),
-                        ),
-                      )
-                      .toList(),
+                  destinations: destinations,
                 ),
+              );
+        return Stack(
+          children: [
+            scaffold,
+            if (_tourStep case final int step)
+              AppTourOverlay(
+                steps: _tourSteps,
+                stepIndex: step,
+                onNext: _nextTourStep,
+                onBack: step == 0 ? null : _previousTourStep,
+                onSkip: () => unawaited(_closeTour(skipped: true)),
               ),
-              const VerticalDivider(width: 1, color: Colors.white10),
-              Expanded(child: body),
-            ],
-          ),
+          ],
         );
       },
     );
@@ -229,17 +356,40 @@ class TodayPage extends StatelessWidget {
   const TodayPage({
     super.key,
     required this.store,
-    required this.onOpenProgram,
+    required this.primaryActionKey,
+    required this.onOpenPrograms,
   });
+
   final AppStore store;
-  final VoidCallback onOpenProgram;
+  final GlobalKey primaryActionKey;
+  final VoidCallback onOpenPrograms;
+
   @override
   Widget build(BuildContext context) {
-    final week = ProgramEngine.week(store.week, store.days);
-    final workout =
-        week.workouts[store.workoutIndex
-            .clamp(0, week.workouts.length - 1)
+    final strengthWeek = ProgramEngine.week(store.week, store.days);
+    final strengthWorkout =
+        strengthWeek.workouts[store.workoutIndex
+            .clamp(0, strengthWeek.workouts.length - 1)
             .toInt()];
+    final athleticWeek = AthleticProgram.week(store.athleticWeek);
+    final athleticSession = athleticWeek.sessions[store.athleticSessionIndex];
+    final strengthDoneThisWeek = store.workoutHistory
+        .where(
+          (record) =>
+              record.programRun == store.strengthProgramRun &&
+              record.week == store.week &&
+              record.days == store.days &&
+              record.status == WorkoutStatus.completed,
+        )
+        .length;
+    final athleticDoneThisWeek = store.athleticHistory
+        .where(
+          (record) =>
+              record.programRun == store.athleticProgramRun &&
+              record.week == store.athleticWeek,
+        )
+        .length;
+
     return CustomScrollView(
       slivers: [
         SliverPadding(
@@ -253,70 +403,25 @@ class TodayPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      BrandWordmark(compact: true),
+                      SizedBox(height: 4),
                       Text(
-                        'PROGRESSION LAB',
+                        'TEST · TRAIN · TRANSFORM',
                         style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.8,
-                          fontSize: 18,
-                        ),
-                      ),
-                      Text(
-                        'TRAIN WITH INTENT',
-                        style: TextStyle(
-                          color: Colors.white54,
-                          fontSize: 11,
-                          letterSpacing: 1.4,
+                          color: BrandColors.muted,
+                          fontSize: 9,
+                          letterSpacing: 1.35,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],
                   ),
                 ),
-                Tooltip(
-                  message: 'Change training cadence',
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(14),
-                    onTap: () => showCadenceSwitchSheet(context, store),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 11,
-                        vertical: 9,
-                      ),
-                      decoration: BoxDecoration(
-                        color: cyan.withValues(alpha: .09),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: cyan.withValues(alpha: .22)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '${store.days}D',
-                            style: const TextStyle(
-                              color: cyan,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(width: 3),
-                          const Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            color: cyan,
-                            size: 18,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
                 IconButton(
-                  tooltip: 'Open cycle navigator',
-                  onPressed: onOpenProgram,
-                  icon: const Icon(Icons.hub_rounded),
-                ),
-                IconButton(
+                  tooltip: 'Quick help',
                   onPressed: () => showModalBottomSheet(
                     context: context,
-                    showDragHandle: true,
+                    useSafeArea: true,
                     builder: (_) => const _QuickHelp(),
                   ),
                   icon: const Icon(Icons.help_outline_rounded),
@@ -326,101 +431,127 @@ class TodayPage extends StatelessWidget {
           ),
         ),
         SliverPadding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           sliver: SliverList.list(
             children: [
-              Row(
-                children: [
-                  _Pill('WEEK ${store.week}', lime),
-                  const SizedBox(width: 8),
-                  _Pill('PHASE ${week.phase}', cyan),
-                  const SizedBox(width: 8),
-                  _Pill('MC ${week.microcycle}', Colors.white70),
+              const BrandSectionLabel('Next session'),
+              const SizedBox(height: 14),
+              SegmentedButton<TrainingTrack>(
+                segments: const [
+                  ButtonSegment(
+                    value: TrainingTrack.strength,
+                    icon: Icon(Icons.fitness_center_rounded),
+                    label: Text('STRENGTH'),
+                  ),
+                  ButtonSegment(
+                    value: TrainingTrack.athletic,
+                    icon: Icon(Icons.directions_run_rounded),
+                    label: Text('ATHLETIC'),
+                  ),
                 ],
+                selected: {store.preferredTrack},
+                onSelectionChanged: (selection) {
+                  unawaited(
+                    store
+                        .setPreferredTrack(selection.first)
+                        .catchError((Object _) {}),
+                  );
+                },
               ),
-              const SizedBox(height: 15),
-              _CycleNavigatorCard(week: week, onOpenProgram: onOpenProgram),
+              const SizedBox(height: 14),
+              KeyedSubtree(
+                key: primaryActionKey,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  child: store.preferredTrack == TrainingTrack.strength
+                      ? _StrengthHomeCard(
+                          key: const ValueKey('strength-home-card'),
+                          store: store,
+                          week: strengthWeek,
+                          workout: strengthWorkout,
+                        )
+                      : _AthleticHomeCard(
+                          key: const ValueKey('athletic-home-card'),
+                          store: store,
+                          week: athleticWeek,
+                          session: athleticSession,
+                        ),
+                ),
+              ),
               const SizedBox(height: 18),
-              Text(
-                week.label,
-                style: TextStyle(
-                  color: week.kind == WeekKind.build ? lime : cyan,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.6,
-                  fontSize: 12,
+              TodayInputsCard(store: store),
+              const SizedBox(height: 24),
+              BrandSectionLabel(
+                'This week',
+                trailing: TextButton(
+                  onPressed: onOpenPrograms,
+                  child: const Text('VIEW PROGRAMS'),
                 ),
               ),
-              const SizedBox(height: 7),
-              Text(
-                workout.name.toUpperCase(),
-                style: const TextStyle(
-                  fontSize: 34,
-                  fontWeight: FontWeight.w900,
-                  height: 1,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '${workout.exercises.length} exercises  •  ${workout.exercises.fold(0, (n, e) => n + e.sets)} working sets',
-                style: const TextStyle(color: Colors.white60),
-              ),
-              const SizedBox(height: 22),
-              _HeroCard(
-                workout: workout,
-                resuming:
-                    store.draftFor(
-                      weekNumber: store.week,
-                      targetWorkoutIndex: store.workoutIndex,
-                      cadence: store.days,
-                      retroactive: false,
-                    ) !=
-                    null,
-                onStart: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => WorkoutScreen(
-                      store: store,
-                      week: week,
-                      workout: workout,
-                      workoutIndex: store.workoutIndex,
-                      scheduledDate: store.dateForSlot(
-                        week.number,
-                        store.workoutIndex,
+              const SizedBox(height: 10),
+              LabPanel(
+                accent: BrandColors.cyan,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _HomeSummaryMetric(
+                        icon: Icons.fitness_center_rounded,
+                        value: '$strengthDoneThisWeek/${store.days}',
+                        label: 'STRENGTH',
                       ),
                     ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              const _SectionTitle('UP NEXT'),
-              const SizedBox(height: 10),
-              ...workout.exercises.map(
-                (e) => _ExercisePreview(
-                  e: e,
-                  best: store.best(e.name),
-                  unit: store.unit,
+                    Container(
+                      width: 1,
+                      height: 54,
+                      color: BrandColors.line,
+                    ),
+                    Expanded(
+                      child: _HomeSummaryMetric(
+                        icon: Icons.directions_run_rounded,
+                        value:
+                            '$athleticDoneThisWeek/${AthleticProgram.sessionsPerWeek}',
+                        label: 'ATHLETIC',
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 22),
-              Row(
-                children: [
-                  Expanded(
-                    child: _Metric(
-                      value: '${store.logs.length}',
-                      label: 'SETS LOGGED',
+              LabPanel(
+                accent: BrandColors.violet,
+                onTap: onOpenPrograms,
+                child: const Row(
+                  children: [
+                    Icon(Icons.dashboard_customize_rounded,
+                        color: BrandColors.violet),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'PROGRAMS',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: .8,
+                            ),
+                          ),
+                          SizedBox(height: 3),
+                          Text(
+                            'Browse cycles, weeks, schedules, and past sessions.',
+                            style: TextStyle(
+                              color: BrandColors.muted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _Metric(
-                      value:
-                          '${store.logs.map((e) => e.exercise).toSet().length}',
-                      label: 'LIFTS TRACKED',
-                    ),
-                  ),
-                ],
+                    Icon(Icons.arrow_forward_rounded,
+                        color: BrandColors.muted),
+                  ],
+                ),
               ),
-              const SizedBox(height: 28),
             ],
           ),
         ),
@@ -429,175 +560,415 @@ class TodayPage extends StatelessWidget {
   }
 }
 
-class _CycleNavigatorCard extends StatelessWidget {
-  const _CycleNavigatorCard({required this.week, required this.onOpenProgram});
+class _StrengthHomeCard extends StatelessWidget {
+  const _StrengthHomeCard({
+    super.key,
+    required this.store,
+    required this.week,
+    required this.workout,
+  });
 
+  final AppStore store;
   final ProgramWeek week;
-  final VoidCallback onOpenProgram;
+  final WorkoutPlan workout;
 
   @override
   Widget build(BuildContext context) {
-    final cycleProgress = week.number / ProgramEngine.totalWeeks;
-    return Semantics(
-      button: true,
-      label:
-          'Open phase menu. Current position phase ${week.phase}, microcycle ${week.microcycle}',
-      child: InkWell(
-        onTap: onOpenProgram,
-        borderRadius: BorderRadius.circular(20),
-        child: Ink(
-          padding: const EdgeInsets.fromLTRB(16, 14, 14, 15),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF151E2A), Color(0xFF10151D)],
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withValues(alpha: .07)),
-          ),
-          child: Column(
+    final resuming =
+        store.draftFor(
+          weekNumber: store.week,
+          targetWorkoutIndex: store.workoutIndex,
+          cadence: store.days,
+          retroactive: false,
+        ) !=
+        null;
+    final totalSets = workout.exercises.fold<int>(
+      0,
+      (sum, exercise) => sum + exercise.sets,
+    );
+    return LabPanel(
+      accent: BrandColors.violet,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.route_rounded, color: violet, size: 20),
-                  const SizedBox(width: 9),
-                  const Text(
-                    'PHASE MENU',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.3,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${(cycleProgress * 100).round()}% OF CYCLE',
-                    style: const TextStyle(
-                      color: muted,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: .7,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(
-                    Icons.arrow_forward_rounded,
-                    color: Colors.white38,
-                    size: 17,
-                  ),
-                ],
+              const Icon(Icons.bolt_rounded, color: BrandColors.violet),
+              const SizedBox(width: 8),
+              Text(
+                'WEEK ${week.number} · PHASE ${week.phase}',
+                style: const TextStyle(
+                  color: BrandColors.cyan,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
+                ),
               ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  for (
-                    var phase = 1;
-                    phase <= ProgramEngine.phaseCount;
-                    phase++
-                  )
-                    Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          right: phase == ProgramEngine.phaseCount ? 0 : 7,
-                        ),
-                        child: _PhaseSegment(
-                          phase: phase,
-                          currentPhase: week.phase,
-                          microcycle: week.microcycle,
-                        ),
-                      ),
-                    ),
-                ],
+              const Spacer(),
+              Text(
+                resuming ? 'IN PROGRESS' : 'READY',
+                style: const TextStyle(
+                  color: BrandColors.violet,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
+                ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 14),
+          Text(
+            workout.name.toUpperCase(),
+            style: const TextStyle(
+              fontSize: 31,
+              height: 1,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${workout.exercises.length} exercises · $totalSets working sets · ${store.days}-day cadence',
+            style: const TextStyle(color: BrandColors.muted),
+          ),
+          const SizedBox(height: 18),
+          GradientAction(
+            label: resuming ? 'RESUME STRENGTH WORKOUT' : 'START STRENGTH WORKOUT',
+            icon: resuming ? Icons.play_arrow_rounded : Icons.bolt_rounded,
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => WorkoutScreen(
+                  store: store,
+                  week: week,
+                  workout: workout,
+                  workoutIndex: store.workoutIndex,
+                  scheduledDate: store.dateForSlot(
+                    week.number,
+                    store.workoutIndex,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              title: const Text(
+                'SESSION PREVIEW',
+                style: TextStyle(
+                  color: BrandColors.muted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .8,
+                ),
+              ),
+              children: [
+                for (final exercise in workout.exercises)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.fiber_manual_record,
+                          size: 7,
+                          color: BrandColors.cyan,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(exercise.name)),
+                        Text(
+                          '${exercise.sets} × ${exercise.reps}',
+                          style: const TextStyle(color: BrandColors.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _PhaseSegment extends StatelessWidget {
-  const _PhaseSegment({
-    required this.phase,
-    required this.currentPhase,
-    required this.microcycle,
+class _AthleticHomeCard extends StatelessWidget {
+  const _AthleticHomeCard({
+    super.key,
+    required this.store,
+    required this.week,
+    required this.session,
   });
 
-  final int phase;
-  final int currentPhase;
-  final int microcycle;
+  final AppStore store;
+  final AthleticWeek week;
+  final AthleticSession session;
 
   @override
-  Widget build(BuildContext context) {
-    final complete = phase < currentPhase;
-    final current = phase == currentPhase;
-    final color = current ? lime : (complete ? cyan : Colors.white24);
-    final progress = complete
-        ? 1.0
-        : current
-        ? microcycle / ProgramEngine.weeksPerPhase
-        : 0.0;
-    return Column(
+  Widget build(BuildContext context) => LabPanel(
+    accent: BrandColors.cyan,
+    padding: const EdgeInsets.all(20),
+    child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
+            const Icon(Icons.directions_run_rounded, color: BrandColors.cyan),
+            const SizedBox(width: 8),
             Text(
-              'P$phase',
-              style: TextStyle(
-                color: current ? Colors.white : muted,
-                fontSize: 11,
+              'WEEK ${week.number} · SESSION ${store.athleticSessionIndex + 1}',
+              style: const TextStyle(
+                color: BrandColors.cyan,
+                fontSize: 10,
                 fontWeight: FontWeight.w900,
+                letterSpacing: 1,
               ),
             ),
             const Spacer(),
-            if (complete)
-              const Icon(Icons.check_rounded, color: cyan, size: 14)
-            else if (current)
-              Text(
-                '$microcycle/${ProgramEngine.weeksPerPhase}',
-                style: const TextStyle(
-                  color: lime,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                ),
+            Text(
+              '${(store.athleticProgress * 100).round()}%',
+              style: const TextStyle(
+                color: BrandColors.violet,
+                fontWeight: FontWeight.w900,
               ),
+            ),
           ],
         ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(99),
-          child: LinearProgressIndicator(
-            value: progress,
-            minHeight: 5,
-            color: color,
-            backgroundColor: Colors.white.withValues(alpha: .07),
+        const SizedBox(height: 14),
+        Text(
+          session.name.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 31,
+            height: 1,
+            fontWeight: FontWeight.w900,
           ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '${week.cycleName} · ${session.durationMinutes} min · ${session.drills.length} coached drills',
+          style: const TextStyle(color: BrandColors.muted),
+        ),
+        const SizedBox(height: 18),
+        GradientAction(
+          label: 'START ATHLETIC SESSION',
+          icon: Icons.play_arrow_rounded,
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AthleticSessionScreen(
+                store: store,
+                week: week,
+                sessionIndex: store.athleticSessionIndex,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: EdgeInsets.zero,
+            title: const Text(
+              'SESSION PREVIEW',
+              style: TextStyle(
+                color: BrandColors.muted,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .8,
+              ),
+            ),
+            children: [
+              for (final drill in session.drills.take(5))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.fiber_manual_record,
+                        size: 7,
+                        color: BrandColors.violet,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(drill.name)),
+                      Text(
+                        drill.prescription,
+                        style: const TextStyle(
+                          color: BrandColors.muted,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _HomeSummaryMetric extends StatelessWidget {
+  const _HomeSummaryMetric({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      Icon(icon, color: BrandColors.cyan, size: 20),
+      const SizedBox(height: 7),
+      Text(
+        value,
+        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+      ),
+      Text(
+        label,
+        style: const TextStyle(
+          color: BrandColors.muted,
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1,
+        ),
+      ),
+    ],
+  );
+}
+
+class ProgramsHubPage extends StatelessWidget {
+  const ProgramsHubPage({
+    super.key,
+    required this.store,
+    required this.overviewKey,
+    required this.onOpenStrength,
+    required this.onOpenAthletic,
+  });
+
+  final AppStore store;
+  final GlobalKey overviewKey;
+  final VoidCallback onOpenStrength;
+  final VoidCallback onOpenAthletic;
+
+  @override
+  Widget build(BuildContext context) {
+    final strengthWeek = ProgramEngine.week(store.week, store.days);
+    final athleticWeek = AthleticProgram.week(store.athleticWeek);
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 34),
+      children: [
+        const Row(
+          children: [
+            LabMark(size: 54),
+            SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'PROGRAMS',
+                    style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Two systems. Independent progress.',
+                    style: TextStyle(color: BrandColors.muted),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 22),
+        KeyedSubtree(
+          key: overviewKey,
+          child: const LabPanel(
+            accent: BrandColors.cyan,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.route_rounded, color: BrandColors.cyan),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Strength and Athletic Functional Training advance separately. Train either track without moving the other one.',
+                    style: TextStyle(color: BrandColors.muted, height: 1.4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 18),
+        _ProgramTrackCard(
+          accent: BrandColors.violet,
+          icon: Icons.fitness_center_rounded,
+          eyebrow: '48-WEEK STRENGTH SYSTEM',
+          title: 'Strength Program',
+          description:
+              'Periodized strength and hypertrophy with build, strength, and deload weeks.',
+          progress: store.week / ProgramEngine.totalWeeks,
+          position:
+              'Week ${store.week} · Phase ${strengthWeek.phase} · ${store.days} days/week',
+          actionLabel: 'OPEN STRENGTH PROGRAM',
+          onTap: onOpenStrength,
+        ),
+        const SizedBox(height: 14),
+        _ProgramTrackCard(
+          accent: BrandColors.cyan,
+          icon: Icons.directions_run_rounded,
+          eyebrow: '12-WEEK ATHLETIC SYSTEM',
+          title: 'Athletic Functional Training',
+          description:
+              'Gait, unilateral strength, rotation, elastic work, speed, and change of direction.',
+          progress: store.athleticProgress,
+          position:
+              'Week ${store.athleticWeek} · ${athleticWeek.cycleName} · Session ${store.athleticSessionIndex + 1}',
+          actionLabel: 'OPEN ATHLETIC PROGRAM',
+          onTap: onOpenAthletic,
         ),
       ],
     );
   }
 }
 
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({
-    required this.workout,
-    required this.onStart,
-    required this.resuming,
+class _ProgramTrackCard extends StatelessWidget {
+  const _ProgramTrackCard({
+    required this.accent,
+    required this.icon,
+    required this.eyebrow,
+    required this.title,
+    required this.description,
+    required this.progress,
+    required this.position,
+    required this.actionLabel,
+    required this.onTap,
   });
-  final WorkoutPlan workout;
-  final VoidCallback onStart;
-  final bool resuming;
+
+  final Color accent;
+  final IconData icon;
+  final String eyebrow;
+  final String title;
+  final String description;
+  final double progress;
+  final String position;
+  final String actionLabel;
+  final VoidCallback onTap;
+
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(22),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [Color(0xFF1B2635), Color(0xFF101720)],
-      ),
-      borderRadius: BorderRadius.circular(26),
-      border: Border.all(color: Colors.white10),
-    ),
+  Widget build(BuildContext context) => LabPanel(
+    accent: accent,
+    padding: const EdgeInsets.all(20),
+    onTap: onTap,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -607,52 +978,79 @@ class _HeroCard extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: lime,
+                color: accent.withValues(alpha: .13),
                 borderRadius: BorderRadius.circular(15),
               ),
-              child: const Icon(Icons.fitness_center_rounded, color: ink),
+              child: Icon(icon, color: accent),
             ),
             const Spacer(),
             Text(
-              resuming ? 'IN PROGRESS' : 'READY',
-              style: const TextStyle(
-                color: lime,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.4,
+              '${(progress.clamp(0.0, 1.0).toDouble() * 100).round()}%',
+              style: TextStyle(
+                color: accent,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 15),
         Text(
-          workout.exercises.first.name,
-          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 21),
+          eyebrow,
+          style: TextStyle(
+            color: accent,
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.1,
+          ),
         ),
+        const SizedBox(height: 6),
         Text(
-          '${workout.exercises.first.sets} sets × ${workout.exercises.first.reps}',
-          style: const TextStyle(color: Colors.white60),
+          title,
+          style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900),
         ),
-        const SizedBox(height: 22),
-        SizedBox(
-          width: double.infinity,
-          height: 54,
-          child: FilledButton(
-            onPressed: onStart,
-            style: FilledButton.styleFrom(
-              backgroundColor: lime,
-              foregroundColor: ink,
-              textStyle: const TextStyle(
+        const SizedBox(height: 8),
+        Text(
+          description,
+          style: const TextStyle(color: BrandColors.muted, height: 1.42),
+        ),
+        const SizedBox(height: 14),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(99),
+          child: LinearProgressIndicator(
+            value: progress.clamp(0.0, 1.0).toDouble(),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          position,
+          style: const TextStyle(
+            color: BrandColors.muted,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Text(
+              actionLabel,
+              style: TextStyle(
+                color: accent,
+                fontSize: 11,
                 fontWeight: FontWeight.w900,
-                letterSpacing: .8,
+                letterSpacing: .65,
               ),
             ),
-            child: Text(resuming ? 'RESUME WORKOUT  →' : 'START WORKOUT  →'),
-          ),
+            const Spacer(),
+            Icon(Icons.arrow_forward_rounded, color: accent),
+          ],
         ),
       ],
     ),
   );
 }
+
 
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({
@@ -689,6 +1087,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
   late final String sessionId;
   final Map<int, String> substitutions = {};
   bool lastPr = false;
+  bool sessionHadPr = false;
   bool finishing = false;
   @override
   void initState() {
@@ -729,6 +1128,12 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     weight.addListener(_draftChanged);
     reps.addListener(_draftChanged);
     notes.addListener(_draftChanged);
+    _startTimer();
+    unawaited(_persistDraft());
+  }
+
+  void _startTimer() {
+    timer?.cancel();
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) {
         setState(() {
@@ -737,7 +1142,6 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         });
       }
     });
-    unawaited(_persistDraft());
   }
 
   void _seed({bool preserveWeight = false}) {
@@ -774,6 +1178,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       weight: weight.text,
       reps: reps.text,
       notes: notes.text,
+      programRun: widget.store.strengthProgramRun,
       days: widget.store.days,
       retroactive: widget.retroactive,
       scheduledDate: widget.scheduledDate,
@@ -841,6 +1246,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     var workoutComplete = false;
     setState(() {
       lastPr = pr;
+      sessionHadPr = sessionHadPr || pr;
       loggedSets++;
       rest = e.primary ? 180 : 120;
       final exerciseSets = _setsForExercise(exercise);
@@ -935,6 +1341,9 @@ class _WorkoutScreenState extends State<WorkoutScreen>
 
   Future<void> _commitWorkout(WorkoutStatus status) async {
     setState(() => finishing = true);
+    timer?.cancel();
+    timer = null;
+    draftTimer?.cancel();
     try {
       await widget.store.recordWorkout(
         weekNumber: widget.week.number,
@@ -946,14 +1355,73 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         retroactive: widget.retroactive,
         scheduledDate: widget.scheduledDate,
       );
+      if (status == WorkoutStatus.completed && mounted) {
+        await showWorkoutResponseSheet(
+          context,
+          widget.store,
+          sessionId: sessionId,
+          track: 'strength',
+        );
+      }
+      if (status == WorkoutStatus.completed && mounted) {
+        await showWorkoutCompleteSheet(context, _shareData());
+      }
       if (mounted) Navigator.pop(context);
     } on Object {
       if (!mounted) return;
       setState(() => finishing = false);
+      _startTimer();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not save the workout. Try again.')),
       );
     }
+  }
+
+  WorkoutShareData _shareData() {
+    final sessionLogs = widget.store.logs
+        .where((log) => log.sessionId == sessionId)
+        .toList();
+    final totalVolume = sessionLogs.fold<double>(
+      0,
+      (sum, log) => sum + log.weight * log.reps,
+    );
+    SetLog? topSet;
+    for (final log in sessionLogs) {
+      if (topSet == null || log.e1rm > topSet.e1rm) topSet = log;
+    }
+    final exerciseCount = sessionLogs.map((log) => log.exercise).toSet().length;
+    final topValue = topSet == null
+        ? 'Workout completed'
+        : '${topSet.exercise} · ${_shareWeight(topSet.weight)} ${widget.store.unit} × ${topSet.reps}';
+    return WorkoutShareData(
+      program: 'Strength Program',
+      title: widget.workout.name,
+      contextLine:
+          'Week ${widget.week.number} · Phase ${widget.week.phase} · ${widget.week.label}',
+      completedAt: DateTime.now(),
+      achievementLabel: sessionHadPr ? 'New personal record' : null,
+      metrics: [
+        ShareMetric('Duration', formatShareDuration(Duration(seconds: elapsed))),
+        ShareMetric('Sets', '${sessionLogs.length}'),
+        ShareMetric(
+          'Volume',
+          '${_compactNumber(totalVolume)} ${widget.store.unit}',
+        ),
+        ShareMetric('Exercises', '$exerciseCount'),
+      ],
+      highlightLabel: topSet == null ? 'Session' : 'Top set',
+      highlightValue: topValue,
+    );
+  }
+
+  String _shareWeight(double value) => value == value.roundToDouble()
+      ? value.round().toString()
+      : value.toStringAsFixed(1);
+
+  String _compactNumber(double value) {
+    if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
+    if (value >= 1000) return '${(value / 1000).toStringAsFixed(1)}K';
+    return value.round().toString();
   }
 
   @override
@@ -1045,6 +1513,26 @@ class _WorkoutScreenState extends State<WorkoutScreen>
               ),
             ),
           ],
+          if (e.primary &&
+              WarmupCalculator.supports(e.name) &&
+              _setsForExercise(exercise) == 0)
+            ListenableBuilder(
+              listenable: Listenable.merge([weight, reps]),
+              builder: (context, _) {
+                final recommendation = WarmupCalculator.calculate(
+                  exercise: e.name,
+                  isPrimary: e.primary,
+                  workingWeight: double.tryParse(weight.text),
+                  workingReps: int.tryParse(reps.text),
+                  unit: widget.store.unit,
+                );
+                if (recommendation == null) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 18),
+                  child: _WarmupCard(recommendation: recommendation),
+                );
+              },
+            ),
           const SizedBox(height: 24),
           _Previous(best: widget.store.best(e.name), unit: widget.store.unit),
           const SizedBox(height: 26),
@@ -1124,7 +1612,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
               onPressed: finishing || exerciseComplete ? null : _log,
               style: FilledButton.styleFrom(
                 backgroundColor: lime,
-                foregroundColor: ink,
+                foregroundColor: Colors.white,
               ),
               child: Text(
                 exerciseComplete ? 'EXERCISE COMPLETE' : 'LOG SET',
@@ -1322,22 +1810,106 @@ class _WorkoutScreenState extends State<WorkoutScreen>
 }
 
 class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key, required this.store});
+  const SettingsPage({
+    super.key,
+    required this.store,
+    required this.onReplayTour,
+    required this.helpGuidesKey,
+  });
+
   final AppStore store;
+  final VoidCallback onReplayTour;
+  final GlobalKey helpGuidesKey;
+
   @override
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.fromLTRB(20, 24, 20, 30),
     children: [
-      const Text(
-        'SETUP',
-        style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900),
-      ),
-      const SizedBox(height: 5),
-      const Text(
-        'Control your cadence without losing your place.',
-        style: TextStyle(color: Colors.white54),
+      const Row(
+        children: [
+          LabMark(size: 54),
+          SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'MORE & SETUP',
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Program controls and training tools',
+                  style: TextStyle(color: BrandColors.muted),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
       const SizedBox(height: 24),
+      const BrandSectionLabel('Help & Guides'),
+      const SizedBox(height: 8),
+      _Setting(
+        key: helpGuidesKey,
+        icon: Icons.route_rounded,
+        title: 'App Tour',
+        subtitle: 'Replay the guided walkthrough of Home, Programs, and tools',
+        available: true,
+        badge: 'REPLAY',
+        onTap: onReplayTour,
+      ),
+      _Setting(
+        icon: Icons.lightbulb_outline_rounded,
+        title: 'How progression works',
+        subtitle: 'Review the core strength progression rules',
+        available: true,
+        badge: 'GUIDE',
+        onTap: () => showModalBottomSheet(
+          context: context,
+          useSafeArea: true,
+          builder: (_) => const _QuickHelp(),
+        ),
+      ),
+      const SizedBox(height: 22),
+      const BrandSectionLabel('Tracking & Intelligence'),
+      const SizedBox(height: 8),
+      _Setting(
+        icon: Icons.science_rounded,
+        title: 'Supplements & Daily Inputs',
+        subtitle: 'Creatine, caffeine, meals, hydration, sleep, and recovery',
+        available: true,
+        badge: 'TRACK',
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => DailyInputsScreen(store: store)),
+        ),
+      ),
+      _Setting(
+        icon: Icons.auto_awesome_rounded,
+        title: 'The Lab',
+        subtitle: 'Evidence-first insights with optional on-device Gemini Nano',
+        available: true,
+        badge: store.aiAnalysisEnabled ? 'AI ON' : 'AI OFF',
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => LabScreen(store: store)),
+        ),
+      ),
+      _Setting(
+        icon: Icons.insights_rounded,
+        title: 'Inputs & Performance',
+        subtitle: 'Compare logged inputs with matched workout outcomes',
+        available: true,
+        badge: 'LAB CORE',
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => InputsPerformanceScreen(store: store),
+          ),
+        ),
+      ),
+      const SizedBox(height: 22),
       const _SectionTitle('TRAINING DAYS'),
       const SizedBox(height: 10),
       SegmentedButton<int>(
@@ -1427,12 +1999,6 @@ class SettingsPage extends StatelessWidget {
         subtitle: 'Working now; export and restore are not yet available',
         available: true,
       ),
-      const _Setting(
-        icon: Icons.monitor_heart_outlined,
-        title: 'Recovery check-in',
-        subtitle: 'Planned; no readiness score is being inferred',
-        available: false,
-      ),
       const SizedBox(height: 22),
       const Text(
         'PROGRAM LOGIC',
@@ -1453,39 +2019,9 @@ class SettingsPage extends StatelessWidget {
 
 class _Mark extends StatelessWidget {
   const _Mark();
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 42,
-    height: 42,
-    decoration: BoxDecoration(
-      color: lime,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: const Icon(Icons.bolt_rounded, color: ink, size: 29),
-  );
-}
 
-class _Pill extends StatelessWidget {
-  const _Pill(this.text, this.color);
-  final String text;
-  final Color color;
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: .12),
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Text(
-      text,
-      style: TextStyle(
-        color: color,
-        fontWeight: FontWeight.w800,
-        fontSize: 10,
-        letterSpacing: 1,
-      ),
-    ),
-  );
+  Widget build(BuildContext context) => const LabMark(size: 44);
 }
 
 class _SectionTitle extends StatelessWidget {
@@ -1502,85 +2038,131 @@ class _SectionTitle extends StatelessWidget {
   );
 }
 
-class _ExercisePreview extends StatelessWidget {
-  const _ExercisePreview({
-    required this.e,
-    required this.best,
-    required this.unit,
-  });
-  final ExercisePlan e;
-  final SetLog? best;
-  final String unit;
-  @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 9),
-    padding: const EdgeInsets.all(15),
-    decoration: BoxDecoration(
-      color: panel,
-      borderRadius: BorderRadius.circular(17),
-    ),
-    child: Row(
-      children: [
-        Container(
-          width: 41,
-          height: 41,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .06),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            e.primary ? Icons.bolt : Icons.fitness_center,
-            color: e.primary ? lime : Colors.white54,
-            size: 20,
-          ),
-        ),
-        const SizedBox(width: 13),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(e.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-              Text(
-                '${e.sets} × ${e.reps}${best == null ? '' : '  •  Best ${best!.weight.g} $unit'}',
-                style: const TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-            ],
-          ),
-        ),
-        const Icon(Icons.chevron_right, color: Colors.white24),
-      ],
-    ),
-  );
-}
+class _WarmupCard extends StatelessWidget {
+  const _WarmupCard({required this.recommendation});
 
-class _Metric extends StatelessWidget {
-  const _Metric({required this.value, required this.label});
-  final String value, label;
+  final WarmupRecommendation recommendation;
+
+  String _weight(double value) => value == value.roundToDouble()
+      ? value.round().toString()
+      : value.toStringAsFixed(1);
+
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(18),
+    padding: const EdgeInsets.all(17),
     decoration: BoxDecoration(
-      color: panel,
-      borderRadius: BorderRadius.circular(18),
+      color: cyan.withValues(alpha: .08),
+      borderRadius: BorderRadius.circular(19),
+      border: Border.all(color: cyan.withValues(alpha: .34)),
+      boxShadow: [
+        BoxShadow(
+          color: cyan.withValues(alpha: .08),
+          blurRadius: 22,
+          spreadRadius: -8,
+        ),
+      ],
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 27,
-            fontWeight: FontWeight.w900,
-            color: lime,
-          ),
+        Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: cyan.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(Icons.local_fire_department_rounded, color: cyan),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'AUTOMATIC WARM-UP',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .9,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Based on ${_weight(recommendation.workingWeight)} '
+                    '${recommendation.unit} × ${recommendation.workingReps}',
+                    style: const TextStyle(
+                      color: BrandColors.muted,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Text(
+              'RAMP',
+              style: TextStyle(
+                color: cyan,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.1,
+              ),
+            ),
+          ],
         ),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white38,
-            fontWeight: FontWeight.w800,
-            fontSize: 10,
-            letterSpacing: 1,
+        const SizedBox(height: 15),
+        Row(
+          children: [
+            for (var i = 0; i < recommendation.sets.length; i++) ...[
+              if (i > 0) const SizedBox(width: 10),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 13,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: .045),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'WARM-UP ${i + 1} · ${recommendation.sets[i].percentage}%',
+                        style: const TextStyle(
+                          color: BrandColors.muted,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: .65,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        '${_weight(recommendation.sets[i].weight)} '
+                        '${recommendation.unit} × '
+                        '${recommendation.sets[i].reps}',
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 11),
+        const Text(
+          'Rest about 60 seconds between ramp sets. These do not count as working sets.',
+          style: TextStyle(
+            color: BrandColors.muted,
+            fontSize: 11,
+            height: 1.35,
           ),
         ),
       ],
@@ -1622,39 +2204,45 @@ class _Previous extends StatelessWidget {
 
 class _Setting extends StatelessWidget {
   const _Setting({
+    super.key,
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.available,
+    this.badge,
     this.onTap,
   });
   final IconData icon;
   final String title, subtitle;
   final bool available;
+  final String? badge;
   final VoidCallback? onTap;
   @override
-  Widget build(BuildContext context) => ListTile(
-    onTap: onTap,
-    contentPadding: EdgeInsets.zero,
-    leading: CircleAvatar(
-      backgroundColor: Colors.white10,
-      child: Icon(icon, color: available ? cyan : Colors.white38),
-    ),
-    title: Text(title),
-    subtitle: Text(subtitle),
-    trailing: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: (available ? lime : Colors.white38).withValues(alpha: .1),
-        borderRadius: BorderRadius.circular(99),
+  Widget build(BuildContext context) => Material(
+    color: Colors.transparent,
+    child: ListTile(
+      onTap: onTap,
+      contentPadding: EdgeInsets.zero,
+      leading: CircleAvatar(
+        backgroundColor: Colors.white10,
+        child: Icon(icon, color: available ? cyan : Colors.white38),
       ),
-      child: Text(
-        available ? 'ACTIVE' : 'PLANNED',
-        style: TextStyle(
-          color: available ? lime : Colors.white38,
-          fontSize: 9,
-          fontWeight: FontWeight.w900,
-          letterSpacing: .8,
+      title: Text(title),
+      subtitle: Text(subtitle),
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: (available ? lime : Colors.white38).withValues(alpha: .1),
+          borderRadius: BorderRadius.circular(99),
+        ),
+        child: Text(
+          badge ?? (available ? 'ACTIVE' : 'PLANNED'),
+          style: TextStyle(
+            color: available ? lime : Colors.white38,
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .8,
+          ),
         ),
       ),
     ),
@@ -1664,29 +2252,33 @@ class _Setting extends StatelessWidget {
 class _QuickHelp extends StatelessWidget {
   const _QuickHelp();
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'HOW PROGRESSION WORKS',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 14),
-        const Text(
-          'Hit the prescribed reps with clean form and 1–2 reps in reserve. When you own the top of a rep range, add the smallest practical weight next time. Deload weeks reduce fatigue automatically.',
-        ),
-        const SizedBox(height: 18),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('GOT IT'),
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    minimum: const EdgeInsets.only(bottom: 8),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'HOW PROGRESSION WORKS',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
           ),
-        ),
-      ],
+          const SizedBox(height: 14),
+          const Text(
+            'Hit the prescribed reps with clean form and 1–2 reps in reserve. When you own the top of a rep range, add the smallest practical weight next time. Deload weeks reduce fatigue automatically.',
+          ),
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('GOT IT'),
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }

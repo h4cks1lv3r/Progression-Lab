@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:progression_lab/athletic_training.dart';
+import 'package:progression_lab/brand.dart';
 import 'package:progression_lab/exercise_library_screen.dart';
 import 'package:progression_lab/logged_sets.dart';
+import 'package:progression_lab/main.dart';
 import 'package:progression_lab/program_navigator.dart';
 import 'package:progression_lab/progress_dashboard.dart';
+import 'package:progression_lab/share_card.dart';
 import 'package:progression_lab/store.dart';
 
 void main() {
@@ -35,13 +39,21 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: ThemeData(brightness: Brightness.dark, useMaterial3: true),
-        home: Scaffold(
-          body: ProgramNavigatorPage(store: store, onOpenWorkout: (_, _, _) {}),
-        ),
+        theme: ProgressionBrand.theme(),
+        home: ProgramNavigatorPage(store: store, onOpenWorkout: (_, _, _) {}),
       ),
     );
     await tester.pumpAndSettle();
+
+    final programTitleContext = tester.element(find.text('PROGRAM'));
+    final programTextStyle = DefaultTextStyle.of(programTitleContext).style;
+    expect(programTextStyle.fontFamily, 'Roboto');
+    expect(programTextStyle.fontFamily, isNot('monospace'));
+    expect(programTextStyle.decoration, isNot(TextDecoration.underline));
+    expect(
+      find.ancestor(of: find.text('PROGRAM'), matching: find.byType(Material)),
+      findsWidgets,
+    );
 
     expect(find.text('P2 · M3'), findsOneWidget);
     await tester.tap(find.text('5 DAYS').first);
@@ -77,6 +89,63 @@ void main() {
     expect(store.week, 19);
     expect(store.workoutIndex, 4);
     expect(find.text('CHANGE CADENCE'), findsNothing);
+  });
+
+  testWidgets('strength program exposes a selectable starting point', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 1920);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final store = AppStore()
+      ..days = 4
+      ..week = 19
+      ..workoutIndex = 1;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ProgressionBrand.theme(),
+        home: ProgramNavigatorPage(store: store, onOpenWorkout: (_, _, _) {}),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('CHANGE STARTING POINT'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('program-position-scroll')), findsOneWidget);
+    expect(find.text('MOVE CURRENT POSITION'), findsOneWidget);
+    expect(find.text('START A NEW PROGRAM RUN'), findsOneWidget);
+    expect(find.textContaining('Phase 2 · Cycle 3'), findsWidgets);
+  });
+
+  testWidgets('athletic program exposes a selectable starting point', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 1920);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final store = AppStore()
+      ..athleticWeek = 6
+      ..athleticSessionIndex = 2;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ProgressionBrand.theme(),
+        home: AthleticTrainingPage(store: store),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('CHANGE STARTING POINT'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('athletic-position-scroll')), findsOneWidget);
+    expect(find.text('MOVE CURRENT RUN'), findsOneWidget);
+    expect(find.text('START A NEW ATHLETIC RUN'), findsOneWidget);
+    expect(find.textContaining('Cycle 2 · Week 2'), findsWidgets);
   });
 
   testWidgets('progress dashboard never needs fake data for an empty history', (
@@ -138,11 +207,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Barbell Bench Press'), findsWidgets);
-    expect(find.textContaining('185 lb × 6'), findsWidgets);
     await tester.tap(find.text('Weight'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -520));
     await tester.pumpAndSettle();
     expect(find.text('WORKING WEIGHT'), findsOneWidget);
     expect(find.byType(CustomPaint), findsWidgets);
+    expect(find.textContaining('185 lb × 6'), findsWidgets);
   });
 
   testWidgets('logged set edits require the explicit save button', (
@@ -353,4 +424,123 @@ void main() {
     expect(find.text('TRAP BAR SHRUG'), findsOneWidget);
     expect(find.text('Barbell Bench Press'), findsNothing);
   });
+
+  testWidgets('athletic section exposes the current week and coached routine', (
+    tester,
+  ) async {
+    final store = AppStore()
+      ..athleticWeek = 5
+      ..athleticSessionIndex = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ProgressionBrand.theme(),
+        home: AthleticTrainingPage(store: store),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final athleticTitleContext = tester.element(find.text('ATHLETIC FUNCTIONAL'));
+    final athleticTextStyle = DefaultTextStyle.of(athleticTitleContext).style;
+    expect(athleticTextStyle.fontFamily, 'Roboto');
+    expect(athleticTextStyle.fontFamily, isNot('monospace'));
+    expect(athleticTextStyle.decoration, isNot(TextDecoration.underline));
+    expect(
+      find.ancestor(
+        of: find.text('ATHLETIC FUNCTIONAL'),
+        matching: find.byType(Material),
+      ),
+      findsWidgets,
+    );
+
+    expect(find.text('ATHLETIC FUNCTIONAL'), findsOneWidget);
+    expect(find.text('TRAINING'), findsOneWidget);
+    expect(find.text('WEEK 5 OF 12'), findsOneWidget);
+    expect(find.text('START SESSION'), findsOneWidget);
+    expect(find.text('LOADED GAIT & UNILATERAL STRENGTH'), findsOneWidget);
+
+    await tester.tap(find.text('START SESSION'));
+    await tester.pumpAndSettle();
+    expect(find.text('FOOT ROCKER TO CALF-ISOMETRIC'), findsNothing);
+    expect(find.textContaining('Foot Rocker'), findsOneWidget);
+    final finishSession = find.text('FINISH SESSION');
+    await tester.scrollUntilVisible(
+      finishSession,
+      500,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(finishSession, findsOneWidget);
+  });
+
+  testWidgets('main navigation groups programs and keeps the tour replayable', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final store = AppStore()
+      ..isLoaded = true
+      ..onboardingVersionSeen = 1;
+
+    await tester.pumpWidget(
+      MaterialApp(theme: ProgressionBrand.theme(), home: Shell(store: store)),
+    );
+    await tester.pumpAndSettle();
+
+    final navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
+    expect(navigation.destinations, hasLength(4));
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Programs'), findsOneWidget);
+    expect(find.text('Progress'), findsOneWidget);
+    expect(find.text('More'), findsOneWidget);
+
+    await tester.tap(find.text('Programs'));
+    await tester.pumpAndSettle();
+    expect(find.text('Strength Program'), findsOneWidget);
+    expect(find.text('Athletic Functional Training'), findsOneWidget);
+
+    await tester.tap(find.text('More'));
+    await tester.pumpAndSettle();
+    expect(find.text('App Tour'), findsOneWidget);
+    await tester.tap(find.text('App Tour'));
+    await tester.pumpAndSettle();
+    expect(find.text('SKIP TOUR'), findsOneWidget);
+    expect(find.text('Start with the next session'), findsOneWidget);
+
+    await tester.tap(find.text('SKIP TOUR'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Replay it from More'), findsOneWidget);
+  });
+
+  testWidgets('workout story card generator produces a branded PNG', (
+    tester,
+  ) async {
+    final data = WorkoutShareData(
+      program: 'Strength Program',
+      title: 'Upper Body A',
+      contextLine: 'Week 4 · Phase 1 · Build',
+      completedAt: DateTime(2026, 8, 19),
+      achievementLabel: 'New personal record',
+      metrics: const [
+        ShareMetric('Duration', '42 MIN'),
+        ShareMetric('Sets', '18'),
+        ShareMetric('Volume', '8.4K LB'),
+        ShareMetric('Exercises', '4'),
+      ],
+      highlightLabel: 'Top set',
+      highlightValue: 'Barbell Bench Press · 185 lb × 6',
+    );
+
+    final bytes = await tester.runAsync(
+      () => WorkoutShareCardGenerator.generate(data),
+    );
+
+    expect(bytes, isNotNull);
+    expect(bytes!.length, greaterThan(10000));
+    expect(bytes.take(8).toList(), [137, 80, 78, 71, 13, 10, 26, 10]);
+    expect(data.fileName, 'progression-lab-20260819-upper-body-a.png');
+  });
+
 }

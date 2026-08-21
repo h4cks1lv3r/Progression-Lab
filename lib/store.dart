@@ -3,8 +3,13 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import 'athletic_history.dart';
+import 'athletic_program.dart';
+import 'daily_inputs.dart';
 import 'exercise_library.dart';
 import 'program.dart';
+
+enum TrainingTrack { strength, athletic }
 
 class SetLog {
   SetLog({
@@ -78,6 +83,7 @@ class WorkoutRecord {
     required this.workout,
     required this.date,
     required this.status,
+    this.programRun = 1,
     this.days = 4,
     DateTime? scheduledDate,
     DateTime? loggedAt,
@@ -92,6 +98,7 @@ class WorkoutRecord {
   final String workout;
   final DateTime date;
   final WorkoutStatus status;
+  final int programRun;
   final int days;
   final DateTime scheduledDate;
   final DateTime loggedAt;
@@ -105,6 +112,7 @@ class WorkoutRecord {
     'workout': workout,
     'date': date.toIso8601String(),
     'status': status.name,
+    'programRun': programRun,
     'days': days,
     'scheduledDate': scheduledDate.toIso8601String(),
     'loggedAt': loggedAt.toIso8601String(),
@@ -121,6 +129,9 @@ class WorkoutRecord {
     workout: json['workout'] as String,
     date: DateTime.parse(json['date'] as String),
     status: WorkoutStatus.values.byName(json['status'] as String),
+    programRun: json['programRun'] is num
+        ? (json['programRun'] as num).toInt()
+        : 1,
     days: json['days'] is num ? (json['days'] as num).toInt() : 4,
     scheduledDate: json['scheduledDate'] is String
         ? DateTime.parse(json['scheduledDate'] as String)
@@ -154,6 +165,7 @@ class DraftSetInput {
     required this.weight,
     required this.reps,
     required this.notes,
+    this.programRun = 1,
     this.days = 4,
     this.retroactive = false,
     this.scheduledDate,
@@ -169,6 +181,7 @@ class DraftSetInput {
   final String weight;
   final String reps;
   final String notes;
+  final int programRun;
   final int days;
   final bool retroactive;
   final DateTime? scheduledDate;
@@ -184,6 +197,7 @@ class DraftSetInput {
     'weight': weight,
     'reps': reps,
     'notes': notes,
+    'programRun': programRun,
     'days': days,
     'retroactive': retroactive,
     if (scheduledDate != null)
@@ -203,6 +217,9 @@ class DraftSetInput {
     weight: json['weight'] as String,
     reps: json['reps'] as String,
     notes: json['notes'] is String ? json['notes'] as String : '',
+    programRun: json['programRun'] is num
+        ? (json['programRun'] as num).toInt()
+        : 1,
     days: json['days'] is num ? (json['days'] as num).toInt() : 4,
     retroactive: json['retroactive'] == true,
     scheduledDate: json['scheduledDate'] is String
@@ -214,8 +231,9 @@ class DraftSetInput {
 
 class AppStore extends ChangeNotifier {
   static const _channel = MethodChannel('iron_cadence/storage');
-  static const int schemaVersion = 6;
+  static const int schemaVersion = 10;
   static const double poundsToKilograms = 0.45359237;
+  bool isLoaded = false;
   int days = 4;
   int week = 1;
   int workoutIndex = 0;
@@ -226,6 +244,26 @@ class AppStore extends ChangeNotifier {
   DraftSetInput? draft;
   List<DraftSetInput> drafts = [];
   DateTime programStartDate = _dateOnly(DateTime.now());
+  int strengthProgramRun = 1;
+
+  int athleticProgramRun = 1;
+  int athleticWeek = 1;
+  int athleticSessionIndex = 0;
+  DateTime athleticStartDate = _dateOnly(DateTime.now());
+  List<AthleticSessionRecord> athleticHistory = [];
+  List<AthleticAssessment> athleticAssessments = [];
+  int onboardingVersionSeen = 0;
+  TrainingTrack preferredTrack = TrainingTrack.strength;
+
+  List<SupplementPreset> supplementPresets = SupplementPreset.defaults();
+  List<SupplementEvent> supplementEvents = [];
+  List<MealEvent> mealEvents = [];
+  List<HydrationEvent> hydrationEvents = [];
+  List<RecoveryCheckIn> recoveryCheckIns = [];
+  List<WorkoutResponse> workoutResponses = [];
+  bool aiAnalysisEnabled = false;
+  Set<LabDataDomain> labDataDomains = Set.of(LabDataDomain.values);
+  List<LabMessage> labMessages = [];
 
   Future<void> load() async {
     try {
@@ -278,6 +316,104 @@ class AppStore extends ChangeNotifier {
           programStartDate = data['programStartDate'] is String
               ? DateTime.parse(data['programStartDate'] as String)
               : _inferredProgramStartDate();
+          strengthProgramRun = (_readInt(data['strengthProgramRun']) ?? 1)
+              .clamp(1, 1000000)
+              .toInt();
+          athleticProgramRun = (_readInt(data['athleticProgramRun']) ?? 1)
+              .clamp(1, 1000000)
+              .toInt();
+          athleticWeek = (_readInt(data['athleticWeek']) ?? 1)
+              .clamp(1, AthleticProgram.totalWeeks)
+              .toInt();
+          athleticSessionIndex = (_readInt(data['athleticSessionIndex']) ?? 0)
+              .clamp(0, AthleticProgram.sessionsPerWeek - 1)
+              .toInt();
+          athleticStartDate = data['athleticStartDate'] is String
+              ? DateTime.parse(data['athleticStartDate'] as String)
+              : _dateOnly(DateTime.now());
+          final storedAthleticHistory = data['athleticHistory'];
+          if (storedAthleticHistory is List) {
+            athleticHistory = storedAthleticHistory
+                .map(_readAthleticRecord)
+                .whereType<AthleticSessionRecord>()
+                .toList();
+          }
+          final storedAthleticAssessments = data['athleticAssessments'];
+          if (storedAthleticAssessments is List) {
+            athleticAssessments = storedAthleticAssessments
+                .map(_readAthleticAssessment)
+                .whereType<AthleticAssessment>()
+                .toList();
+          }
+          onboardingVersionSeen = (_readInt(data['onboardingVersionSeen']) ?? 0)
+              .clamp(0, 1000000)
+              .toInt();
+          preferredTrack = switch (data['preferredTrack']) {
+            'athletic' => TrainingTrack.athletic,
+            _ => TrainingTrack.strength,
+          };
+          final storedPresets = data['supplementPresets'];
+          if (storedPresets is List) {
+            supplementPresets = storedPresets
+                .map(_readSupplementPreset)
+                .whereType<SupplementPreset>()
+                .toList();
+          }
+          if (supplementPresets.isEmpty) {
+            supplementPresets = SupplementPreset.defaults();
+          }
+          final storedSupplementEvents = data['supplementEvents'];
+          if (storedSupplementEvents is List) {
+            supplementEvents = storedSupplementEvents
+                .map(_readSupplementEvent)
+                .whereType<SupplementEvent>()
+                .toList();
+          }
+          final storedMeals = data['mealEvents'];
+          if (storedMeals is List) {
+            mealEvents = storedMeals
+                .map(_readMealEvent)
+                .whereType<MealEvent>()
+                .toList();
+          }
+          final storedHydration = data['hydrationEvents'];
+          if (storedHydration is List) {
+            hydrationEvents = storedHydration
+                .map(_readHydrationEvent)
+                .whereType<HydrationEvent>()
+                .toList();
+          }
+          final storedRecovery = data['recoveryCheckIns'];
+          if (storedRecovery is List) {
+            recoveryCheckIns = storedRecovery
+                .map(_readRecoveryCheckIn)
+                .whereType<RecoveryCheckIn>()
+                .toList();
+          }
+          final storedResponses = data['workoutResponses'];
+          if (storedResponses is List) {
+            workoutResponses = storedResponses
+                .map(_readWorkoutResponse)
+                .whereType<WorkoutResponse>()
+                .toList();
+          }
+          aiAnalysisEnabled = data['aiAnalysisEnabled'] == true;
+          final storedDomains = data['labDataDomains'];
+          if (storedDomains is List) {
+            labDataDomains = {
+              for (final value in storedDomains)
+                if (value is String)
+                  for (final domain in LabDataDomain.values)
+                    if (domain.name == value) domain,
+            };
+          }
+          final storedMessages = data['labMessages'];
+          if (storedMessages is List) {
+            labMessages = storedMessages
+                .map(_readLabMessage)
+                .whereType<LabMessage>()
+                .toList();
+          }
           if (originalVersion < schemaVersion) {
             try {
               await _channel.invokeMethod('write', jsonEncode(data));
@@ -294,6 +430,7 @@ class AppStore extends ChangeNotifier {
     } on Object {
       // Ignore structurally invalid legacy state and keep usable defaults.
     }
+    isLoaded = true;
     notifyListeners();
   }
 
@@ -314,8 +451,388 @@ class AppStore extends ChangeNotifier {
         'draft': draft?.toJson(),
         'drafts': _draftsForSave.map((item) => item.toJson()).toList(),
         'programStartDate': programStartDate.toIso8601String(),
+        'strengthProgramRun': strengthProgramRun,
+        'athleticProgramRun': athleticProgramRun,
+        'athleticWeek': athleticWeek,
+        'athleticSessionIndex': athleticSessionIndex,
+        'athleticStartDate': athleticStartDate.toIso8601String(),
+        'athleticHistory': athleticHistory
+            .map((record) => record.toJson())
+            .toList(),
+        'athleticAssessments': athleticAssessments
+            .map((assessment) => assessment.toJson())
+            .toList(),
+        'onboardingVersionSeen': onboardingVersionSeen,
+        'preferredTrack': preferredTrack.name,
+        'supplementPresets': supplementPresets
+            .map((preset) => preset.toJson())
+            .toList(),
+        'supplementEvents': supplementEvents
+            .map((event) => event.toJson())
+            .toList(),
+        'mealEvents': mealEvents.map((event) => event.toJson()).toList(),
+        'hydrationEvents': hydrationEvents
+            .map((event) => event.toJson())
+            .toList(),
+        'recoveryCheckIns': recoveryCheckIns
+            .map((item) => item.toJson())
+            .toList(),
+        'workoutResponses': workoutResponses
+            .map((item) => item.toJson())
+            .toList(),
+        'aiAnalysisEnabled': aiAnalysisEnabled,
+        'labDataDomains': labDataDomains.map((domain) => domain.name).toList(),
+        'labMessages': labMessages.map((message) => message.toJson()).toList(),
       }),
     );
+  }
+
+  Future<void> setPreferredTrack(TrainingTrack value) async {
+    if (preferredTrack == value) return;
+    final previous = preferredTrack;
+    preferredTrack = value;
+    notifyListeners();
+    try {
+      await save();
+    } on Object {
+      preferredTrack = previous;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> markOnboardingSeen(int version) async {
+    if (version <= onboardingVersionSeen) return;
+    final previous = onboardingVersionSeen;
+    onboardingVersionSeen = version;
+    notifyListeners();
+    try {
+      await save();
+    } on Object {
+      onboardingVersionSeen = previous;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  List<SupplementPreset> get activeSupplementPresets => supplementPresets
+      .where((preset) => !preset.archived)
+      .toList()
+    ..sort((a, b) => a.name.compareTo(b.name));
+
+  List<SupplementEvent> supplementEventsForDay(DateTime day) => supplementEvents
+      .where((event) => sameLocalDay(event.takenAt, day))
+      .toList()
+    ..sort((a, b) => b.takenAt.compareTo(a.takenAt));
+
+  List<MealEvent> mealEventsForDay(DateTime day) => mealEvents
+      .where((event) => sameLocalDay(event.occurredAt, day))
+      .toList()
+    ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+
+  List<HydrationEvent> hydrationEventsForDay(DateTime day) => hydrationEvents
+      .where((event) => sameLocalDay(event.occurredAt, day))
+      .toList()
+    ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+
+  double caffeineForDay(DateTime day) => supplementEvents
+      .where((event) => sameLocalDay(event.takenAt, day))
+      .fold(0.0, (sum, event) => sum + event.caffeineMg);
+
+  double hydrationForDay(DateTime day) => hydrationEvents
+      .where((event) => sameLocalDay(event.occurredAt, day))
+      .fold(0.0, (sum, event) => sum + event.amountMl);
+
+  RecoveryCheckIn? recoveryForDay(DateTime day) {
+    for (final item in recoveryCheckIns.reversed) {
+      if (sameLocalDay(item.localDate, day)) return item;
+    }
+    return null;
+  }
+
+  WorkoutResponse? responseForSession(String sessionId) {
+    for (final item in workoutResponses.reversed) {
+      if (item.workoutSessionId == sessionId) return item;
+    }
+    return null;
+  }
+
+  Future<void> saveSupplementPreset(SupplementPreset value) async {
+    final name = value.name.trim();
+    final unitValue = value.unit.trim();
+    if (name.isEmpty || unitValue.isEmpty || !value.dose.isFinite || value.dose <= 0) {
+      throw ArgumentError('Supplement name, dose, and unit are required.');
+    }
+    if (!value.caffeineMg.isFinite || value.caffeineMg < 0) {
+      throw ArgumentError('Caffeine must be zero or greater.');
+    }
+    final previous = List<SupplementPreset>.of(supplementPresets);
+    final index = supplementPresets.indexWhere((preset) => preset.id == value.id);
+    if (index < 0) {
+      supplementPresets.add(value);
+    } else {
+      supplementPresets[index] = value;
+    }
+    try {
+      await save();
+    } on Object {
+      supplementPresets = previous;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> archiveSupplementPreset(String id) async {
+    final index = supplementPresets.indexWhere((preset) => preset.id == id);
+    if (index < 0) return;
+    final previous = List<SupplementPreset>.of(supplementPresets);
+    supplementPresets[index] = supplementPresets[index].copyWith(
+      archived: true,
+      updatedAt: DateTime.now(),
+    );
+    try {
+      await save();
+    } on Object {
+      supplementPresets = previous;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> logSupplementPreset(
+    SupplementPreset preset, {
+    DateTime? takenAt,
+    String notes = '',
+  }) => saveSupplementEvent(
+    SupplementEvent(
+      id: createRecordId('supplement'),
+      presetId: preset.id,
+      name: preset.name,
+      brand: preset.brand,
+      dose: preset.dose,
+      unit: preset.unit,
+      caffeineMg: preset.caffeineMg,
+      takenAt: takenAt ?? DateTime.now(),
+      notes: notes.trim(),
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    ),
+  );
+
+  Future<void> saveSupplementEvent(SupplementEvent value) async {
+    if (value.name.trim().isEmpty || value.unit.trim().isEmpty) {
+      throw ArgumentError('Supplement name and unit are required.');
+    }
+    if (!value.dose.isFinite || value.dose <= 0) {
+      throw ArgumentError('Dose must be above zero.');
+    }
+    if (!value.caffeineMg.isFinite || value.caffeineMg < 0) {
+      throw ArgumentError('Caffeine must be zero or greater.');
+    }
+    final previous = List<SupplementEvent>.of(supplementEvents);
+    final index = supplementEvents.indexWhere((event) => event.id == value.id);
+    if (index < 0) {
+      supplementEvents.add(value);
+    } else {
+      supplementEvents[index] = value;
+    }
+    try {
+      await save();
+    } on Object {
+      supplementEvents = previous;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> deleteSupplementEvent(String id) async {
+    final previous = List<SupplementEvent>.of(supplementEvents);
+    supplementEvents.removeWhere((event) => event.id == id);
+    try {
+      await save();
+    } on Object {
+      supplementEvents = previous;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> saveMealEvent(MealEvent value) async {
+    if (value.name.trim().isEmpty) throw ArgumentError('Meal name is required.');
+    final previous = List<MealEvent>.of(mealEvents);
+    final index = mealEvents.indexWhere((event) => event.id == value.id);
+    if (index < 0) {
+      mealEvents.add(value);
+    } else {
+      mealEvents[index] = value;
+    }
+    try {
+      await save();
+    } on Object {
+      mealEvents = previous;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> deleteMealEvent(String id) async {
+    final previous = List<MealEvent>.of(mealEvents);
+    mealEvents.removeWhere((event) => event.id == id);
+    try {
+      await save();
+    } on Object {
+      mealEvents = previous;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> addHydration({
+    required double amountMl,
+    bool electrolytes = false,
+    String notes = '',
+    DateTime? occurredAt,
+  }) async {
+    if (!amountMl.isFinite || amountMl <= 0) {
+      throw ArgumentError('Hydration amount must be above zero.');
+    }
+    final now = DateTime.now();
+    final previous = List<HydrationEvent>.of(hydrationEvents);
+    hydrationEvents.add(
+      HydrationEvent(
+        id: createRecordId('hydration'),
+        occurredAt: occurredAt ?? now,
+        amountMl: amountMl,
+        electrolytes: electrolytes,
+        notes: notes.trim(),
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    try {
+      await save();
+    } on Object {
+      hydrationEvents = previous;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> deleteHydrationEvent(String id) async {
+    final previous = List<HydrationEvent>.of(hydrationEvents);
+    hydrationEvents.removeWhere((event) => event.id == id);
+    try {
+      await save();
+    } on Object {
+      hydrationEvents = previous;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> saveRecoveryCheckIn(RecoveryCheckIn value) async {
+    final ratings = [value.sleepQuality, value.stress, value.soreness];
+    if (ratings.whereType<int>().any((rating) => rating < 1 || rating > 5)) {
+      throw RangeError('Recovery ratings must be between 1 and 5.');
+    }
+    if (value.sleepHours != null &&
+        (!value.sleepHours!.isFinite || value.sleepHours! < 0 || value.sleepHours! > 24)) {
+      throw ArgumentError('Sleep hours must be between 0 and 24.');
+    }
+    final previous = List<RecoveryCheckIn>.of(recoveryCheckIns);
+    recoveryCheckIns.removeWhere((item) => sameLocalDay(item.localDate, value.localDate));
+    recoveryCheckIns.add(value);
+    try {
+      await save();
+    } on Object {
+      recoveryCheckIns = previous;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> saveWorkoutResponse(WorkoutResponse value) async {
+    final ratings = [
+      value.energy,
+      value.focus,
+      value.pump,
+      value.effort,
+      value.discomfort,
+    ];
+    if (ratings.any((rating) => rating < 1 || rating > 5)) {
+      throw RangeError('Workout ratings must be between 1 and 5.');
+    }
+    final previous = List<WorkoutResponse>.of(workoutResponses);
+    workoutResponses.removeWhere(
+      (item) => item.workoutSessionId == value.workoutSessionId,
+    );
+    workoutResponses.add(value);
+    try {
+      await save();
+    } on Object {
+      workoutResponses = previous;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> setAiAnalysisEnabled(bool value) async {
+    if (aiAnalysisEnabled == value) return;
+    final previous = aiAnalysisEnabled;
+    aiAnalysisEnabled = value;
+    notifyListeners();
+    try {
+      await save();
+    } on Object {
+      aiAnalysisEnabled = previous;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> setLabDataDomain(LabDataDomain domain, bool enabled) async {
+    final previous = Set<LabDataDomain>.of(labDataDomains);
+    if (enabled) {
+      labDataDomains.add(domain);
+    } else {
+      labDataDomains.remove(domain);
+    }
+    notifyListeners();
+    try {
+      await save();
+    } on Object {
+      labDataDomains = previous;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> addLabMessage(LabMessage message) async {
+    final previous = List<LabMessage>.of(labMessages);
+    labMessages.add(message);
+    if (labMessages.length > 40) {
+      labMessages = labMessages.sublist(labMessages.length - 40);
+    }
+    try {
+      await save();
+    } on Object {
+      labMessages = previous;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> clearLabMessages() async {
+    if (labMessages.isEmpty) return;
+    final previous = List<LabMessage>.of(labMessages);
+    labMessages.clear();
+    try {
+      await save();
+    } on Object {
+      labMessages = previous;
+      rethrow;
+    }
+    notifyListeners();
   }
 
   bool isPr(SetLog candidate) => !logs
@@ -520,6 +1037,7 @@ class AppStore extends ChangeNotifier {
       workout: workout,
       date: DateTime.now(),
       status: status,
+      programRun: strengthProgramRun,
       days: days,
       scheduledDate:
           scheduledDate ?? dateForSlot(weekNumber, targetWorkoutIndex),
@@ -583,6 +1101,7 @@ class AppStore extends ChangeNotifier {
       workoutHistory
           .where(
             (record) =>
+                record.programRun == strengthProgramRun &&
                 record.week == weekNumber &&
                 record.workoutIndex == targetWorkoutIndex &&
                 record.days == days,
@@ -597,7 +1116,8 @@ class AppStore extends ChangeNotifier {
     required bool retroactive,
   }) {
     for (final item in drafts.reversed) {
-      if (item.week == weekNumber &&
+      if (item.programRun == strengthProgramRun &&
+          item.week == weekNumber &&
           item.workoutIndex == targetWorkoutIndex &&
           item.days == cadence &&
           item.retroactive == retroactive) {
@@ -606,6 +1126,7 @@ class AppStore extends ChangeNotifier {
     }
     final legacy = draft;
     if (legacy != null &&
+        legacy.programRun == strengthProgramRun &&
         legacy.week == weekNumber &&
         legacy.workoutIndex == targetWorkoutIndex &&
         legacy.days == cadence &&
@@ -629,6 +1150,268 @@ class AppStore extends ChangeNotifier {
         week++;
       }
     }
+  }
+
+  AthleticWeek get currentAthleticWeek => AthleticProgram.week(athleticWeek);
+
+  AthleticSession get currentAthleticSession =>
+      currentAthleticWeek.sessions[athleticSessionIndex];
+
+  List<AthleticSessionRecord> get currentAthleticRunHistory => athleticHistory
+      .where((record) => record.programRun == athleticProgramRun)
+      .toList()
+    ..sort((a, b) => a.completedAt.compareTo(b.completedAt));
+
+  int get athleticCompletedSessions => currentAthleticRunHistory.length;
+
+  bool get athleticProgramComplete => isAthleticSessionCompleted(
+    AthleticProgram.totalWeeks,
+    AthleticProgram.sessionsPerWeek - 1,
+  );
+
+  double get athleticProgress =>
+      (athleticCompletedSessions /
+              (AthleticProgram.totalWeeks * AthleticProgram.sessionsPerWeek))
+          .clamp(0.0, 1.0);
+
+  bool isAthleticSessionCompleted(int weekNumber, int sessionIndex) =>
+      athleticHistory.any(
+        (record) =>
+            record.programRun == athleticProgramRun &&
+            record.week == weekNumber &&
+            record.sessionIndex == sessionIndex,
+      );
+
+  DateTime athleticDateForSlot(int weekNumber, int sessionIndex) {
+    const offsets = [0, 2, 4, 5];
+    final safeWeek = weekNumber.clamp(1, AthleticProgram.totalWeeks).toInt();
+    final safeIndex = sessionIndex
+        .clamp(0, AthleticProgram.sessionsPerWeek - 1)
+        .toInt();
+    return _dateOnly(
+      athleticStartDate.add(
+        Duration(days: (safeWeek - 1) * 7 + offsets[safeIndex]),
+      ),
+    );
+  }
+
+  Future<void> completeAthleticSession({
+    required int effort,
+    required String notes,
+    String? sessionId,
+  }) async {
+    if (effort < 1 || effort > 10) {
+      throw RangeError.range(effort, 1, 10, 'effort');
+    }
+    if (isAthleticSessionCompleted(athleticWeek, athleticSessionIndex)) {
+      throw StateError('This athletic session is already complete.');
+    }
+    final previousWeek = athleticWeek;
+    final previousSessionIndex = athleticSessionIndex;
+    final record = AthleticSessionRecord(
+      programRun: athleticProgramRun,
+      week: athleticWeek,
+      sessionIndex: athleticSessionIndex,
+      completedAt: DateTime.now(),
+      effort: effort,
+      notes: notes.trim(),
+      sessionId: sessionId,
+    );
+    athleticHistory.add(record);
+    if (!(athleticWeek == AthleticProgram.totalWeeks &&
+        athleticSessionIndex == AthleticProgram.sessionsPerWeek - 1)) {
+      athleticSessionIndex++;
+      if (athleticSessionIndex >= AthleticProgram.sessionsPerWeek) {
+        athleticSessionIndex = 0;
+        athleticWeek++;
+      }
+    }
+    try {
+      await save();
+    } on Object {
+      athleticWeek = previousWeek;
+      athleticSessionIndex = previousSessionIndex;
+      athleticHistory.removeLast();
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> saveAthleticAssessment(AthleticAssessment assessment) async {
+    if (assessment.programRun != athleticProgramRun) {
+      throw ArgumentError('Assessment run does not match the active program.');
+    }
+    if (assessment.movementQuality < 1 || assessment.movementQuality > 5) {
+      throw RangeError.range(
+        assessment.movementQuality,
+        1,
+        5,
+        'movementQuality',
+      );
+    }
+    athleticAssessments.add(assessment);
+    try {
+      await save();
+    } on Object {
+      athleticAssessments.removeLast();
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> restartAthleticProgram() async {
+    final previousRun = athleticProgramRun;
+    final previousWeek = athleticWeek;
+    final previousSessionIndex = athleticSessionIndex;
+    final previousStartDate = athleticStartDate;
+    athleticProgramRun++;
+    athleticWeek = 1;
+    athleticSessionIndex = 0;
+    athleticStartDate = _dateOnly(DateTime.now());
+    try {
+      await save();
+    } on Object {
+      athleticProgramRun = previousRun;
+      athleticWeek = previousWeek;
+      athleticSessionIndex = previousSessionIndex;
+      athleticStartDate = previousStartDate;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> setStrengthProgramPosition({
+    required int phase,
+    required int microcycle,
+    required int cadence,
+    required int nextWorkoutIndex,
+    required DateTime nextWorkoutDate,
+    required bool startNewRun,
+  }) async {
+    if (phase < 1 || phase > ProgramEngine.phaseCount) {
+      throw RangeError.range(phase, 1, ProgramEngine.phaseCount, 'phase');
+    }
+    if (microcycle < 1 || microcycle > ProgramEngine.weeksPerPhase) {
+      throw RangeError.range(
+        microcycle,
+        1,
+        ProgramEngine.weeksPerPhase,
+        'microcycle',
+      );
+    }
+    ProgramEngine.validateDays(cadence);
+    if (nextWorkoutIndex < 0 || nextWorkoutIndex >= cadence) {
+      throw RangeError.range(
+        nextWorkoutIndex,
+        0,
+        cadence - 1,
+        'nextWorkoutIndex',
+      );
+    }
+    final targetWeek =
+        ProgramEngine.firstWeekOfPhase(phase) + microcycle - 1;
+    if (!startNewRun &&
+        workoutHistory.any(
+          (record) =>
+              record.programRun == strengthProgramRun &&
+              record.week == targetWeek &&
+              record.workoutIndex == nextWorkoutIndex &&
+              record.days == cadence,
+        )) {
+      throw StateError(
+        'That workout already has history in the current run. Start a new run instead.',
+      );
+    }
+
+    final previousRun = strengthProgramRun;
+    final previousDays = days;
+    final previousWeek = week;
+    final previousWorkoutIndex = workoutIndex;
+    final previousStartDate = programStartDate;
+    final previousDraft = draft;
+    final previousDrafts = List<DraftSetInput>.of(drafts);
+
+    if (startNewRun) strengthProgramRun++;
+    days = cadence;
+    week = targetWeek;
+    workoutIndex = nextWorkoutIndex;
+    final offsets = _strengthOffsetsForCadence(cadence);
+    programStartDate = _dateOnly(nextWorkoutDate).subtract(
+      Duration(
+        days: (targetWeek - 1) * 7 + offsets[nextWorkoutIndex],
+      ),
+    );
+    drafts = drafts.where((item) => item.retroactive).toList();
+    draft = null;
+
+    try {
+      await save();
+    } on Object {
+      strengthProgramRun = previousRun;
+      days = previousDays;
+      week = previousWeek;
+      workoutIndex = previousWorkoutIndex;
+      programStartDate = previousStartDate;
+      draft = previousDraft;
+      drafts = previousDrafts;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> setAthleticProgramPosition({
+    required int weekNumber,
+    required int sessionIndex,
+    required DateTime nextSessionDate,
+    required bool startNewRun,
+  }) async {
+    if (weekNumber < 1 || weekNumber > AthleticProgram.totalWeeks) {
+      throw RangeError.range(
+        weekNumber,
+        1,
+        AthleticProgram.totalWeeks,
+        'weekNumber',
+      );
+    }
+    if (sessionIndex < 0 ||
+        sessionIndex >= AthleticProgram.sessionsPerWeek) {
+      throw RangeError.range(
+        sessionIndex,
+        0,
+        AthleticProgram.sessionsPerWeek - 1,
+        'sessionIndex',
+      );
+    }
+    if (!startNewRun &&
+        isAthleticSessionCompleted(weekNumber, sessionIndex)) {
+      throw StateError(
+        'That session is already complete in the current run. Start a new run instead.',
+      );
+    }
+
+    final previousRun = athleticProgramRun;
+    final previousWeek = athleticWeek;
+    final previousSessionIndex = athleticSessionIndex;
+    final previousStartDate = athleticStartDate;
+
+    if (startNewRun) athleticProgramRun++;
+    athleticWeek = weekNumber;
+    athleticSessionIndex = sessionIndex;
+    const offsets = [0, 2, 4, 5];
+    athleticStartDate = _dateOnly(nextSessionDate).subtract(
+      Duration(days: (weekNumber - 1) * 7 + offsets[sessionIndex]),
+    );
+
+    try {
+      await save();
+    } on Object {
+      athleticProgramRun = previousRun;
+      athleticWeek = previousWeek;
+      athleticSessionIndex = previousSessionIndex;
+      athleticStartDate = previousStartDate;
+      rethrow;
+    }
+    notifyListeners();
   }
 
   /// Changes cadence without moving the user to another program week.
@@ -745,6 +1528,123 @@ class AppStore extends ChangeNotifier {
     }
   }
 
+  static AthleticSessionRecord? _readAthleticRecord(Object? value) {
+    if (value is! Map) return null;
+    try {
+      final record = AthleticSessionRecord.fromJson(
+        Map<String, dynamic>.from(value),
+      );
+      if (record.week < 1 ||
+          record.week > AthleticProgram.totalWeeks ||
+          record.sessionIndex < 0 ||
+          record.sessionIndex >= AthleticProgram.sessionsPerWeek ||
+          record.effort < 1 ||
+          record.effort > 10) {
+        return null;
+      }
+      return record;
+    } on Object {
+      return null;
+    }
+  }
+
+  static AthleticAssessment? _readAthleticAssessment(Object? value) {
+    if (value is! Map) return null;
+    try {
+      final assessment = AthleticAssessment.fromJson(
+        Map<String, dynamic>.from(value),
+      );
+      if (assessment.movementQuality < 1 ||
+          assessment.movementQuality > 5) {
+        return null;
+      }
+      return assessment;
+    } on Object {
+      return null;
+    }
+  }
+
+  static SupplementPreset? _readSupplementPreset(Object? value) {
+    if (value is! Map) return null;
+    try {
+      final preset = SupplementPreset.fromJson(Map<String, dynamic>.from(value));
+      if (preset.id.isEmpty || preset.name.trim().isEmpty || preset.dose <= 0) {
+        return null;
+      }
+      return preset;
+    } on Object {
+      return null;
+    }
+  }
+
+  static SupplementEvent? _readSupplementEvent(Object? value) {
+    if (value is! Map) return null;
+    try {
+      final event = SupplementEvent.fromJson(Map<String, dynamic>.from(value));
+      if (event.id.isEmpty || event.name.trim().isEmpty || event.dose <= 0) {
+        return null;
+      }
+      return event;
+    } on Object {
+      return null;
+    }
+  }
+
+  static MealEvent? _readMealEvent(Object? value) {
+    if (value is! Map) return null;
+    try {
+      final event = MealEvent.fromJson(Map<String, dynamic>.from(value));
+      if (event.id.isEmpty || event.name.trim().isEmpty) return null;
+      return event;
+    } on Object {
+      return null;
+    }
+  }
+
+  static HydrationEvent? _readHydrationEvent(Object? value) {
+    if (value is! Map) return null;
+    try {
+      final event = HydrationEvent.fromJson(Map<String, dynamic>.from(value));
+      if (event.id.isEmpty || event.amountMl <= 0) return null;
+      return event;
+    } on Object {
+      return null;
+    }
+  }
+
+  static RecoveryCheckIn? _readRecoveryCheckIn(Object? value) {
+    if (value is! Map) return null;
+    try {
+      final item = RecoveryCheckIn.fromJson(Map<String, dynamic>.from(value));
+      if (item.id.isEmpty) return null;
+      return item;
+    } on Object {
+      return null;
+    }
+  }
+
+  static WorkoutResponse? _readWorkoutResponse(Object? value) {
+    if (value is! Map) return null;
+    try {
+      final item = WorkoutResponse.fromJson(Map<String, dynamic>.from(value));
+      if (item.id.isEmpty || item.workoutSessionId.isEmpty) return null;
+      return item;
+    } on Object {
+      return null;
+    }
+  }
+
+  static LabMessage? _readLabMessage(Object? value) {
+    if (value is! Map) return null;
+    try {
+      final item = LabMessage.fromJson(Map<String, dynamic>.from(value));
+      if (item.id.isEmpty || item.text.trim().isEmpty) return null;
+      return item;
+    } on Object {
+      return null;
+    }
+  }
+
   static Map<String, dynamic> _migrate(Map<String, dynamic> source) {
     final data = Map<String, dynamic>.from(source);
     var version = _readInt(data['schemaVersion']) ?? 1;
@@ -820,6 +1720,78 @@ class AppStore extends ChangeNotifier {
       version = 6;
       data['schemaVersion'] = version;
     }
+    if (version < 7) {
+      data.putIfAbsent('athleticProgramRun', () => 1);
+      data.putIfAbsent('athleticWeek', () => 1);
+      data.putIfAbsent('athleticSessionIndex', () => 0);
+      data.putIfAbsent(
+        'athleticStartDate',
+        () => _dateOnly(DateTime.now()).toIso8601String(),
+      );
+      data.putIfAbsent('athleticHistory', () => <Object>[]);
+      data.putIfAbsent('athleticAssessments', () => <Object>[]);
+      version = 7;
+      data['schemaVersion'] = version;
+    }
+    if (version < 8) {
+      data.putIfAbsent('onboardingVersionSeen', () => 0);
+      data.putIfAbsent('preferredTrack', () => 'strength');
+      version = 8;
+      data['schemaVersion'] = version;
+    }
+    if (version < 9) {
+      data.putIfAbsent(
+        'supplementPresets',
+        () => SupplementPreset.defaults()
+            .map((preset) => preset.toJson())
+            .toList(),
+      );
+      data.putIfAbsent('supplementEvents', () => <Object>[]);
+      data.putIfAbsent('mealEvents', () => <Object>[]);
+      data.putIfAbsent('hydrationEvents', () => <Object>[]);
+      data.putIfAbsent('recoveryCheckIns', () => <Object>[]);
+      data.putIfAbsent('workoutResponses', () => <Object>[]);
+      data.putIfAbsent('aiAnalysisEnabled', () => false);
+      data.putIfAbsent(
+        'labDataDomains',
+        () => LabDataDomain.values.map((domain) => domain.name).toList(),
+      );
+      data.putIfAbsent('labMessages', () => <Object>[]);
+      version = 9;
+      data['schemaVersion'] = version;
+    }
+    if (version < 10) {
+      data.putIfAbsent('strengthProgramRun', () => 1);
+      final history = data['workoutHistory'];
+      if (history is List) {
+        data['workoutHistory'] = [
+          for (final value in history)
+            if (value is Map)
+              Map<String, dynamic>.from(value)
+                ..putIfAbsent('programRun', () => 1)
+            else
+              value,
+        ];
+      }
+      final legacyDraft = data['draft'];
+      if (legacyDraft is Map) {
+        data['draft'] = Map<String, dynamic>.from(legacyDraft)
+          ..putIfAbsent('programRun', () => 1);
+      }
+      final storedDrafts = data['drafts'];
+      if (storedDrafts is List) {
+        data['drafts'] = [
+          for (final value in storedDrafts)
+            if (value is Map)
+              Map<String, dynamic>.from(value)
+                ..putIfAbsent('programRun', () => 1)
+            else
+              value,
+        ];
+      }
+      version = 10;
+      data['schemaVersion'] = version;
+    }
     return data;
   }
 
@@ -834,19 +1806,22 @@ class AppStore extends ChangeNotifier {
   }
 
   static bool _sameDraftTarget(DraftSetInput a, DraftSetInput b) =>
+      a.programRun == b.programRun &&
       a.week == b.week &&
       a.workoutIndex == b.workoutIndex &&
       a.days == b.days &&
       a.retroactive == b.retroactive;
 
+  static List<int> _strengthOffsetsForCadence(int cadence) => switch (cadence) {
+    3 => const [0, 2, 4],
+    4 => const [0, 1, 3, 4],
+    5 => const [0, 1, 2, 3, 4],
+    _ => throw ArgumentError.value(cadence, 'cadence'),
+  };
+
   DateTime _inferredProgramStartDate() {
     final today = _dateOnly(DateTime.now());
-    final offsets = switch (days) {
-      3 => const [0, 2, 4],
-      4 => const [0, 1, 3, 4],
-      5 => const [0, 1, 2, 3, 4],
-      _ => const [0, 1, 3, 4],
-    };
+    final offsets = _strengthOffsetsForCadence(days);
     return today.subtract(
       Duration(days: (week - 1) * 7 + offsets[workoutIndex]),
     );

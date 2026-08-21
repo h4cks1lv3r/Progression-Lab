@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'brand.dart';
+import 'lab_screen.dart';
 import 'logged_sets.dart';
 import 'store.dart';
 
@@ -19,12 +21,12 @@ class ProgressDashboard extends StatefulWidget {
 
 class _ProgressDashboardState extends State<ProgressDashboard>
     with SingleTickerProviderStateMixin {
-  static const _ink = Color(0xFF080C12);
-  static const _surface = Color(0xFF101721);
-  static const _surfaceHigh = Color(0xFF16212D);
-  static const _cyan = Color(0xFF55F3E5);
-  static const _violet = Color(0xFFA47BFF);
-  static const _muted = Color(0xFF91A1B3);
+  static const _ink = BrandColors.ink;
+  static const _surface = BrandColors.panel;
+  static const _surfaceHigh = BrandColors.panelHigh;
+  static const _cyan = BrandColors.cyan;
+  static const _violet = BrandColors.violet;
+  static const _muted = BrandColors.muted;
 
   String? _selectedExercise;
   _ProgressMetric _metric = _ProgressMetric.estimatedOneRepMax;
@@ -169,14 +171,54 @@ class _ProgressDashboardState extends State<ProgressDashboard>
               .clamp(0, points.length - 1)
               .toInt()];
 
-    return ColoredBox(
+    return Material(
       color: _ink,
-      child: ListView(
+      child: SafeArea(
+        child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
         children: [
           _Header(
             exerciseCount: exercises.length,
             setCount: widget.store.logs.length,
+          ),
+          const SizedBox(height: 16),
+          LabPanel(
+            accent: BrandColors.cyan,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => InputsPerformanceScreen(store: widget.store),
+              ),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.science_rounded, color: BrandColors.cyan),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'INPUTS & PERFORMANCE',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: .7,
+                        ),
+                      ),
+                      SizedBox(height: 3),
+                      Text(
+                        'Compare supplements, meals, and recovery with matched workouts.',
+                        style: TextStyle(
+                          color: BrandColors.muted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.arrow_forward_rounded, color: BrandColors.muted),
+              ],
+            ),
           ),
           const SizedBox(height: 22),
           _ControlPanel(
@@ -264,7 +306,8 @@ class _ProgressDashboardState extends State<ProgressDashboard>
               },
             ),
           ],
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -318,28 +361,7 @@ class _Header extends StatelessWidget {
         ),
       ),
       const SizedBox(width: 16),
-      Container(
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              _ProgressDashboardState._cyan,
-              _ProgressDashboardState._violet,
-            ],
-          ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: _ProgressDashboardState._cyan.withValues(alpha: .2),
-              blurRadius: 24,
-            ),
-          ],
-        ),
-        child: const Icon(Icons.monitor_heart_rounded, color: Colors.black),
-      ),
+      const LabMark(size: 50),
     ],
   );
 }

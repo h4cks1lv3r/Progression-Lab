@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'brand.dart';
 import 'logged_sets.dart';
 import 'program.dart';
 import 'store.dart';
@@ -7,13 +8,13 @@ import 'store.dart';
 typedef OpenProgramWorkout =
     void Function(ProgramWeek week, int workoutIndex, bool retroactive);
 
-const _ink = Color(0xFF070A0F);
-const _surface = Color(0xFF101722);
-const _surfaceRaised = Color(0xFF172131);
-const _acid = Color(0xFFC7FF45);
-const _electric = Color(0xFF4DE5FF);
-const _violet = Color(0xFFA878FF);
-const _amber = Color(0xFFFFB84D);
+const _ink = BrandColors.ink;
+const _surface = BrandColors.panel;
+const _surfaceRaised = BrandColors.panelHigh;
+const _acid = BrandColors.violet;
+const _electric = BrandColors.cyan;
+const _violet = BrandColors.purple;
+const _amber = BrandColors.magenta;
 
 /// Opens the shared cadence-change flow.
 ///
@@ -273,7 +274,7 @@ Future<void> showCadenceSwitchSheet(
                         onPressed: saving ? null : commit,
                         style: FilledButton.styleFrom(
                           backgroundColor: _acid,
-                          foregroundColor: _ink,
+                          foregroundColor: Colors.white,
                           disabledBackgroundColor: _acid.withValues(alpha: .45),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(17),
@@ -284,7 +285,7 @@ Future<void> showCadenceSwitchSheet(
                                 dimension: 19,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2.5,
-                                  color: _ink,
+                                  color: Colors.white,
                                 ),
                               )
                             : const Icon(Icons.check_rounded),
@@ -297,6 +298,442 @@ Future<void> showCadenceSwitchSheet(
                           style: const TextStyle(
                             fontWeight: FontWeight.w900,
                             letterSpacing: .5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+/// Lets a user enter the authored program at any phase, cycle, cadence, and
+/// next workout without rewriting prior training history.
+Future<void> showProgramPositionSheet(
+  BuildContext context,
+  AppStore store, {
+  int? initialWeek,
+}) async {
+  final currentWeek = ProgramEngine.week(
+    ProgramEngine.clampWeek(store.week),
+    store.days,
+  );
+  final selectedInitialWeek = ProgramEngine.week(
+    ProgramEngine.clampWeek(initialWeek ?? store.week),
+    store.days,
+  );
+  var targetPhase = selectedInitialWeek.phase;
+  var targetMicrocycle = selectedInitialWeek.microcycle;
+  var targetDays = store.days;
+  var selectedWorkout = selectedInitialWeek.number == currentWeek.number
+      ? store.workoutIndex
+      : 0;
+  final now = DateTime.now();
+  var nextWorkoutDate = DateTime(now.year, now.month, now.day);
+  var startNewRun = false;
+  var saving = false;
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: .78),
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (context, setSheetState) {
+        final targetWeekNumber =
+            ProgramEngine.firstWeekOfPhase(targetPhase) + targetMicrocycle - 1;
+        final targetWeek = ProgramEngine.week(targetWeekNumber, targetDays);
+        selectedWorkout = selectedWorkout
+            .clamp(0, targetWeek.workouts.length - 1)
+            .toInt();
+        final targetHasHistory = store.workoutHistory.any(
+          (record) =>
+              record.programRun == store.strengthProgramRun &&
+              record.week == targetWeekNumber &&
+              record.workoutIndex == selectedWorkout &&
+              record.days == targetDays,
+        );
+        final hasActiveDraft =
+            (store.draft != null && !store.draft!.retroactive) ||
+            store.drafts.any(
+              (item) =>
+                  item.programRun == store.strengthProgramRun &&
+                  !item.retroactive,
+            );
+        final canSave = startNewRun || !targetHasHistory;
+
+        Future<void> chooseDate() async {
+          final chosen = await showDatePicker(
+            context: sheetContext,
+            initialDate: nextWorkoutDate,
+            firstDate: DateTime(2000),
+            lastDate: DateTime(now.year + 10, 12, 31),
+            helpText: 'Choose the date of the next workout',
+          );
+          if (chosen != null && sheetContext.mounted) {
+            setSheetState(() => nextWorkoutDate = chosen);
+          }
+        }
+
+        Future<void> commit() async {
+          if (saving || !canSave) return;
+          setSheetState(() => saving = true);
+          try {
+            await store.setStrengthProgramPosition(
+              phase: targetPhase,
+              microcycle: targetMicrocycle,
+              cadence: targetDays,
+              nextWorkoutIndex: selectedWorkout,
+              nextWorkoutDate: nextWorkoutDate,
+              startNewRun: startNewRun,
+            );
+            if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+          } on StateError catch (error) {
+            if (!sheetContext.mounted) return;
+            setSheetState(() => saving = false);
+            ScaffoldMessenger.of(sheetContext).showSnackBar(
+              SnackBar(content: Text(error.message.toString())),
+            );
+          } on Object {
+            if (!sheetContext.mounted) return;
+            setSheetState(() => saving = false);
+            ScaffoldMessenger.of(sheetContext).showSnackBar(
+              const SnackBar(
+                content: Text('The program position could not be changed.'),
+              ),
+            );
+          }
+        }
+
+        return DraggableScrollableSheet(
+          initialChildSize: .93,
+          minChildSize: .66,
+          maxChildSize: .97,
+          expand: false,
+          builder: (context, controller) => Material(
+            color: _surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                const SizedBox(height: 10),
+                Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+                Expanded(
+                  child: ListView(
+                    key: const ValueKey('program-position-scroll'),
+                    controller: controller,
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: _electric.withValues(alpha: .12),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: _electric.withValues(alpha: .34),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.flag_circle_rounded,
+                              color: _electric,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'CHANGE STARTING POINT',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: .2,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Continue from another app or begin a new training block without deleting history.',
+                                  style: TextStyle(
+                                    color: Colors.white60,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Close',
+                            onPressed: saving
+                                ? null
+                                : () => Navigator.of(sheetContext).pop(),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 22),
+                      const _Eyebrow('PHASE'),
+                      const SizedBox(height: 10),
+                      _PhaseSelector(
+                        selected: targetPhase,
+                        current: currentWeek.phase,
+                        onSelected: saving
+                            ? (_) {}
+                            : (phase) => setSheetState(
+                                () => targetPhase = phase,
+                              ),
+                      ),
+                      const SizedBox(height: 22),
+                      const _Eyebrow('CYCLE'),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 15),
+                        decoration: BoxDecoration(
+                          color: _surfaceRaised,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: .08),
+                          ),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<int>(
+                            value: targetMicrocycle,
+                            isExpanded: true,
+                            dropdownColor: _surfaceRaised,
+                            borderRadius: BorderRadius.circular(18),
+                            items: [
+                              for (
+                                var cycle = 1;
+                                cycle <= ProgramEngine.weeksPerPhase;
+                                cycle++
+                              )
+                                DropdownMenuItem(
+                                  value: cycle,
+                                  child: Text(
+                                    'Cycle $cycle · Program week ${ProgramEngine.firstWeekOfPhase(targetPhase) + cycle - 1}',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                            ],
+                            onChanged: saving
+                                ? null
+                                : (value) {
+                                    if (value != null) {
+                                      setSheetState(
+                                        () => targetMicrocycle = value,
+                                      );
+                                    }
+                                  },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      const _Eyebrow('TRAINING DAYS'),
+                      const SizedBox(height: 10),
+                      _DaySelector(
+                        selected: targetDays,
+                        onSelected: saving
+                            ? null
+                            : (days) {
+                                setSheetState(() {
+                                  selectedWorkout = _mappedWorkoutIndex(
+                                    oldDays: targetDays,
+                                    newDays: days,
+                                    oldIndex: selectedWorkout,
+                                    weekNumber: targetWeekNumber,
+                                  );
+                                  targetDays = days;
+                                });
+                              },
+                      ),
+                      const SizedBox(height: 22),
+                      Row(
+                        children: [
+                          const Expanded(child: _Eyebrow('NEXT WORKOUT')),
+                          Text(
+                            '${targetWeek.workouts.length} sessions',
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      for (final entry in targetWeek.workouts.asMap().entries)
+                        _NextWorkoutOption(
+                          workout: entry.value,
+                          index: entry.key,
+                          selected: selectedWorkout == entry.key,
+                          onTap: saving
+                              ? null
+                              : () => setSheetState(
+                                  () => selectedWorkout = entry.key,
+                                ),
+                        ),
+                      const SizedBox(height: 14),
+                      const _Eyebrow('NEXT WORKOUT DATE'),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: saving ? null : chooseDate,
+                        icon: const Icon(Icons.calendar_month_rounded),
+                        label: Text(_formatDate(nextWorkoutDate)),
+                      ),
+                      const SizedBox(height: 22),
+                      const _Eyebrow('HOW TO APPLY IT'),
+                      const SizedBox(height: 10),
+                      _PositionModeOption(
+                        selected: !startNewRun,
+                        icon: Icons.my_location_rounded,
+                        title: 'MOVE CURRENT POSITION',
+                        description:
+                            'Keep run ${store.strengthProgramRun} and move its active marker. Use this to correct or continue a run.',
+                        onTap: saving
+                            ? null
+                            : () => setSheetState(() => startNewRun = false),
+                      ),
+                      const SizedBox(height: 9),
+                      _PositionModeOption(
+                        selected: startNewRun,
+                        icon: Icons.restart_alt_rounded,
+                        title: 'START A NEW PROGRAM RUN',
+                        description:
+                            'Create run ${store.strengthProgramRun + 1}. Existing workouts and personal records remain in history.',
+                        onTap: saving
+                            ? null
+                            : () => setSheetState(() => startNewRun = true),
+                      ),
+                      if (targetHasHistory && !startNewRun) ...[
+                        const SizedBox(height: 14),
+                        const _PositionWarning(
+                          icon: Icons.history_rounded,
+                          text:
+                              'This exact workout already has history in the current run. Select Start a new program run to avoid a duplicate current session.',
+                        ),
+                      ],
+                      if (hasActiveDraft) ...[
+                        const SizedBox(height: 10),
+                        const _PositionWarning(
+                          icon: Icons.edit_note_rounded,
+                          text:
+                              'An unfinished current-workout draft will be cleared. Logged sets and completed history will remain.',
+                        ),
+                      ],
+                      const SizedBox(height: 18),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              _electric.withValues(alpha: .12),
+                              _violet.withValues(alpha: .08),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: _electric.withValues(alpha: .26),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'NEW STARTING POSITION',
+                              style: TextStyle(
+                                color: _electric,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                            const SizedBox(height: 7),
+                            Text(
+                              'Run ${startNewRun ? store.strengthProgramRun + 1 : store.strengthProgramRun} · Phase $targetPhase · Cycle $targetMicrocycle',
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${targetWeek.workouts[selectedWorkout].name} · $targetDays days/week · ${_formatDate(nextWorkoutDate)}',
+                              style: const TextStyle(
+                                color: Colors.white60,
+                                height: 1.35,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: _ink,
+                    border: Border(
+                      top: BorderSide(
+                        color: Colors.white.withValues(alpha: .08),
+                      ),
+                    ),
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    minimum: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: FilledButton.icon(
+                        onPressed: saving || !canSave ? null : commit,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: _acid,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: _acid.withValues(alpha: .35),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(17),
+                          ),
+                        ),
+                        icon: saving
+                            ? const SizedBox.square(
+                                dimension: 19,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Icon(
+                                startNewRun
+                                    ? Icons.restart_alt_rounded
+                                    : Icons.flag_rounded,
+                              ),
+                        label: Text(
+                          saving
+                              ? 'SAVING'
+                              : startNewRun
+                              ? 'START NEW RUN HERE'
+                              : 'SET CURRENT POSITION',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: .45,
                           ),
                         ),
                       ),
@@ -372,9 +809,10 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
         ),
       ).where((week) => _visibleKinds.contains(week.kind)).toList();
 
-      return ColoredBox(
+      return Material(
         color: _ink,
-        child: CustomScrollView(
+        child: SafeArea(
+          child: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(
               child: Center(
@@ -388,6 +826,8 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            const LabMark(size: 52),
+                            const SizedBox(width: 13),
                             const Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -426,10 +866,15 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
                         const SizedBox(height: 22),
                         _PositionPanel(
                           current: current,
+                          run: widget.store.strengthProgramRun,
                           workoutIndex: widget.store.workoutIndex,
                           selectedPhase: _phase,
                           onJumpToCurrent: () =>
                               _showCurrentPhase(current.phase),
+                          onChangePosition: () => showProgramPositionSheet(
+                            context,
+                            widget.store,
+                          ),
                         ),
                         const SizedBox(height: 24),
                         const _Eyebrow('PHASE NAVIGATOR'),
@@ -527,7 +972,8 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       );
     },
@@ -547,7 +993,7 @@ class _CadencePanel extends StatelessWidget {
       gradient: const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [_surfaceRaised, Color(0xFF111824)],
+        colors: [_surfaceRaised, BrandColors.inkRaised],
       ),
       borderRadius: BorderRadius.circular(24),
       border: Border.all(color: Colors.white.withValues(alpha: .08)),
@@ -685,15 +1131,19 @@ class _DaySelector extends StatelessWidget {
 class _PositionPanel extends StatelessWidget {
   const _PositionPanel({
     required this.current,
+    required this.run,
     required this.workoutIndex,
     required this.selectedPhase,
     required this.onJumpToCurrent,
+    required this.onChangePosition,
   });
 
   final ProgramWeek current;
+  final int run;
   final int workoutIndex;
   final int selectedPhase;
   final VoidCallback onJumpToCurrent;
+  final VoidCallback onChangePosition;
 
   @override
   Widget build(BuildContext context) {
@@ -749,7 +1199,7 @@ class _PositionPanel extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Phase ${current.phase} · Microcycle ${current.microcycle} · ${workout.name}',
+                      'Run $run · Phase ${current.phase} · Cycle ${current.microcycle} · ${workout.name}',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w800),
@@ -775,10 +1225,134 @@ class _PositionPanel extends StatelessWidget {
               valueColor: const AlwaysStoppedAnimation(_electric),
             ),
           ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onChangePosition,
+              icon: const Icon(Icons.flag_circle_rounded, size: 18),
+              label: const Text('CHANGE STARTING POINT'),
+            ),
+          ),
         ],
       ),
     );
   }
+}
+
+
+class _PositionModeOption extends StatelessWidget {
+  const _PositionModeOption({
+    required this.selected,
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final IconData icon;
+  final String title;
+  final String description;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    selected: selected,
+    button: true,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: selected
+              ? _electric.withValues(alpha: .1)
+              : _surfaceRaised,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected
+                ? _electric.withValues(alpha: .5)
+                : Colors.white.withValues(alpha: .07),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: selected ? _electric : Colors.white54),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: selected ? Colors.white : Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .55,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    description,
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 12,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              selected
+                  ? Icons.radio_button_checked_rounded
+                  : Icons.radio_button_off_rounded,
+              color: selected ? _electric : Colors.white30,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _PositionWarning extends StatelessWidget {
+  const _PositionWarning({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(13),
+    decoration: BoxDecoration(
+      color: _amber.withValues(alpha: .08),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: _amber.withValues(alpha: .28)),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: _amber, size: 19),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _PhaseSelector extends StatelessWidget {
@@ -1236,6 +1810,26 @@ class _MicrocycleCardState extends State<_MicrocycleCard> {
                     ),
                     child: Column(
                       children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => showProgramPositionSheet(
+                              context,
+                              widget.store,
+                              initialWeek: widget.week.number,
+                            ),
+                            icon: const Icon(
+                              Icons.flag_circle_rounded,
+                              size: 18,
+                            ),
+                            label: Text(
+                              widget.current
+                                  ? 'EDIT STARTING POINT'
+                                  : 'START FROM THIS CYCLE',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
                         for (final entry
                             in widget.week.workouts.asMap().entries)
                           _WorkoutDetailCard(

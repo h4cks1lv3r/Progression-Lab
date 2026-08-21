@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
+import 'brand.dart';
 import 'exercise_library.dart';
 import 'store.dart';
 
-const _panel = Color(0xFF121821);
-const _lime = Color(0xFFB9FF3B);
-const _cyan = Color(0xFF37D7FF);
+const _panel = BrandColors.panel;
+const _lime = BrandColors.violet;
+const _cyan = BrandColors.cyan;
 
 class ExerciseLibraryScreen extends StatelessWidget {
   const ExerciseLibraryScreen({super.key, required this.store});
@@ -28,18 +29,29 @@ class ExerciseLibraryScreen extends StatelessWidget {
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => _openEditor(context),
           backgroundColor: _lime,
-          foregroundColor: Colors.black,
+          foregroundColor: Colors.white,
           icon: const Icon(Icons.add_rounded),
           label: const Text('ADD EXERCISE'),
         ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
           children: [
-            const Text(
-              'EXERCISE LIBRARY',
-              style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900),
+            const Row(
+              children: [
+                LabMark(size: 52),
+                SizedBox(width: 13),
+                Expanded(
+                  child: Text(
+                    'EXERCISE LIBRARY',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: 8),
             const Text(
               'Built-in program exercises are permanent. Custom exercises can be edited or deleted.',
               style: TextStyle(color: Colors.white54),
@@ -250,7 +262,7 @@ class _CustomExerciseTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
     leading: const CircleAvatar(
-      backgroundColor: Color(0x1837D7FF),
+      backgroundColor: Color(0x1822D3EE),
       child: Icon(Icons.fitness_center_rounded, color: _cyan, size: 18),
     ),
     title: Text(exercise.name),

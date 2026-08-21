@@ -1,5 +1,58 @@
 # Changelog
 
+## 1.9.0+12 — 2026-08-20
+
+### Added
+
+- Strength users can choose any authored phase, cycle, cadence, next workout, and schedule date as their current starting point.
+- Expanded Strength cycle cards include a Start from this cycle action.
+- Users can move the current Strength marker or begin a separate program run while preserving prior workout history and personal records.
+- Athletic users can choose any cycle, week, next session, and schedule date, either within the current run or as a new run.
+- Strength workout records and drafts now carry a program-run identifier so repeated runs do not mark old sessions complete in the active run.
+
+### Changed
+
+- Local storage schema advances to version 10 with additive migration of existing Strength history and drafts into run 1.
+- Changing a starting point clears only the unfinished current-workout draft; logged sets and completed history remain intact.
+
+## 1.8.0+11 — 2026-08-20
+
+### Added
+
+- Automatic ramp-up recommendations for primary compound lifts after a valid working weight and repetition target is available.
+- Mike Matthews-style warm-up sets at approximately 50% for 6 reps and 70% for 4 reps, rounded to practical plate increments.
+- Warm-up guidance appears before the first working set and stays hidden for isolation and secondary exercises.
+
+### Corrected
+
+- Bottom sheets now keep their controls above Android gesture and navigation areas, including How Progression Works, daily-input forms, and Lab evidence details.
+
+## 1.7.0+10 — 2026-08-20
+
+### Added
+
+- Daily Inputs & Recovery tracking for supplements, caffeine, pre-workout, meals, hydration, sleep, stress, soreness, bodyweight, and workout-response check-ins.
+- Custom supplement presets with embedded caffeine totals to prevent double entry.
+- Deterministic Lab Core analysis with matched-session comparisons, sample sizes, confidence labels, date windows, and confounders.
+- Optional on-device Gemini Nano narration and Ask the Lab on supported Android devices. AI is off by default and has no automatic cloud fallback.
+- Per-domain Lab privacy controls and locally stored Lab notes that can be cleared without deleting workout data.
+- Inputs & Performance access from Progress and the More screen.
+
+### Changed
+
+- Android minimum version is now API 31 because the ML Kit GenAI Prompt API requires Android 12 or later.
+- Strength and Athletic workout completion can record an optional post-session response.
+- Local storage schema advances to version 9 with additive migration from earlier builds.
+
+## 1.5.1+8 — 2026-08-19
+
+### Corrected
+
+- Restores the intended Roboto/Material typography on standalone Strength Program and Athletic Functional Training routes.
+- Removes Flutter's red monospace fallback text and yellow double-underlines by restoring a Material text-style boundary.
+- Keeps standalone Strength, Athletic, and Progress screens clear of Android system bars.
+- Adds regression coverage for directly routed program screens.
+
 ## 1.1.1+3 — 2026-08-11
 
 ### Changed
