@@ -116,8 +116,10 @@ jobs:
             lib \
             pubspec.lock \
             pubspec.yaml \
-            test \
-            docs
+            test
+          if [[ -d docs ]]; then
+            git add -A -- docs
+          fi
           if git diff --cached --quiet; then
             echo "No source changes to commit."
             exit 0
