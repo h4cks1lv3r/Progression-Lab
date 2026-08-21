@@ -1,0 +1,133 @@
+name: Progression Lab 2.1 Release Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/external-integrations-and-followups
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v5
+        with:
+          ref: feature/external-integrations-and-followups
+          fetch-depth: 0
+
+      - name: Check whether finalization is ready
+        id: ready
+        shell: bash
+        run: |
+          if grep -q '^version: 2.1.0+14$' pubspec.yaml \
+            && grep -q 'IntegrationsHubScreen' lib/main.dart \
+            && grep -q 'buildCompleteBackup' lib/data_portability.dart; then
+            echo 'value=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'value=false' >> "$GITHUB_OUTPUT"
+            echo 'The finalization workflow has not committed the wired 2.1 source yet.'
+          fi
+
+      - name: Set up Java 17
+        if: steps.ready.outputs.value == 'true'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Flutter stable
+        if: steps.ready.outputs.value == 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Validate source
+        if: steps.ready.outputs.value == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          dart format --output=none --set-exit-if-changed lib test
+          flutter analyze --no-fatal-infos
+          flutter test --reporter expanded
+
+      - name: Build Android release
+        if: steps.ready.outputs.value == 'true'
+        run: flutter build apk --release --build-name 2.1.0 --build-number 14
+
+      - name: Build iOS Simulator
+        if: steps.ready.outputs.value == 'true'
+        run: flutter build ios --simulator --debug --build-name 2.1.0 --build-number 14
+
+      - name: Build unsigned iPhone release
+        if: steps.ready.outputs.value == 'true'
+        run: flutter build ios --release --no-codesign --build-name 2.1.0 --build-number 14
+
+      - name: Prepare release artifacts
+        if: steps.ready.outputs.value == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/Payload
+          cp build/app/outputs/flutter-apk/app-release.apk dist/Progression-Lab-2.1.0.apk
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/ios/iphonesimulator/Runner.app \
+            dist/Progression-Lab-2.1.0-iOS-Simulator.app.zip
+          cp -R build/ios/iphoneos/Runner.app dist/Payload/Runner.app
+          (cd dist && zip -qry Progression-Lab-2.1.0-unsigned.ipa Payload)
+          rm -rf dist/Payload
+          (cd dist && shasum -a 256 Progression-Lab-* > Progression-Lab-2.1.0.sha256)
+
+      - name: Remove temporary implementation workflows
+        if: steps.ready.outputs.value == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f \
+            .github/workflows/implement-remaining-integrations.yml \
+            .github/workflows/finalize-external-integrations.yml \
+            .github/workflows/validate-ios-and-merge-main.yml \
+            .github/workflows/sync-main-into-feature.yml \
+            .github/workflows/update-2-1-docs.yml \
+            .github/workflows/release-gate-2-1.yml
+
+      - name: Commit clean release source
+        if: steps.ready.outputs.value == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Finalize clean Progression Lab 2.1 release source"
+          fi
+          git fetch origin main feature/external-integrations-and-followups
+          git rebase origin/feature/external-integrations-and-followups || {
+            git rebase --abort || true
+            echo 'Feature branch moved during validation; rerun the release gate.' >&2
+            exit 1
+          }
+          git merge-base --is-ancestor origin/main HEAD || {
+            echo 'main moved during validation; rebase and rerun the release gate.' >&2
+            exit 1
+          }
+          git push origin HEAD:feature/external-integrations-and-followups
+          git push origin HEAD:main
+
+      - name: Upload validated release artifacts
+        if: steps.ready.outputs.value == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Progression-Lab-2.1.0-build-14
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
