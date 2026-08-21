@@ -1,0 +1,293 @@
+name: Implement Remaining Integrations
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/external-integrations-and-followups
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v5
+        with:
+          ref: feature/external-integrations-and-followups
+          fetch-depth: 0
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Add current compatible packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub add health shared_preferences flutter_secure_storage http url_launcher app_links
+
+      - name: Wire application navigation, share studio, and platform permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from __future__ import annotations
+
+          import plistlib
+          import re
+          from pathlib import Path
+
+          # --- main.dart: expose Data & Connections from More ---
+          main = Path('lib/main.dart')
+          text = main.read_text()
+          if "import 'integrations_hub.dart';" not in text:
+              import_matches = list(re.finditer(r"^import .*?;\s*$", text, re.M))
+              if not import_matches:
+                  raise SystemExit('No Dart import block found in lib/main.dart.')
+              end = import_matches[-1].end()
+              text = text[:end] + "\nimport 'integrations_hub.dart';" + text[end:]
+
+          if 'Data & Connections' not in text:
+              lines = text.splitlines(keepends=True)
+              anchor_index = next(
+                  (i for i, line in enumerate(lines) if 'Data & Backup' in line),
+                  next((i for i, line in enumerate(lines) if 'App Tour' in line), -1),
+              )
+              if anchor_index < 0:
+                  raise SystemExit('Could not find the More-screen insertion anchor.')
+
+              start = None
+              indent = ''
+              widget_start = re.compile(
+                  r'^(\s+)(?:const\s+)?(?:_[A-Za-z]\w*|ListTile|Card|Padding)\s*\('
+              )
+              for i in range(anchor_index, -1, -1):
+                  match = widget_start.match(lines[i])
+                  if match:
+                      start = i
+                      indent = match.group(1)
+                      break
+              if start is None:
+                  raise SystemExit('Could not find the More-screen widget boundary.')
+
+              block = f"""{indent}ListTile(
+{indent}  leading: const Icon(Icons.hub_outlined, color: BrandColors.cyan),
+{indent}  title: const Text('Data & Connections'),
+{indent}  subtitle: const Text(
+{indent}    'Health, activity files, cloud backup, experiments, account connections, and sharing defaults.',
+{indent}  ),
+{indent}  trailing: const Icon(Icons.chevron_right_rounded),
+{indent}  onTap: () => Navigator.of(context).push(
+{indent}    MaterialPageRoute<void>(
+{indent}      builder: (_) => const IntegrationsHubScreen(),
+{indent}    ),
+{indent}  ),
+{indent}),
+"""
+              lines.insert(start, block)
+              text = ''.join(lines)
+          main.write_text(text)
+
+          # --- share_card.dart: use the selected template and privacy defaults ---
+          share = Path('lib/share_card.dart')
+          text = share.read_text()
+          for import_line in (
+              "import 'integration_settings.dart';",
+              "import 'share_studio.dart';",
+          ):
+              if import_line not in text:
+                  imports = list(re.finditer(r"^import .*?;\s*$", text, re.M))
+                  if not imports:
+                      raise SystemExit('No import block found in lib/share_card.dart.')
+                  end = imports[-1].end()
+                  text = text[:end] + f'\n{import_line}' + text[end:]
+
+          if '_generateLegacy' not in text:
+              pattern = re.compile(
+                  r'static\s+Future<Uint8List>\s+generate\s*\(\s*WorkoutShareData\s+data\s*\)\s*async\s*\{'
+              )
+              match = pattern.search(text)
+              if not match:
+                  raise SystemExit('WorkoutShareCardGenerator.generate signature was not found.')
+              replacement = """static Future<Uint8List> generate(WorkoutShareData data) async {
+    try {
+      final settings = await const IntegrationSettingsRepository().load();
+      return AdvancedWorkoutShareGenerator.generatePng(data, settings);
+    } on Object {
+      return _generateLegacy(data);
+    }
+  }
+
+  static Future<Uint8List> _generateLegacy(WorkoutShareData data) async {"""
+              text = text[:match.start()] + replacement + text[match.end():]
+          share.write_text(text)
+
+          # Correct small source compatibility issues in new modules.
+          studio = Path('lib/share_studio.dart')
+          text = studio.read_text()
+          if "import 'dart:typed_data';" not in text:
+              text = text.replace("import 'dart:ui' as ui;", "import 'dart:typed_data';\nimport 'dart:ui' as ui;")
+          studio.write_text(text)
+
+          hub = Path('lib/integrations_hub.dart')
+          text = hub.read_text().replace(
+              'color: BrandColors.surface.withValues(alpha: .94),',
+              'color: const Color(0xFF101722).withValues(alpha: .94),',
+          )
+          hub.write_text(text)
+
+          health = Path('lib/health_sync.dart')
+          text = health.read_text()
+          text = text.replace(
+              """              await store.upsertRecoveryCheckIn(
+                localDate: point.dateFrom,
+                bodyWeight: displayValue,
+                weightUnit: store.unit,
+              );
+              bodyMeasurementsRead++;
+""",
+              """              final dynamic dynamicStore = store;
+              try {
+                await dynamicStore.upsertRecoveryCheckIn(
+                  localDate: point.dateFrom,
+                  bodyWeight: displayValue,
+                  weightUnit: store.unit,
+                );
+                bodyMeasurementsRead++;
+              } on Object {
+                warnings.add('Bodyweight was read but could not be added to Daily Inputs.');
+              }
+""",
+          )
+          old = """      for (final assessment in store.athleticHistory.where(
+        (session) => session.completedAt.isAfter(start),
+      )) {
+        try {
+          final end = assessment.completedAt;
+"""
+          new = """      final dynamic dynamicStore = store;
+      final List<dynamic> athleticSessions = List<dynamic>.from(
+        (dynamicStore.athleticHistory as List?) ?? const <dynamic>[],
+      );
+      for (final dynamic assessment in athleticSessions) {
+        final dynamic rawCompletedAt = assessment.completedAt;
+        if (rawCompletedAt is! DateTime || !rawCompletedAt.isAfter(start)) {
+          continue;
+        }
+        try {
+          final DateTime end = rawCompletedAt;
+"""
+          if old in text:
+              text = text.replace(old, new, 1)
+          health.write_text(text)
+
+          # --- Android permissions and OAuth callback ---
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          text = manifest.read_text()
+          permissions = """
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_WEIGHT" />
+    <uses-permission android:name="android.permission.health.WRITE_WEIGHT" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
+"""
+          if 'android.permission.health.READ_EXERCISE' not in text:
+              application = text.find('<application')
+              if application < 0:
+                  raise SystemExit('Android application element was not found.')
+              text = text[:application] + permissions + text[application:]
+
+          if 'android:scheme="progressionlab"' not in text:
+              activity_start = text.find('<activity')
+              activity_end = text.find('</activity>', activity_start)
+              if activity_start < 0 or activity_end < 0:
+                  raise SystemExit('Android MainActivity element was not found.')
+              oauth_filter = """
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="progressionlab" android:host="oauth" />
+            </intent-filter>
+"""
+              text = text[:activity_end] + oauth_filter + text[activity_end:]
+          manifest.write_text(text)
+
+          # --- iOS HealthKit descriptions, callback URL, and entitlement ---
+          plist_path = Path('ios/Runner/Info.plist')
+          with plist_path.open('rb') as handle:
+              plist = plistlib.load(handle)
+          plist['NSHealthShareUsageDescription'] = (
+              'Progression Lab reads authorized workouts and body measurements to place training context in one timeline.'
+          )
+          plist['NSHealthUpdateUsageDescription'] = (
+              'Progression Lab writes completed workout summaries when you enable health synchronization.'
+          )
+          url_types = list(plist.get('CFBundleURLTypes', []))
+          if not any('progressionlab' in item.get('CFBundleURLSchemes', []) for item in url_types):
+              url_types.append({
+                  'CFBundleURLName': 'com.h4cks1lv3r.progressionlab.oauth',
+                  'CFBundleURLSchemes': ['progressionlab'],
+              })
+          plist['CFBundleURLTypes'] = url_types
+          with plist_path.open('wb') as handle:
+              plistlib.dump(plist, handle, sort_keys=False)
+
+          entitlement_path = Path('ios/Runner/Runner.entitlements')
+          entitlement = {
+              'com.apple.developer.healthkit': True,
+              'com.apple.developer.healthkit.access': [],
+          }
+          with entitlement_path.open('wb') as handle:
+              plistlib.dump(entitlement, handle, sort_keys=False)
+
+          project_path = Path('ios/Runner.xcodeproj/project.pbxproj')
+          project = project_path.read_text()
+          if 'CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;' not in project:
+              project = project.replace(
+                  'PRODUCT_BUNDLE_IDENTIFIER = com.h4cks1lv3r.progressionlab;',
+                  'CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = com.h4cks1lv3r.progressionlab;',
+              )
+          project_path.write_text(project)
+          PY
+
+      - name: Format source
+        run: dart format lib test
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Test
+        run: flutter test --reporter expanded
+
+      - name: Commit integrated features
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No integration changes to commit.'
+            exit 0
+          fi
+          git commit -m "Add health, activity, cloud, experiment, guide, and share integrations"
+          git push origin HEAD:feature/external-integrations-and-followups
