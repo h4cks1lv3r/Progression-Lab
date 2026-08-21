@@ -1,0 +1,55 @@
+name: Data Portability Materialized Source
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - agent/data-portability-backup
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Materialize application source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat tool/functional-brand.patch.part* | base64 --decode > /tmp/progression-target.patch.gz
+          echo "5c8c28f177916585a53b8557b239a3b99c654b84efd44efa491e7284e33ec976  /tmp/progression-target.patch.gz" | sha256sum --check --strict
+          gzip -dc /tmp/progression-target.patch.gz > /tmp/progression-target.patch
+          git apply /tmp/progression-target.patch
+          git apply tool/analyzer-fixes.patch
+          git apply tool/labpanel-material.patch
+          git apply tool/athletic-test-scroll.patch
+          git apply tool/launch-background-fix.patch
+          cat tool/high-priority.patch.part* | base64 --decode > /tmp/high-priority.patch.gz
+          echo "b4bdddd6d556681632c01e3bd60c9771cf316bbdd4841d2e1dc8e616e7a6711d  /tmp/high-priority.patch.gz" | sha256sum --check --strict
+          gzip -dc /tmp/high-priority.patch.gz > /tmp/high-priority.patch
+          git apply /tmp/high-priority.patch
+          git apply tool/high-priority-fixes.patch
+          git apply --exclude=lib/brand.dart tool/route-typography-fix.patch
+          git apply tool/brand-route-material.patch
+          cat tool/data-portability.patch.part* | base64 --decode > /tmp/data-portability.patch.gz
+          gzip -dc /tmp/data-portability.patch.gz > /tmp/data-portability.patch
+          git apply /tmp/data-portability.patch
+
+      - name: Package source
+        shell: bash
+        run: |
+          rm -rf .git build .dart_tool
+          tar -czf /tmp/Progression-Lab-1.6.0-materialized-source.tgz .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Progression-Lab-1.6.0-materialized-source
+          path: /tmp/Progression-Lab-1.6.0-materialized-source.tgz
+          retention-days: 2
