@@ -1,0 +1,107 @@
+name: Update Progression Lab 2.1 Documentation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/external-integrations-and-followups
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/external-integrations-and-followups
+          fetch-depth: 0
+
+      - name: Update README and changelog
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          readme = Path('README.md')
+          text = readme.read_text()
+          text = text.replace('Current version: **2.0.0+13**', 'Current version: **2.1.0+14**')
+          if '## Health, activities, and connections' not in text:
+              marker = '## Data ownership\n'
+              block = '''## Health, activities, and connections
+
+- Optional Health Connect and Apple Health workout-summary synchronization
+- FIT, TCX, GPX, Strava bulk-export, and Garmin export import
+- Credential-gated direct Strava and Garmin account connectors through an approved OAuth relay
+- Optional HTTPS WebDAV backup for cross-platform device transfer
+- Deterministic personal experiments for caffeine, creatine, meals, sleep, hydration, and training outcomes
+- Multi-format social cards with privacy defaults
+- Reusable one-time contextual coach marks and Reset All Tips
+
+Detailed Progression Lab sets remain authoritative. External platforms exchange summaries and measurements rather than replacing the training database. Provider secrets and platform signing credentials are never committed to source.
+
+'''
+              if marker not in text:
+                  raise SystemExit('README data-ownership section was not found.')
+              text = text.replace(marker, block + marker, 1)
+          text = text.replace(
+              '- Health Connect, Apple Health, direct Strava/Garmin account connections, and FIT/TCX/GPX import remain separate future integrations.',
+              '- Direct Strava and Garmin accounts require approved OAuth relay credentials supplied by the build owner. Manual file import works without them.',
+          )
+          readme.write_text(text)
+
+          changelog = Path('CHANGELOG.md')
+          text = changelog.read_text()
+          if '## 2.1.0+14 — 2026-08-21' not in text:
+              heading = '# Changelog\n\n'
+              entry = '''## 2.1.0+14 — 2026-08-21
+
+### Added
+
+- Optional Health Connect and Apple Health workout-summary and bodyweight synchronization.
+- FIT, TCX, GPX, Strava bulk-export, and Garmin export import with duplicate-resistant activity history.
+- Credential-gated Strava and Garmin OAuth relay connectors with secure token storage.
+- Optional automatic HTTPS WebDAV backup, ETag conflict protection, validated restore, and cross-platform `.plab` transfer.
+- Deterministic personal experiments with sample requirements, confidence labels, effect summaries, and confounders.
+- Data & Connections hub for health, files, accounts, cloud backup, experiments, guide settings, and share defaults.
+- Story, portrait, square, and achievement social-card formats with privacy controls.
+- Reusable contextual coach marks and Reset All Tips.
+- Exact backup and portable-export coverage for external activities, experiments, and non-secret integration preferences.
+
+### Changed
+
+- Advanced the application to version 2.1.0+14.
+- Direct provider secrets are exchanged through an approved build-owner relay rather than embedded in the mobile application.
+- Detailed Progression Lab workouts remain authoritative while health platforms receive session summaries.
+
+### Security
+
+- WebDAV passwords and provider access tokens use Android Keystore or iOS Keychain and are excluded from backups and CSV exports.
+- OAuth callbacks use one-time codes that are exchanged through the approved relay.
+
+'''
+              if heading not in text:
+                  raise SystemExit('Changelog heading was not found.')
+              text = text.replace(heading, heading + entry, 1)
+          changelog.write_text(text)
+          PY
+
+      - name: Commit documentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md CHANGELOG.md
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Document Progression Lab 2.1 integrations"
+          git fetch origin feature/external-integrations-and-followups
+          git rebase origin/feature/external-integrations-and-followups
+          git push origin HEAD:feature/external-integrations-and-followups
