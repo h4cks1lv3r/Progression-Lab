@@ -11,7 +11,7 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-ios:
@@ -20,89 +20,8 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Check out consolidation source
+      - name: Check out source
         uses: actions/checkout@v5
-        with:
-          ref: agent/daily-inputs-gemini-lab
-          fetch-depth: 0
-
-      - name: Stabilize consolidated widget tests
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path('test/navigation_widget_test.dart')
-          text = path.read_text()
-
-          old = """    expect(store.logs.single.notes, 'Paused reps');
-    expect(find.text('SAVE SET'), findsOneWidget);
-  });
-
-  testWidgets('library exposes protected built-ins and editable custom exercises', (
-    tester,
-  ) async {
-    final store = AppStore();
-"""
-          new = """    expect(store.logs.single.notes, 'Paused reps');
-  });
-
-  testWidgets('library exposes protected built-ins and editable custom exercises', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(1080, 4200);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    final store = AppStore();
-"""
-          if old in text:
-              text = text.replace(old, new, 1)
-          elif new not in text:
-              raise SystemExit('Unexpected widget-test set-save/library boundary.')
-
-          old = """    expect(find.text('CREATE EXERCISE'), findsOneWidget);
-
-    await tester.tap(find.text('Barbell Bench Press'));
-"""
-          new = """    expect(find.text('CREATE EXERCISE'), findsOneWidget);
-
-    await tester.ensureVisible(find.text('Barbell Bench Press'));
-    await tester.tap(find.text('Barbell Bench Press'));
-"""
-          if old in text:
-              text = text.replace(old, new, 1)
-          elif new not in text:
-              raise SystemExit('Unexpected built-in exercise tap sequence.')
-
-          old = """    expect(find.text('Researcher Offset Row'), findsOneWidget);
-
-    await tester.tap(find.text('Researcher Offset Row'));
-"""
-          new = """    expect(find.text('Researcher Offset Row'), findsOneWidget);
-
-    await tester.ensureVisible(find.text('Researcher Offset Row'));
-    await tester.tap(find.text('Researcher Offset Row'));
-"""
-          if old in text:
-              text = text.replace(old, new, 1)
-          elif new not in text:
-              raise SystemExit('Unexpected custom exercise tap sequence.')
-
-          path.write_text(text)
-          PY
-
-          if ! git diff --quiet -- test/navigation_widget_test.dart; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add test/navigation_widget_test.dart
-            git commit -m "Stabilize consolidated widget tests"
-            git fetch origin agent/daily-inputs-gemini-lab
-            git rebase origin/agent/daily-inputs-gemini-lab
-            git push origin HEAD:agent/daily-inputs-gemini-lab
-          fi
 
       - name: Set up Flutter stable
         uses: subosito/flutter-action@v2
