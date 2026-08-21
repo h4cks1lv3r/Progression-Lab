@@ -1,0 +1,452 @@
+name: Integration Compatibility Repair
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/external-integrations-and-followups
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/external-integrations-and-followups
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve packages
+        run: flutter pub get
+
+      - name: Replace health sync with a version-tolerant adapter
+        shell: bash
+        run: |
+          cat > lib/health_sync.dart <<'DART'
+          import 'dart:io';
+
+          import 'package:health/health.dart';
+
+          import 'external_activity.dart';
+          import 'store.dart';
+
+          class HealthSyncStatus {
+            const HealthSyncStatus({
+              required this.available,
+              required this.authorized,
+              required this.platformName,
+              this.message = '',
+            });
+
+            final bool available;
+            final bool authorized;
+            final String platformName;
+            final String message;
+          }
+
+          class HealthSyncResult {
+            const HealthSyncResult({
+              required this.workoutsRead,
+              required this.workoutsWritten,
+              required this.bodyMeasurementsRead,
+              required this.warnings,
+            });
+
+            final int workoutsRead;
+            final int workoutsWritten;
+            final int bodyMeasurementsRead;
+            final List<String> warnings;
+          }
+
+          /// Version-tolerant Health Connect / HealthKit bridge.
+          ///
+          /// The current `health` plugin occasionally changes optional workout
+          /// value classes and named arguments. Dynamic calls keep the public
+          /// Progression Lab contract stable while the enum selection and
+          /// permission list remain typed and testable.
+          class ProgressionHealthSync {
+            ProgressionHealthSync({Health? health}) : _health = health ?? Health();
+
+            final dynamic _health;
+
+            static HealthDataType? _type(String name) {
+              for (final value in HealthDataType.values) {
+                if (value.name == name) return value;
+              }
+              return null;
+            }
+
+            static HealthWorkoutActivityType _activityType(
+              List<String> preferred,
+            ) {
+              for (final name in preferred) {
+                for (final value in HealthWorkoutActivityType.values) {
+                  if (value.name == name) return value;
+                }
+              }
+              return HealthWorkoutActivityType.values.first;
+            }
+
+            static List<HealthDataType> get _readTypes => <HealthDataType>[
+              for (final name in <String>[
+                'WORKOUT',
+                'WEIGHT',
+                'BODY_FAT_PERCENTAGE',
+                'HEART_RATE',
+                'ACTIVE_ENERGY_BURNED',
+              ])
+                if (_type(name) case final HealthDataType value) value,
+            ];
+
+            static List<HealthDataType> get _writeTypes => <HealthDataType>[
+              for (final name in <String>['WORKOUT', 'WEIGHT'])
+                if (_type(name) case final HealthDataType value) value,
+            ];
+
+            Future<HealthSyncStatus> status() async {
+              final platformName = Platform.isAndroid
+                  ? 'Health Connect'
+                  : Platform.isIOS
+                  ? 'Apple Health'
+                  : 'Unsupported platform';
+              if (!Platform.isAndroid && !Platform.isIOS) {
+                return HealthSyncStatus(
+                  available: false,
+                  authorized: false,
+                  platformName: platformName,
+                  message:
+                      'Health synchronization is available on Android and iOS.',
+                );
+              }
+              try {
+                await _health.configure();
+                final permissions = <HealthDataAccess>[
+                  for (final type in _readTypes)
+                    _writeTypes.contains(type)
+                        ? HealthDataAccess.READ_WRITE
+                        : HealthDataAccess.READ,
+                ];
+                final dynamic result = await _health.hasPermissions(
+                  _readTypes,
+                  permissions: permissions,
+                );
+                final authorized = result == true;
+                return HealthSyncStatus(
+                  available: true,
+                  authorized: authorized,
+                  platformName: platformName,
+                  message: authorized
+                      ? 'Connected. Your permissions remain under system control.'
+                      : 'Permission has not been granted yet.',
+                );
+              } on Object catch (error) {
+                return HealthSyncStatus(
+                  available: false,
+                  authorized: false,
+                  platformName: platformName,
+                  message: '$error',
+                );
+              }
+            }
+
+            Future<bool> requestAuthorization({
+              bool read = true,
+              bool write = true,
+            }) async {
+              await _health.configure();
+              final types = <HealthDataType>[
+                if (read) ..._readTypes,
+                if (write)
+                  for (final type in _writeTypes)
+                    if (!read || !_readTypes.contains(type)) type,
+              ];
+              final permissions = <HealthDataAccess>[
+                for (final type in types)
+                  write && _writeTypes.contains(type)
+                      ? HealthDataAccess.READ_WRITE
+                      : HealthDataAccess.READ,
+              ];
+              final dynamic allowed = await _health.requestAuthorization(
+                types,
+                permissions: permissions,
+              );
+              return allowed == true;
+            }
+
+            Future<HealthSyncResult> sync({
+              required AppStore store,
+              bool read = true,
+              bool write = true,
+              Duration lookback = const Duration(days: 365),
+            }) async {
+              final warnings = <String>[];
+              var workoutsRead = 0;
+              var workoutsWritten = 0;
+              var bodyMeasurementsRead = 0;
+              final now = DateTime.now();
+              final start = now.subtract(lookback);
+              final workoutType = _type('WORKOUT');
+              final weightType = _type('WEIGHT');
+
+              if (read) {
+                try {
+                  final dynamic rawPoints = await _health.getHealthDataFromTypes(
+                    types: _readTypes,
+                    startTime: start,
+                    endTime: now,
+                  );
+                  final dynamic deduplicated = _health.removeDuplicates(rawPoints);
+                  final points = List<dynamic>.from(deduplicated as Iterable);
+                  final activities = <ExternalActivity>[];
+                  for (final dynamic point in points) {
+                    final dynamic pointType = point.type;
+                    if (workoutType != null && pointType == workoutType) {
+                      final DateTime from = point.dateFrom as DateTime;
+                      final DateTime to = point.dateTo as DateTime;
+                      final dynamic value = point.value;
+                      final activityType = _workoutTypeLabel(value);
+                      activities.add(
+                        ExternalActivity(
+                          id:
+                              'health-${pointType.name}-${from.microsecondsSinceEpoch}',
+                          source: ExternalActivitySource.healthPlatform,
+                          name: activityType,
+                          activityType: activityType,
+                          start: from,
+                          end: to.isAfter(from)
+                              ? to
+                              : from.add(const Duration(seconds: 1)),
+                          importedAt: now,
+                          distanceMeters: _dynamicNumber(
+                            value,
+                            const <String>['totalDistance', 'distance'],
+                          ),
+                          calories: _dynamicNumber(
+                            value,
+                            const <String>[
+                              'totalEnergyBurned',
+                              'energyBurned',
+                            ],
+                          ),
+                          sourceFile: Platform.isAndroid
+                              ? 'Health Connect'
+                              : 'Apple Health',
+                        ),
+                      );
+                    } else if (weightType != null && pointType == weightType) {
+                      final kilograms = _numericPoint(point);
+                      if (kilograms == null || kilograms <= 0) continue;
+                      final displayValue = store.unit == 'lb'
+                          ? kilograms / AppStore.poundsToKilograms
+                          : kilograms;
+                      final dynamic dynamicStore = store;
+                      try {
+                        await dynamicStore.upsertRecoveryCheckIn(
+                          localDate: point.dateFrom as DateTime,
+                          bodyWeight: displayValue,
+                          weightUnit: store.unit,
+                        );
+                        bodyMeasurementsRead++;
+                      } on Object {
+                        warnings.add(
+                          'Bodyweight was read but could not be added to Daily Inputs.',
+                        );
+                      }
+                    }
+                  }
+                  workoutsRead = await ExternalActivityRepository().addAll(
+                    activities,
+                  );
+                } on Object catch (error) {
+                  warnings.add('Read from the health platform: $error');
+                }
+              }
+
+              if (write && workoutType != null) {
+                final strengthType = _activityType(const <String>[
+                  'TRADITIONAL_STRENGTH_TRAINING',
+                  'STRENGTH_TRAINING',
+                  'OTHER',
+                ]);
+                final athleticType = _activityType(const <String>[
+                  'HIGH_INTENSITY_INTERVAL_TRAINING',
+                  'FUNCTIONAL_STRENGTH_TRAINING',
+                  'OTHER',
+                ]);
+                for (final record in store.workoutHistory.where(
+                  (record) =>
+                      record.status == WorkoutStatus.completed &&
+                      record.loggedAt.isAfter(start),
+                )) {
+                  try {
+                    final end = record.loggedAt;
+                    final relatedSets = store.logs.where((log) {
+                      if (record.sessionId != null &&
+                          log.sessionId == record.sessionId) {
+                        return true;
+                      }
+                      return log.workout == record.workout &&
+                          log.date.difference(end).abs() <
+                              const Duration(hours: 8);
+                    }).toList();
+                    final earliest = relatedSets.isEmpty
+                        ? end.subtract(const Duration(minutes: 45))
+                        : relatedSets
+                              .map((set) => set.date)
+                              .reduce((a, b) => a.isBefore(b) ? a : b);
+                    final dynamic success = await _health.writeWorkoutData(
+                      activityType: strengthType,
+                      start: earliest.isBefore(end)
+                          ? earliest
+                          : end.subtract(const Duration(minutes: 1)),
+                      end: end,
+                    );
+                    if (success == true) workoutsWritten++;
+                  } on Object catch (error) {
+                    warnings.add('${record.workout}: $error');
+                  }
+                }
+
+                final dynamic dynamicStore = store;
+                List<dynamic> athleticSessions = const <dynamic>[];
+                try {
+                  athleticSessions = List<dynamic>.from(
+                    dynamicStore.athleticHistory as Iterable,
+                  );
+                } on Object {
+                  // Athletic history is optional in legacy data.
+                }
+                for (final dynamic session in athleticSessions) {
+                  DateTime? end;
+                  try {
+                    final dynamic raw = session.completedAt;
+                    if (raw is DateTime) end = raw;
+                  } on Object {
+                    continue;
+                  }
+                  if (end == null || !end.isAfter(start)) continue;
+                  try {
+                    final dynamic success = await _health.writeWorkoutData(
+                      activityType: athleticType,
+                      start: end.subtract(const Duration(minutes: 45)),
+                      end: end,
+                    );
+                    if (success == true) workoutsWritten++;
+                  } on Object catch (error) {
+                    warnings.add('Athletic session: $error');
+                  }
+                }
+              }
+
+              return HealthSyncResult(
+                workoutsRead: workoutsRead,
+                workoutsWritten: workoutsWritten,
+                bodyMeasurementsRead: bodyMeasurementsRead,
+                warnings: warnings,
+              );
+            }
+
+            static double? _numericPoint(dynamic point) {
+              final dynamic value = point.value;
+              try {
+                final dynamic numeric = value.numericValue;
+                return numeric is num
+                    ? numeric.toDouble()
+                    : double.tryParse('$numeric');
+              } on Object {
+                final match = RegExp(r'-?\d+(?:\.\d+)?').firstMatch('$value');
+                return match == null ? null : double.tryParse(match.group(0)!);
+              }
+            }
+
+            static String _workoutTypeLabel(dynamic value) {
+              try {
+                final text = '${value.workoutActivityType}';
+                if (text.isNotEmpty) {
+                  return text
+                      .split('.')
+                      .last
+                      .replaceAll('_', ' ')
+                      .split(' ')
+                      .map(
+                        (word) => word.isEmpty
+                            ? word
+                            : '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}',
+                      )
+                      .join(' ');
+                }
+              } on Object {
+                // Use the generic label below.
+              }
+              return 'Health workout';
+            }
+
+            static double? _dynamicNumber(dynamic value, List<String> fields) {
+              for (final field in fields) {
+                try {
+                  final dynamic candidate = switch (field) {
+                    'totalDistance' => value.totalDistance,
+                    'distance' => value.distance,
+                    'totalEnergyBurned' => value.totalEnergyBurned,
+                    'energyBurned' => value.energyBurned,
+                    _ => null,
+                  };
+                  if (candidate is num) return candidate.toDouble();
+                  final match = RegExp(
+                    r'-?\d+(?:\.\d+)?',
+                  ).firstMatch('$candidate');
+                  if (match != null) return double.tryParse(match.group(0)!);
+                } on Object {
+                  // Optional fields vary by plugin and platform version.
+                }
+              }
+              return null;
+            }
+          }
+          DART
+
+      - name: Apply automatic Dart fixes and format
+        shell: bash
+        run: |
+          set -euo pipefail
+          dart fix --apply || true
+          dart format lib test
+
+      - name: Validate repaired source
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter analyze --no-fatal-infos
+          flutter test --reporter expanded
+          flutter build apk --release --build-name 2.1.0 --build-number 14
+
+      - name: Commit compatibility repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Harden health and integration package compatibility"
+          git fetch origin feature/external-integrations-and-followups
+          git rebase origin/feature/external-integrations-and-followups
+          git push origin HEAD:feature/external-integrations-and-followups
