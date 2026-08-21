@@ -2,6 +2,9 @@ name: Apply Complete Backlog Source
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - agent/daily-inputs-gemini-lab
@@ -13,7 +16,7 @@ jobs:
   apply:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Check out materialized branch
@@ -48,7 +51,22 @@ jobs:
           git apply --check /tmp/complete-backlog.patch
           git apply /tmp/complete-backlog.patch
 
+      - name: Package materialized source
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar --exclude=.git --exclude=build --exclude=.dart_tool \
+            -czf /tmp/Progression-Lab-complete-backlog-source.tgz .
+
+      - name: Upload materialized source
+        uses: actions/upload-artifact@v4
+        with:
+          name: Progression-Lab-complete-backlog-source-${{ github.sha }}
+          path: /tmp/Progression-Lab-complete-backlog-source.tgz
+          retention-days: 3
+
       - name: Commit materialized source
+        if: github.event_name == 'push'
         shell: bash
         run: |
           set -euo pipefail
