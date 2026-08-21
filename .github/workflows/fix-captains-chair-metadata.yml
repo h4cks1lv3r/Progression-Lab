@@ -1,0 +1,81 @@
+name: Fix Captains Chair Metadata
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - agent/daily-inputs-gemini-lab
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: agent/daily-inputs-gemini-lab
+          fetch-depth: 0
+
+      - name: Correct Captain's Chair bodyweight semantics and aliases
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/exercise_catalog.dart')
+          text = path.read_text()
+          old = """    BuiltInExercise(
+      id: 'captains_chair_leg_lift',
+      name: 'Captain’s Chair Leg Lift',
+      primaryMuscle: MuscleGroup.rectusAbdominis,
+      equipment: ExerciseEquipment.other,
+      movementPattern: MovementPattern.spinalFlexion,
+      aliases: const ['Captain’s Chair Leg Raise', 'Captains Chair Leg Lift', 'Roman Chair Leg Raise'],
+      secondaryMuscles: const [MuscleGroup.hipFlexors, MuscleGroup.obliques],
+      notes: 'Straight-leg captain’s-chair raise. Log repetitions; external load is optional only in the weighted variant.',
+    ),
+"""
+          new = """    BuiltInExercise(
+      id: 'captains_chair_leg_lift',
+      name: 'Captain’s Chair Leg Lift',
+      primaryMuscle: MuscleGroup.rectusAbdominis,
+      equipment: ExerciseEquipment.bodyweight,
+      movementPattern: MovementPattern.spinalFlexion,
+      trackingType: ExerciseTrackingType.bodyweightReps,
+      aliases: const [
+        'Captain’s Chair Leg Raise',
+        'Captain Chair Leg Raise',
+        'Captains Chair Leg Lift',
+        'Vertical Knee Raise Station Leg Raise',
+        'VK Raise',
+        'Roman Chair Leg Raise',
+      ],
+      secondaryMuscles: const [MuscleGroup.hipFlexors, MuscleGroup.obliques],
+      notes: 'Straight-leg captain’s-chair raise. Log repetitions; use the separate weighted variant for added load.',
+    ),
+"""
+          if old not in text:
+              raise SystemExit('Captain’s Chair Leg Lift catalog block was not found.')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Commit and publish correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/exercise_catalog.dart
+          git commit -m "Correct Captain's Chair bodyweight metadata"
+          git fetch origin agent/daily-inputs-gemini-lab
+          git rebase origin/agent/daily-inputs-gemini-lab
+          git push origin HEAD:agent/daily-inputs-gemini-lab
