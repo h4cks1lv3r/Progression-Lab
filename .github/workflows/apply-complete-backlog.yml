@@ -1,0 +1,72 @@
+name: Apply Complete Backlog Source
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/daily-inputs-gemini-lab
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out materialized branch
+        uses: actions/checkout@v5
+        with:
+          ref: agent/daily-inputs-gemini-lab
+          fetch-depth: 0
+
+      - name: Apply the complete backlog layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat \
+            tool/complete-backlog.patch.part00a \
+            tool/complete-backlog.patch.part00b \
+            tool/complete-backlog.patch.part00c \
+            tool/complete-backlog.patch.part00d \
+            tool/complete-backlog.patch.part00e \
+            tool/complete-backlog.patch.part01a \
+            tool/complete-backlog.patch.part01b \
+            tool/complete-backlog.patch.part01c \
+            tool/complete-backlog.patch.part01d \
+            tool/complete-backlog.patch.part01e \
+            tool/complete-backlog.patch.part02a \
+            tool/complete-backlog.patch.part02b \
+            tool/complete-backlog.patch.part02c \
+            tool/complete-backlog.patch.part02d \
+            tool/complete-backlog.patch.part03 \
+            | base64 --decode > /tmp/complete-backlog.patch.gz
+          echo "b2c07b2a83c1e83419fb78356626b9ad49da4559dd202308e804f47b87961e3d  /tmp/complete-backlog.patch.gz" | sha256sum --check --strict
+          gzip -dc /tmp/complete-backlog.patch.gz > /tmp/complete-backlog.patch
+          git apply --check /tmp/complete-backlog.patch
+          git apply /tmp/complete-backlog.patch
+
+      - name: Commit materialized source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- \
+            CHANGELOG.md \
+            README.md \
+            android \
+            ios \
+            lib \
+            pubspec.lock \
+            pubspec.yaml \
+            test \
+            docs
+          if git diff --cached --quiet; then
+            echo "No source changes to commit."
+            exit 0
+          fi
+          git commit -m "Materialize complete Progression Lab backlog source"
+          git push origin HEAD:agent/daily-inputs-gemini-lab
