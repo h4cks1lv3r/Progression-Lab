@@ -85,6 +85,19 @@ jobs:
           gzip --decompress --stdout /tmp/program-start-position.patch.gz > /tmp/program-start-position.patch
           git apply --check /tmp/program-start-position.patch
           git apply /tmp/program-start-position.patch
+          cat \
+            tool/complete-backlog.patch.part00 \
+            tool/complete-backlog.patch.part01 \
+            tool/complete-backlog.patch.part02a \
+            tool/complete-backlog.patch.part02b \
+            tool/complete-backlog.patch.part02c \
+            tool/complete-backlog.patch.part02d \
+            tool/complete-backlog.patch.part03 \
+            | base64 --decode > /tmp/complete-backlog.patch.gz
+          echo "b2c07b2a83c1e83419fb78356626b9ad49da4559dd202308e804f47b87961e3d  /tmp/complete-backlog.patch.gz" | sha256sum --check --strict
+          gzip --decompress --stdout /tmp/complete-backlog.patch.gz > /tmp/complete-backlog.patch
+          git apply --check /tmp/complete-backlog.patch
+          git apply /tmp/complete-backlog.patch
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
