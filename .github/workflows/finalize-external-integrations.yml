@@ -1,0 +1,505 @@
+name: Finalize External Integrations
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/external-integrations-and-followups
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out feature source
+        uses: actions/checkout@v5
+        with:
+          ref: feature/external-integrations-and-followups
+          fetch-depth: 0
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve integration packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub add health shared_preferences flutter_secure_storage http url_launcher app_links
+
+      - name: Wire remaining features into the application
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from __future__ import annotations
+
+          import plistlib
+          import re
+          from pathlib import Path
+
+          def add_import(path: Path, line: str) -> None:
+              text = path.read_text()
+              if line in text:
+                  return
+              imports = list(re.finditer(r'^import .*?;\s*$', text, re.M))
+              if not imports:
+                  raise SystemExit(f'No import block found in {path}.')
+              end = imports[-1].end()
+              path.write_text(text[:end] + '\n' + line + text[end:])
+
+          # Main navigation and automatic cloud coordinator.
+          main = Path('lib/main.dart')
+          add_import(main, "import 'integrations_hub.dart';")
+          add_import(main, "import 'cloud_backup_sync.dart';")
+          text = main.read_text()
+          if 'CloudSyncCoordinator? _progressionCloudSync;' not in text:
+              first_class = re.search(r'^(?:class|void\s+main|Future<.*?>\s+main)', text, re.M)
+              if first_class is None:
+                  raise SystemExit('Could not locate a top-level insertion point in main.dart.')
+              text = (
+                  text[:first_class.start()]
+                  + 'CloudSyncCoordinator? _progressionCloudSync;\n\n'
+                  + text[first_class.start():]
+              )
+          if 'Data & Connections' not in text:
+              lines = text.splitlines(keepends=True)
+              anchor_index = next(
+                  (i for i, line in enumerate(lines) if 'Data & Backup' in line),
+                  next((i for i, line in enumerate(lines) if 'App Tour' in line), -1),
+              )
+              if anchor_index < 0:
+                  raise SystemExit('Could not find a More-screen insertion anchor.')
+              start = None
+              indent = ''
+              pattern = re.compile(
+                  r'^(\s+)(?:const\s+)?(?:_[A-Za-z]\w*|ListTile|Card|Padding)\s*\('
+              )
+              for index in range(anchor_index, -1, -1):
+                  match = pattern.match(lines[index])
+                  if match:
+                      start = index
+                      indent = match.group(1)
+                      break
+              if start is None:
+                  raise SystemExit('Could not identify the More-screen widget boundary.')
+              block = f"""{indent}ListTile(
+{indent}  leading: const Icon(Icons.hub_outlined, color: BrandColors.cyan),
+{indent}  title: const Text('Data & Connections'),
+{indent}  subtitle: const Text(
+{indent}    'Health, activity files, cloud backup, experiments, account connections, and sharing defaults.',
+{indent}  ),
+{indent}  trailing: const Icon(Icons.chevron_right_rounded),
+{indent}  onTap: () => Navigator.of(context).push(
+{indent}    MaterialPageRoute<void>(
+{indent}      builder: (_) => const IntegrationsHubScreen(),
+{indent}    ),
+{indent}  ),
+{indent}),
+"""
+              lines.insert(start, block)
+              text = ''.join(lines)
+
+          # Start best-effort WebDAV sync once the main AppStore has loaded.
+          if '_progressionCloudSync = CloudSyncCoordinator' not in text:
+              load_match = re.search(r'await\s+store\.load\(\);', text)
+              if load_match:
+                  insertion = """
+  _progressionCloudSync ??= CloudSyncCoordinator(store: store);
+  await _progressionCloudSync!.start();
+"""
+                  text = text[:load_match.end()] + insertion + text[load_match.end():]
+              else:
+                  # The app may load through an initialization method instead of main.
+                  # Keep the hub fully functional even when background sync starts only
+                  # after the first user-triggered upload.
+                  print('No await store.load() anchor found; automatic sync remains user-triggered.')
+          main.write_text(text)
+
+          # Contextual tip on the new hub.
+          hub = Path('lib/integrations_hub.dart')
+          add_import(hub, "import 'contextual_tips.dart';")
+          text = hub.read_text()
+          if 'ContextualTipId.dataConnections' not in text:
+              old = '    body: BrandBackdrop(\n'
+              new = """    body: ContextualTipGate(
+      tip: ContextualTipId.dataConnections,
+      child: BrandBackdrop(
+"""
+              if old not in text:
+                  raise SystemExit('Integrations hub body anchor was not found.')
+              text = text.replace(old, new, 1)
+              # Balance the new ContextualTipGate before Scaffold closes.
+              marker = '    ),\n  );\n}\n\nclass _Hero'
+              replacement = '      ),\n    ),\n  );\n}\n\nclass _Hero'
+              if marker not in text:
+                  raise SystemExit('Integrations hub closing boundary was not found.')
+              text = text.replace(marker, replacement, 1)
+          text = text.replace(
+              """          final preferences = await IntegrationSettingsRepository().load();
+          await onChanged(
+            preferences.copyWith(contextualTipsEnabled: true),
+          );
+""",
+              """          await ContextualTipController().resetAll();
+          final preferences = await IntegrationSettingsRepository().load();
+          await onChanged(preferences.copyWith(contextualTipsEnabled: true));
+""",
+          )
+          hub.write_text(text)
+
+          # Make advanced share formats the default generator with legacy fallback.
+          share = Path('lib/share_card.dart')
+          add_import(share, "import 'integration_settings.dart';")
+          add_import(share, "import 'share_studio.dart';")
+          text = share.read_text()
+          if '_generateLegacy' not in text:
+              signature = re.compile(
+                  r'static\s+Future<Uint8List>\s+generate\s*\(\s*WorkoutShareData\s+data\s*\)\s*async\s*\{'
+              )
+              match = signature.search(text)
+              if match is None:
+                  raise SystemExit('WorkoutShareCardGenerator.generate was not found.')
+              replacement = """static Future<Uint8List> generate(WorkoutShareData data) async {
+    try {
+      final settings = await const IntegrationSettingsRepository().load();
+      return AdvancedWorkoutShareGenerator.generatePng(data, settings);
+    } on Object {
+      return _generateLegacy(data);
+    }
+  }
+
+  static Future<Uint8List> _generateLegacy(WorkoutShareData data) async {"""
+              text = text[:match.start()] + replacement + text[match.end():]
+          share.write_text(text)
+
+          studio = Path('lib/share_studio.dart')
+          text = studio.read_text()
+          if "import 'dart:typed_data';" not in text:
+              text = text.replace(
+                  "import 'dart:ui' as ui;",
+                  "import 'dart:typed_data';\nimport 'dart:ui' as ui;",
+              )
+          studio.write_text(text)
+
+          # Comprehensive backup and portable export for auxiliary domains.
+          portability = Path('lib/data_portability.dart')
+          add_import(portability, "import 'auxiliary_data.dart';")
+          text = portability.read_text()
+          if 'buildCompleteBackup' not in text:
+              old = """  Uint8List buildBackup({String reason = 'manual'}) =>
+      ProgressionBackupCodec.encode(store.exportState(), reason: reason);
+"""
+              new = """  Uint8List buildBackup({String reason = 'manual'}) =>
+      ProgressionBackupCodec.encode(store.exportState(), reason: reason);
+
+  Future<Uint8List> buildCompleteBackup({String reason = 'manual'}) async =>
+      ProgressionBackupCodec.encode(
+        await AuxiliaryDataSnapshot.merge(store.exportState()),
+        reason: reason,
+      );
+"""
+              if old not in text:
+                  raise SystemExit('DataPortabilityController.buildBackup was not found.')
+              text = text.replace(old, new, 1)
+
+              old = """  Future<String?> saveBackup() => DataPortabilityBridge.saveFile(
+    bytes: buildBackup(),
+    fileName: 'Progression-Lab-Backup-${_dateStamp()}.plab',
+    mimeType: 'application/zip',
+  );
+
+  Future<void> shareBackup() => DataPortabilityBridge.shareFile(
+    bytes: buildBackup(),
+    fileName: 'Progression-Lab-Backup-${_dateStamp()}.plab',
+    mimeType: 'application/zip',
+  );
+"""
+              new = """  Future<String?> saveBackup() async => DataPortabilityBridge.saveFile(
+    bytes: await buildCompleteBackup(),
+    fileName: 'Progression-Lab-Backup-${_dateStamp()}.plab',
+    mimeType: 'application/zip',
+  );
+
+  Future<void> shareBackup() async => DataPortabilityBridge.shareFile(
+    bytes: await buildCompleteBackup(),
+    fileName: 'Progression-Lab-Backup-${_dateStamp()}.plab',
+    mimeType: 'application/zip',
+  );
+"""
+              if old not in text:
+                  raise SystemExit('Manual backup methods were not found.')
+              text = text.replace(old, new, 1)
+
+              old = """  Future<String?> savePortableCsv() => DataPortabilityBridge.saveFile(
+    bytes: ComprehensivePortableExport.encodePortableCsvZip(
+      store.exportState(),
+    ),
+    fileName: 'Progression-Lab-CSV-${_dateStamp()}.zip',
+    mimeType: 'application/zip',
+  );
+"""
+              new = """  Future<String?> savePortableCsv() async {
+    final state = await AuxiliaryDataSnapshot.merge(store.exportState());
+    return DataPortabilityBridge.saveFile(
+      bytes: ComprehensivePortableExport.encodePortableCsvZip(state),
+      fileName: 'Progression-Lab-CSV-${_dateStamp()}.zip',
+      mimeType: 'application/zip',
+    );
+  }
+"""
+              if old not in text:
+                  raise SystemExit('Portable CSV method was not found.')
+              text = text.replace(old, new, 1)
+
+              old = """    await store.restoreState(document.state);
+    await store.createAutomaticBackup(reason: 'after-restore');
+"""
+              new = """    await store.restoreState(document.state);
+    await AuxiliaryDataSnapshot.restore(document.state);
+    await store.createAutomaticBackup(reason: 'after-restore');
+"""
+              if old not in text:
+                  raise SystemExit('Restore state boundary was not found.')
+              text = text.replace(old, new, 1)
+          portability.write_text(text)
+
+          comprehensive = Path('lib/comprehensive_export.dart')
+          add_import(comprehensive, "import 'auxiliary_data.dart';")
+          text = comprehensive.read_text()
+          if "...AuxiliaryDataSnapshot.portableFiles(state)," not in text:
+              marker = "      ...ProgressionCsvExport.portableFiles(state),\n"
+              if marker not in text:
+                  raise SystemExit('Comprehensive export map anchor was not found.')
+              text = text.replace(
+                  marker,
+                  marker + "      ...AuxiliaryDataSnapshot.portableFiles(state),\n",
+                  1,
+              )
+          comprehensive.write_text(text)
+
+          cloud = Path('lib/cloud_backup_sync.dart')
+          text = cloud.read_text().replace(
+              """    final bytes = DataPortabilityController(store).buildBackup(
+      reason: 'webdav-sync',
+    );
+""",
+              """    final bytes = await DataPortabilityController(store).buildCompleteBackup(
+      reason: 'webdav-sync',
+    );
+""",
+          )
+          if "import 'auxiliary_data.dart';" not in text:
+              add_import(cloud, "import 'auxiliary_data.dart';")
+              text = cloud.read_text()
+          text = text.replace(
+              """    await store.restoreState(document.state);
+    await store.createAutomaticBackup(reason: 'after-cloud-restore');
+""",
+              """    await store.restoreState(document.state);
+    await AuxiliaryDataSnapshot.restore(document.state);
+    await store.createAutomaticBackup(reason: 'after-cloud-restore');
+""",
+          )
+          cloud.write_text(text)
+
+          # Safer health-plugin API use across supported package versions.
+          health = Path('lib/health_sync.dart')
+          text = health.read_text()
+          text = text.replace("id: 'health-${point.uuid}',", "id: 'health-${point.type.name}-${point.dateFrom.microsecondsSinceEpoch}',")
+          text = text.replace(
+              'HealthWorkoutActivityType.STRENGTH_TRAINING',
+              'HealthWorkoutActivityType.OTHER',
+          )
+          text = text.replace(
+              'HealthWorkoutActivityType.HIGH_INTENSITY_INTERVAL_TRAINING',
+              'HealthWorkoutActivityType.OTHER',
+          )
+          health.write_text(text)
+
+          # OAuth callbacks carry a one-time code; exchange it with the relay.
+          accounts = Path('lib/account_connectors.dart')
+          text = accounts.read_text()
+          old = """    final token = result.queryParameters['token'];
+    final error = result.queryParameters['error'];
+    if (error != null && error.isNotEmpty) {
+      throw StateError(error);
+    }
+    if (token == null || token.isEmpty) {
+      throw const FormatException('The OAuth relay returned no access token.');
+    }
+    await _settingsRepository.writeProviderToken(provider, token);
+"""
+          new = """    final code = result.queryParameters['code'];
+    final error = result.queryParameters['error'];
+    if (error != null && error.isNotEmpty) {
+      throw StateError(error);
+    }
+    if (code == null || code.isEmpty) {
+      throw const FormatException('The OAuth relay returned no one-time code.');
+    }
+    final tokenEndpoint = Uri.parse(configuration.relayUrl).resolve('token');
+    final exchange = await _client.post(
+      tokenEndpoint,
+      headers: const <String, String>{
+        HttpHeaders.acceptHeader: 'application/json',
+        HttpHeaders.contentTypeHeader: 'application/json',
+      },
+      body: jsonEncode(<String, String>{
+        'provider': provider.name,
+        'code': code,
+        'redirect_uri': '$callback',
+      }),
+    );
+    if (exchange.statusCode < 200 || exchange.statusCode >= 300) {
+      throw HttpException('The OAuth relay rejected the one-time code.');
+    }
+    final decoded = jsonDecode(exchange.body);
+    final token = decoded is Map ? '${decoded['access_token'] ?? ''}' : '';
+    if (token.isEmpty) {
+      throw const FormatException('The OAuth relay returned no access token.');
+    }
+    await _settingsRepository.writeProviderToken(provider, token);
+"""
+          if old in text:
+              text = text.replace(old, new, 1)
+          accounts.write_text(text)
+
+          # Android permissions and OAuth callback.
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          text = manifest.read_text()
+          permissions = """
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_WEIGHT" />
+    <uses-permission android:name="android.permission.health.WRITE_WEIGHT" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
+"""
+          if 'android.permission.health.READ_EXERCISE' not in text:
+              application = text.find('<application')
+              if application < 0:
+                  raise SystemExit('Android application element was not found.')
+              text = text[:application] + permissions + text[application:]
+          if 'android:scheme="progressionlab"' not in text:
+              activity_start = text.find('<activity')
+              activity_end = text.find('</activity>', activity_start)
+              if activity_start < 0 or activity_end < 0:
+                  raise SystemExit('Android MainActivity element was not found.')
+              oauth_filter = """
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="progressionlab" android:host="oauth" />
+            </intent-filter>
+"""
+              text = text[:activity_end] + oauth_filter + text[activity_end:]
+          manifest.write_text(text)
+
+          # iOS HealthKit descriptions, entitlement, and callback scheme.
+          plist_path = Path('ios/Runner/Info.plist')
+          with plist_path.open('rb') as handle:
+              plist = plistlib.load(handle)
+          plist['NSHealthShareUsageDescription'] = (
+              'Progression Lab reads authorized workouts and body measurements to place training context in one timeline.'
+          )
+          plist['NSHealthUpdateUsageDescription'] = (
+              'Progression Lab writes completed workout summaries when you enable health synchronization.'
+          )
+          url_types = list(plist.get('CFBundleURLTypes', []))
+          if not any('progressionlab' in item.get('CFBundleURLSchemes', []) for item in url_types):
+              url_types.append({
+                  'CFBundleURLName': 'com.h4cks1lv3r.progressionlab.oauth',
+                  'CFBundleURLSchemes': ['progressionlab'],
+              })
+          plist['CFBundleURLTypes'] = url_types
+          with plist_path.open('wb') as handle:
+              plistlib.dump(plist, handle, sort_keys=False)
+
+          entitlement_path = Path('ios/Runner/Runner.entitlements')
+          with entitlement_path.open('wb') as handle:
+              plistlib.dump(
+                  {
+                      'com.apple.developer.healthkit': True,
+                      'com.apple.developer.healthkit.access': [],
+                  },
+                  handle,
+                  sort_keys=False,
+              )
+          project_path = Path('ios/Runner.xcodeproj/project.pbxproj')
+          project = project_path.read_text()
+          if 'CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;' not in project:
+              project = project.replace(
+                  'PRODUCT_BUNDLE_IDENTIFIER = com.h4cks1lv3r.progressionlab;',
+                  'CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = com.h4cks1lv3r.progressionlab;',
+              )
+          project_path.write_text(project)
+
+          # Version and release documentation.
+          pubspec = Path('pubspec.yaml')
+          text = re.sub(
+              r'^version:\s*\S+',
+              'version: 2.1.0+14',
+              pubspec.read_text(),
+              count=1,
+              flags=re.M,
+          )
+          pubspec.write_text(text)
+
+          gradle = Path('android/app/build.gradle.kts')
+          text = gradle.read_text()
+          text = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 14', text)
+          text = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "2.1.0"', text)
+          gradle.write_text(text)
+          PY
+
+      - name: Format source
+        run: dart format lib test
+
+      - name: Analyze source
+        run: flutter analyze --no-fatal-infos
+
+      - name: Run all tests
+        run: flutter test --reporter expanded
+
+      - name: Build release APK
+        run: flutter build apk --release --build-name 2.1.0 --build-number 14
+
+      - name: Commit finalized source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No finalization changes to commit.'
+            exit 0
+          fi
+          git commit -m "Finalize Progression Lab 2.1 integrations and follow-ups"
+          git push origin HEAD:feature/external-integrations-and-followups
+
+      - name: Package Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Progression-Lab-2.1.0-build-14
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
