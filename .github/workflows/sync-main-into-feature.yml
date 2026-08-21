@@ -1,0 +1,36 @@
+name: Sync Consolidated Main Into Integrations
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/external-integrations-and-followups
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/external-integrations-and-followups
+          fetch-depth: 0
+
+      - name: Merge current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          if git merge-base --is-ancestor origin/main HEAD; then
+            echo 'Feature branch already contains main.'
+            exit 0
+          fi
+          git merge --no-edit origin/main
+          git push origin HEAD:feature/external-integrations-and-followups
