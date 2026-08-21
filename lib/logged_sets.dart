@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'exercise_library.dart';
 import 'store.dart';
 
 typedef SetLogPredicate = bool Function(SetLog log);
@@ -73,7 +74,7 @@ class LoggedWorkoutScreen extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           Text(
-            'WEEK ${record.week} • $state • ${_date(record.scheduledDate)}',
+            'RUN ${record.programRun} • WEEK ${record.week} • $state • ${_date(record.scheduledDate)}',
             style: const TextStyle(color: Colors.white60),
           ),
           Text(
@@ -222,18 +223,49 @@ class _EditableSetCard extends StatefulWidget {
 class _EditableSetCardState extends State<_EditableSetCard> {
   late final TextEditingController _weight;
   late final TextEditingController _reps;
+  late final TextEditingController _duration;
+  late final TextEditingController _distance;
+  late final TextEditingController _calories;
   late final TextEditingController _notes;
   String? _error;
   bool _saving = false;
   bool _saved = false;
 
+  ExerciseTrackingType get _type => widget.log.resolvedTrackingType;
+
   @override
   void initState() {
     super.initState();
-    _weight = TextEditingController(text: _formatWeight(widget.log.weight));
-    _reps = TextEditingController(text: '${widget.log.reps}');
+    _weight = TextEditingController(
+      text: _type.usesWeight ? _formatNumber(widget.log.weight) : '',
+    );
+    _reps = TextEditingController(
+      text: _type.usesReps ? '${widget.log.reps}' : '',
+    );
+    _duration = TextEditingController(
+      text: widget.log.durationSeconds == null
+          ? ''
+          : _formatDurationInput(widget.log.durationSeconds!),
+    );
+    _distance = TextEditingController(
+      text: widget.log.distance == null
+          ? ''
+          : _formatNumber(widget.log.distance!),
+    );
+    _calories = TextEditingController(
+      text: widget.log.calories == null
+          ? ''
+          : _formatNumber(widget.log.calories!),
+    );
     _notes = TextEditingController(text: widget.log.notes);
-    for (final controller in [_weight, _reps, _notes]) {
+    for (final controller in [
+      _weight,
+      _reps,
+      _duration,
+      _distance,
+      _calories,
+      _notes,
+    ]) {
       controller.addListener(_markChanged);
     }
   }
@@ -246,15 +278,39 @@ class _EditableSetCardState extends State<_EditableSetCard> {
   void dispose() {
     _weight.dispose();
     _reps.dispose();
+    _duration.dispose();
+    _distance.dispose();
+    _calories.dispose();
     _notes.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
-    final weight = double.tryParse(_weight.text.trim());
-    final reps = int.tryParse(_reps.text.trim());
-    if (weight == null || reps == null || weight <= 0 || reps <= 0) {
-      setState(() => _error = 'Enter weight and reps above zero.');
+    final type = _type;
+    final weight = type.usesWeight
+        ? double.tryParse(_weight.text.trim())
+        : 0.0;
+    final reps = type.usesReps ? int.tryParse(_reps.text.trim()) : 0;
+    final duration = type.usesDuration
+        ? _parseDuration(_duration.text)
+        : null;
+    final distance = type.usesDistance
+        ? double.tryParse(_distance.text.trim())
+        : null;
+    final calories = type.usesCalories
+        ? double.tryParse(_calories.text.trim())
+        : null;
+
+    final validation = _validate(
+      type: type,
+      weight: weight,
+      reps: reps,
+      duration: duration,
+      distance: distance,
+      calories: calories,
+    );
+    if (validation != null) {
+      setState(() => _error = validation);
       return;
     }
     setState(() {
@@ -264,18 +320,75 @@ class _EditableSetCardState extends State<_EditableSetCard> {
     try {
       await widget.store.updateSet(
         widget.log,
-        weight: weight,
-        reps: reps,
-        notes: _notes.text,
+        weight: weight ?? 0,
+        reps: reps ?? 0,
+        durationSeconds: duration,
+        distance: distance,
+        distanceUnit: widget.log.distanceUnit,
+        calories: calories,
+        notes: _notes.text.trim(),
       );
       if (mounted) setState(() => _saved = true);
-    } on Object {
+    } on Object catch (error) {
       if (mounted) {
-        setState(() => _error = 'Could not save this set. Try again.');
+        setState(() {
+          _error = error
+              .toString()
+              .replaceFirst('Invalid argument(s): ', '')
+              .replaceFirst('Exception: ', '');
+        });
       }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  String? _validate({
+    required ExerciseTrackingType type,
+    required double? weight,
+    required int? reps,
+    required int? duration,
+    required double? distance,
+    required double? calories,
+  }) {
+    if (type.usesWeight) {
+      if (weight == null || !weight.isFinite) return 'Enter a valid value.';
+      if (type.requiresPositiveWeight && weight <= 0) {
+        return 'Enter a weight above zero.';
+      }
+      if (!type.requiresPositiveWeight && weight < 0) {
+        return 'The value cannot be negative.';
+      }
+    }
+    if (type.usesReps && (reps == null || reps <= 0)) {
+      return 'Enter repetitions above zero.';
+    }
+    if (type.usesDuration && (duration == null || duration <= 0)) {
+      return 'Enter duration in seconds or mm:ss.';
+    }
+    if (type.usesDistance &&
+        (distance == null || !distance.isFinite || distance <= 0)) {
+      return 'Enter distance above zero.';
+    }
+    if (type.usesCalories &&
+        (calories == null || !calories.isFinite || calories <= 0)) {
+      return 'Enter calories above zero.';
+    }
+    return null;
+  }
+
+  int? _parseDuration(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return null;
+    if (!value.contains(':')) return int.tryParse(value);
+    final parts = value.split(':');
+    if (parts.length != 2) return null;
+    final minutes = int.tryParse(parts[0]);
+    final seconds = int.tryParse(parts[1]);
+    if (minutes == null || seconds == null || seconds < 0 || seconds >= 60) {
+      return null;
+    }
+    return minutes * 60 + seconds;
   }
 
   @override
@@ -289,37 +402,40 @@ class _EditableSetCardState extends State<_EditableSetCard> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '${_date(widget.log.date)}  •  ${widget.log.workout}',
-          style: const TextStyle(
-            color: Colors.white54,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
-              child: TextField(
-                controller: _weight,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: InputDecoration(
-                  labelText: 'WEIGHT (${widget.store.unit})',
+              child: Text(
+                '${_date(widget.log.date)}  •  ${widget.log.workout}',
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextField(
-                controller: _reps,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'REPS'),
+            Text(
+              _type.label.toUpperCase(),
+              style: const TextStyle(
+                color: Colors.white38,
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .7,
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 10),
+        _SetEditorFields(
+          type: _type,
+          unit: widget.store.unit,
+          distanceUnit: widget.log.distanceUnit ??
+              (widget.store.unit == 'kg' ? 'km' : 'mi'),
+          weight: _weight,
+          reps: _reps,
+          duration: _duration,
+          distance: _distance,
+          calories: _calories,
         ),
         const SizedBox(height: 10),
         TextField(
@@ -355,9 +471,104 @@ class _EditableSetCardState extends State<_EditableSetCard> {
   );
 }
 
-String _formatWeight(double value) => value == value.roundToDouble()
+class _SetEditorFields extends StatelessWidget {
+  const _SetEditorFields({
+    required this.type,
+    required this.unit,
+    required this.distanceUnit,
+    required this.weight,
+    required this.reps,
+    required this.duration,
+    required this.distance,
+    required this.calories,
+  });
+
+  final ExerciseTrackingType type;
+  final String unit;
+  final String distanceUnit;
+  final TextEditingController weight;
+  final TextEditingController reps;
+  final TextEditingController duration;
+  final TextEditingController distance;
+  final TextEditingController calories;
+
+  @override
+  Widget build(BuildContext context) {
+    final fields = <Widget>[
+      if (type.usesWeight)
+        _SetField(
+          controller: weight,
+          label: '${type.weightLabel} ($unit)',
+          decimal: true,
+        ),
+      if (type.usesReps)
+        _SetField(controller: reps, label: 'REPS', decimal: false),
+      if (type.usesDuration)
+        _SetField(
+          controller: duration,
+          label: 'DURATION',
+          hint: 'seconds or mm:ss',
+          decimal: false,
+        ),
+      if (type.usesDistance)
+        _SetField(
+          controller: distance,
+          label: 'DISTANCE ($distanceUnit)',
+          decimal: true,
+        ),
+      if (type.usesCalories)
+        _SetField(controller: calories, label: 'CALORIES', decimal: true),
+    ];
+    if (fields.length == 1) return fields.single;
+    return LayoutBuilder(
+      builder: (context, constraints) => Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          for (final field in fields)
+            SizedBox(
+              width: fields.length == 2 || constraints.maxWidth >= 520
+                  ? (constraints.maxWidth - 10) / 2
+                  : constraints.maxWidth,
+              child: field,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SetField extends StatelessWidget {
+  const _SetField({
+    required this.controller,
+    required this.label,
+    required this.decimal,
+    this.hint,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final bool decimal;
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) => TextField(
+    controller: controller,
+    keyboardType: decimal
+        ? const TextInputType.numberWithOptions(decimal: true)
+        : TextInputType.number,
+    decoration: InputDecoration(labelText: label, hintText: hint),
+  );
+}
+
+String _formatNumber(double value) => value == value.roundToDouble()
     ? value.round().toString()
     : value.toStringAsFixed(1);
+
+String _formatDurationInput(int seconds) => seconds >= 60
+    ? '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}'
+    : '$seconds';
+
 
 String _date(DateTime value) =>
     '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';

@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:progression_lab/athletic_history.dart';
+import 'package:progression_lab/athletic_program.dart';
 import 'package:progression_lab/exercise_library.dart';
 import 'package:progression_lab/program.dart';
 import 'package:progression_lab/store.dart';
@@ -684,18 +686,18 @@ void main() {
       'custom exercises add, rename, soft-delete, and persist separately',
       () async {
         final store = AppStore();
-        final custom = await store.addCustomExercise('  Belt Squat  ');
-        expect(custom.name, 'Belt Squat');
+        final custom = await store.addCustomExercise('  Researcher Offset Row  ');
+        expect(custom.name, 'Researcher Offset Row');
         expect(
           store.selectableExercises.map((item) => item.name),
-          contains('Belt Squat'),
+          contains('Researcher Offset Row'),
         );
 
-        await store.renameCustomExercise(custom.id, 'Cable Pull-Through');
-        expect(store.customExercises.single.name, 'Cable Pull-Through');
+        await store.renameCustomExercise(custom.id, 'Researcher Cable Sweep');
+        expect(store.customExercises.single.name, 'Researcher Cable Sweep');
         store.logs.add(
           SetLog(
-            exercise: 'Cable Pull-Through',
+            exercise: 'Researcher Cable Sweep',
             weight: 30,
             reps: 12,
             date: DateTime(2026, 8, 18),
@@ -707,14 +709,14 @@ void main() {
         expect(store.customExercises.single.isArchived, isTrue);
         expect(
           store.selectableExercises.map((item) => item.name),
-          isNot(contains('Cable Pull-Through')),
+          isNot(contains('Researcher Cable Sweep')),
         );
-        expect(store.logs.single.exercise, 'Cable Pull-Through');
+        expect(store.logs.single.exercise, 'Researcher Cable Sweep');
 
         final restored = AppStore();
         await restored.load();
         expect(restored.customExercises.single.isArchived, isTrue);
-        expect(restored.logs.single.exercise, 'Cable Pull-Through');
+        expect(restored.logs.single.exercise, 'Researcher Cable Sweep');
       },
     );
 
@@ -724,9 +726,9 @@ void main() {
         store.addCustomExercise('barbell bench press'),
         throwsA(isA<ArgumentError>()),
       );
-      await store.addCustomExercise('Belt Squat');
+      await store.addCustomExercise('Researcher Offset Row');
       await expectLater(
-        store.addCustomExercise('BELT SQUAT'),
+        store.addCustomExercise('RESEARCHER OFFSET ROW'),
         throwsA(isA<ArgumentError>()),
       );
       expect(store.customExercises, hasLength(1));
@@ -771,4 +773,279 @@ void main() {
       }
     }
   });
+
+  group('athletic functional program', () {
+    test('authors twelve weeks with four complete coached sessions each', () {
+      expect(AthleticProgram.totalWeeks, 12);
+      expect(AthleticProgram.sessionsPerWeek, 4);
+      for (var weekNumber = 1; weekNumber <= 12; weekNumber++) {
+        final week = AthleticProgram.week(weekNumber);
+        expect(week.sessions, hasLength(4));
+        expect(week.cycleNumber, ((weekNumber - 1) ~/ 4) + 1);
+        for (final session in week.sessions) {
+          expect(session.drills.length, greaterThanOrEqualTo(6));
+          expect(session.durationMinutes, inInclusiveRange(40, 60));
+          for (final drill in session.drills) {
+            expect(drill.name, isNotEmpty);
+            expect(drill.prescription, isNotEmpty);
+            expect(drill.purpose, isNotEmpty);
+            expect(drill.cues, isNotEmpty);
+            expect(drill.regression, isNotEmpty);
+            expect(drill.progression, isNotEmpty);
+          }
+        }
+      }
+      expect(() => AthleticProgram.week(0), throwsRangeError);
+      expect(() => AthleticProgram.week(13), throwsRangeError);
+    });
+
+    test('completion advances independently from the strength program', () async {
+      final store = AppStore()
+        ..week = 19
+        ..workoutIndex = 2
+        ..athleticWeek = 1
+        ..athleticSessionIndex = 0;
+
+      await store.completeAthleticSession(
+        effort: 7,
+        notes: 'Stable landings',
+      );
+
+      expect(store.week, 19);
+      expect(store.workoutIndex, 2);
+      expect(store.athleticWeek, 1);
+      expect(store.athleticSessionIndex, 1);
+      expect(store.athleticCompletedSessions, 1);
+      expect(store.athleticHistory.single.effort, 7);
+      expect(store.athleticHistory.single.notes, 'Stable landings');
+
+      final restored = AppStore();
+      await restored.load();
+      expect(restored.week, 19);
+      expect(restored.athleticWeek, 1);
+      expect(restored.athleticSessionIndex, 1);
+      expect(restored.athleticHistory.single.notes, 'Stable landings');
+    });
+
+    test('the last session completes without silently wrapping', () async {
+      final store = AppStore()
+        ..athleticWeek = 12
+        ..athleticSessionIndex = 3;
+
+      await store.completeAthleticSession(effort: 8, notes: 'Final test');
+
+      expect(store.athleticProgramComplete, isTrue);
+      expect(store.athleticWeek, 12);
+      expect(store.athleticSessionIndex, 3);
+      await expectLater(
+        store.completeAthleticSession(effort: 8, notes: ''),
+        throwsStateError,
+      );
+    });
+
+    test('restart creates a new run while preserving prior history', () async {
+      final store = AppStore();
+      await store.completeAthleticSession(effort: 6, notes: 'Run one');
+      await store.restartAthleticProgram();
+
+      expect(store.athleticProgramRun, 2);
+      expect(store.athleticWeek, 1);
+      expect(store.athleticSessionIndex, 0);
+      expect(store.athleticHistory.single.programRun, 1);
+      expect(store.athleticCompletedSessions, 0);
+
+      await store.completeAthleticSession(effort: 5, notes: 'Run two');
+      expect(store.athleticHistory, hasLength(2));
+      expect(store.athleticCompletedSessions, 1);
+    });
+
+    test('field measures persist with the active athletic run', () async {
+      final store = AppStore();
+      await store.saveAthleticAssessment(
+        AthleticAssessment(
+          programRun: store.athleticProgramRun,
+          recordedAt: DateTime(2026, 8, 19),
+          leftBalanceSeconds: 31.2,
+          rightBalanceSeconds: 29.8,
+          broadJumpCentimeters: 184,
+          sprint10MetersSeconds: 2.04,
+          changeOfDirection505Seconds: 2.61,
+          movementQuality: 4,
+          notes: 'Same shoes and surface',
+        ),
+      );
+
+      final restored = AppStore();
+      await restored.load();
+      final assessment = restored.athleticAssessments.single;
+      expect(assessment.broadJumpCentimeters, 184);
+      expect(assessment.movementQuality, 4);
+      expect(assessment.notes, 'Same shoes and surface');
+    });
+
+    test('schema six migrates additively through the current schema', () async {
+      storedValue = jsonEncode({
+        'schemaVersion': 6,
+        'days': 4,
+        'week': 7,
+        'workout': 1,
+        'unit': 'lb',
+        'logs': <Object>[],
+        'workoutHistory': <Object>[],
+        'customExercises': <Object>[],
+        'drafts': <Object>[],
+        'programStartDate': '2026-01-01T00:00:00.000',
+      });
+
+      final store = AppStore();
+      await store.load();
+
+      expect(store.athleticWeek, 1);
+      expect(store.athleticSessionIndex, 0);
+      expect(store.athleticHistory, isEmpty);
+      final migrated = jsonDecode(storedValue!) as Map<String, dynamic>;
+      expect(migrated['schemaVersion'], AppStore.schemaVersion);
+      expect(migrated['strengthProgramRun'], 1);
+      expect(migrated['athleticProgramRun'], 1);
+      expect(migrated['athleticHistory'], isEmpty);
+      expect(migrated['onboardingVersionSeen'], 0);
+      expect(migrated['preferredTrack'], 'strength');
+    });
+
+    test('tour and preferred program choices persist locally', () async {
+      final store = AppStore();
+
+      await store.markOnboardingSeen(1);
+      await store.setPreferredTrack(TrainingTrack.athletic);
+
+      final restored = AppStore();
+      await restored.load();
+      expect(restored.onboardingVersionSeen, 1);
+      expect(restored.preferredTrack, TrainingTrack.athletic);
+    });
+  });
+
+
+  group('program starting positions', () {
+    test('a new strength run can begin at any authored phase and cycle', () async {
+      final oldRecord = WorkoutRecord(
+        week: 19,
+        workoutIndex: 4,
+        workout: 'Upper Body C',
+        date: DateTime(2026, 8, 1),
+        status: WorkoutStatus.completed,
+        programRun: 1,
+        days: 5,
+      );
+      final activeDraft = DraftSetInput(
+        week: 2,
+        workoutIndex: 0,
+        workout: 'Upper Body A',
+        exerciseIndex: 0,
+        setNumber: 1,
+        sessionId: 'active-draft',
+        weight: '185',
+        reps: '6',
+        notes: '',
+        programRun: 1,
+      );
+      final store = AppStore()
+        ..days = 4
+        ..week = 2
+        ..workoutIndex = 0
+        ..strengthProgramRun = 1
+        ..workoutHistory = [oldRecord]
+        ..draft = activeDraft
+        ..drafts = [activeDraft];
+
+      await store.setStrengthProgramPosition(
+        phase: 2,
+        microcycle: 3,
+        cadence: 5,
+        nextWorkoutIndex: 4,
+        nextWorkoutDate: DateTime(2026, 9, 1),
+        startNewRun: true,
+      );
+
+      expect(store.strengthProgramRun, 2);
+      expect(store.week, 19);
+      expect(store.days, 5);
+      expect(store.workoutIndex, 4);
+      expect(store.dateForSlot(19, 4), DateTime(2026, 9, 1));
+      expect(store.workoutHistory, [oldRecord]);
+      expect(store.recordsForSlot(19, 4), isEmpty);
+      expect(store.draft, isNull);
+      expect(store.drafts, isEmpty);
+
+      final restored = AppStore();
+      await restored.load();
+      expect(restored.strengthProgramRun, 2);
+      expect(restored.week, 19);
+      expect(restored.days, 5);
+      expect(restored.workoutIndex, 4);
+      expect(restored.dateForSlot(19, 4), DateTime(2026, 9, 1));
+      expect(restored.workoutHistory.single.programRun, 1);
+    });
+
+    test('moving within a run rejects an already-recorded target workout', () async {
+      final store = AppStore()
+        ..days = 4
+        ..week = 1
+        ..workoutIndex = 0
+        ..strengthProgramRun = 3
+        ..workoutHistory = [
+          WorkoutRecord(
+            week: 17,
+            workoutIndex: 0,
+            workout: 'Upper Body A',
+            date: DateTime(2026, 8, 1),
+            status: WorkoutStatus.completed,
+            programRun: 3,
+            days: 4,
+          ),
+        ];
+
+      expect(
+        store.setStrengthProgramPosition(
+          phase: 2,
+          microcycle: 1,
+          cadence: 4,
+          nextWorkoutIndex: 0,
+          nextWorkoutDate: DateTime(2026, 9, 1),
+          startNewRun: false,
+        ),
+        throwsStateError,
+      );
+      expect(store.week, 1);
+      expect(store.strengthProgramRun, 3);
+    });
+
+    test('athletic training can start at a selected cycle and session', () async {
+      final previous = AthleticSessionRecord(
+        programRun: 1,
+        week: 6,
+        sessionIndex: 2,
+        completedAt: DateTime(2026, 8, 1),
+        effort: 7,
+      );
+      final store = AppStore()
+        ..athleticProgramRun = 1
+        ..athleticHistory = [previous];
+
+      await store.setAthleticProgramPosition(
+        weekNumber: 6,
+        sessionIndex: 2,
+        nextSessionDate: DateTime(2026, 9, 3),
+        startNewRun: true,
+      );
+
+      expect(store.athleticProgramRun, 2);
+      expect(store.athleticWeek, 6);
+      expect(store.athleticSessionIndex, 2);
+      expect(store.athleticDateForSlot(6, 2), DateTime(2026, 9, 3));
+      expect(store.currentAthleticRunHistory, isEmpty);
+      expect(store.athleticHistory, [previous]);
+    });
+  });
+
 }
