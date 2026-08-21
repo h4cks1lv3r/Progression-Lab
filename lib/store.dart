@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'athletic_history.dart';
 import 'athletic_program.dart';
 import 'daily_inputs.dart';
+import 'data_portability_bridge.dart';
+import 'data_portability_core.dart';
 import 'exercise_library.dart';
 import 'program.dart';
 
@@ -21,7 +23,23 @@ class SetLog {
     this.notes = '',
     this.sessionId,
     this.exerciseIndex,
+    this.exerciseId,
+    this.trackingType = 'weightReps',
+    this.setOrder,
+    this.setType = 'normal',
+    this.rpe,
+    this.rir,
+    this.durationSeconds,
+    this.distance,
+    this.distanceUnit,
+    this.calories,
+    this.restSeconds,
+    this.supersetId,
+    this.sourceApp,
+    this.sourceId,
+    this.importBatchId,
   });
+
   final String exercise;
   final double weight;
   final int reps;
@@ -30,7 +48,36 @@ class SetLog {
   final String notes;
   final String? sessionId;
   final int? exerciseIndex;
-  double get e1rm => weight * (1 + reps / 30);
+  final String? exerciseId;
+  final String trackingType;
+  final int? setOrder;
+  final String setType;
+  final double? rpe;
+  final double? rir;
+  final int? durationSeconds;
+  final double? distance;
+  final String? distanceUnit;
+  final double? calories;
+  final int? restSeconds;
+  final String? supersetId;
+  final String? sourceApp;
+  final String? sourceId;
+  final String? importBatchId;
+
+  double get e1rm => reps <= 0 ? weight : weight * (1 + reps / 30);
+
+  ExerciseTrackingType get resolvedTrackingType {
+    for (final value in ExerciseTrackingType.values) {
+      if (value.name == trackingType) return value;
+    }
+    return ExerciseTrackingType.weightReps;
+  }
+
+  double get standardVolume => resolvedTrackingType == ExerciseTrackingType.weightReps
+      ? weight * reps
+      : resolvedTrackingType == ExerciseTrackingType.weightedBodyweight
+      ? weight * reps
+      : 0;
 
   SetLog copyWith({
     String? exercise,
@@ -41,6 +88,21 @@ class SetLog {
     String? notes,
     String? sessionId,
     int? exerciseIndex,
+    String? exerciseId,
+    String? trackingType,
+    int? setOrder,
+    String? setType,
+    double? rpe,
+    double? rir,
+    int? durationSeconds,
+    double? distance,
+    String? distanceUnit,
+    double? calories,
+    int? restSeconds,
+    String? supersetId,
+    String? sourceApp,
+    String? sourceId,
+    String? importBatchId,
   }) => SetLog(
     exercise: exercise ?? this.exercise,
     weight: weight ?? this.weight,
@@ -50,6 +112,21 @@ class SetLog {
     notes: notes ?? this.notes,
     sessionId: sessionId ?? this.sessionId,
     exerciseIndex: exerciseIndex ?? this.exerciseIndex,
+    exerciseId: exerciseId ?? this.exerciseId,
+    trackingType: trackingType ?? this.trackingType,
+    setOrder: setOrder ?? this.setOrder,
+    setType: setType ?? this.setType,
+    rpe: rpe ?? this.rpe,
+    rir: rir ?? this.rir,
+    durationSeconds: durationSeconds ?? this.durationSeconds,
+    distance: distance ?? this.distance,
+    distanceUnit: distanceUnit ?? this.distanceUnit,
+    calories: calories ?? this.calories,
+    restSeconds: restSeconds ?? this.restSeconds,
+    supersetId: supersetId ?? this.supersetId,
+    sourceApp: sourceApp ?? this.sourceApp,
+    sourceId: sourceId ?? this.sourceId,
+    importBatchId: importBatchId ?? this.importBatchId,
   );
 
   Map<String, dynamic> toJson() => {
@@ -61,16 +138,67 @@ class SetLog {
     'n': notes,
     if (sessionId != null) 's': sessionId,
     if (exerciseIndex != null) 'i': exerciseIndex,
+    if (exerciseId != null) 'exerciseId': exerciseId,
+    'trackingType': trackingType,
+    if (setOrder != null) 'setOrder': setOrder,
+    if (setType != 'normal') 'setType': setType,
+    if (rpe != null) 'rpe': rpe,
+    if (rir != null) 'rir': rir,
+    if (durationSeconds != null) 'durationSeconds': durationSeconds,
+    if (distance != null) 'distance': distance,
+    if (distanceUnit != null) 'distanceUnit': distanceUnit,
+    if (calories != null) 'calories': calories,
+    if (restSeconds != null) 'restSeconds': restSeconds,
+    if (supersetId != null) 'supersetId': supersetId,
+    if (sourceApp != null) 'sourceApp': sourceApp,
+    if (sourceId != null) 'sourceId': sourceId,
+    if (importBatchId != null) 'importBatchId': importBatchId,
   };
-  factory SetLog.fromJson(Map<String, dynamic> j) => SetLog(
-    exercise: j['e'],
-    weight: (j['w'] as num).toDouble(),
-    reps: j['r'],
-    date: DateTime.parse(j['d']),
-    workout: j['o'],
-    notes: j['n'] is String ? j['n'] as String : '',
-    sessionId: j['s'] is String ? j['s'] as String : null,
-    exerciseIndex: j['i'] is num ? (j['i'] as num).toInt() : null,
+
+  factory SetLog.fromJson(Map<String, dynamic> json) => SetLog(
+    exercise: json['e'] as String,
+    weight: (json['w'] as num).toDouble(),
+    reps: (json['r'] as num).toInt(),
+    date: DateTime.parse(json['d'] as String),
+    workout: json['o'] as String,
+    notes: json['n'] is String ? json['n'] as String : '',
+    sessionId: json['s'] is String ? json['s'] as String : null,
+    exerciseIndex: json['i'] is num ? (json['i'] as num).toInt() : null,
+    exerciseId: json['exerciseId'] is String ? json['exerciseId'] as String : null,
+    trackingType: json['trackingType'] is String
+        ? json['trackingType'] as String
+        : 'weightReps',
+    setOrder: json['setOrder'] is num
+        ? (json['setOrder'] as num).toInt()
+        : null,
+    setType: json['setType'] is String ? json['setType'] as String : 'normal',
+    rpe: json['rpe'] is num ? (json['rpe'] as num).toDouble() : null,
+    rir: json['rir'] is num ? (json['rir'] as num).toDouble() : null,
+    durationSeconds: json['durationSeconds'] is num
+        ? (json['durationSeconds'] as num).toInt()
+        : null,
+    distance: json['distance'] is num
+        ? (json['distance'] as num).toDouble()
+        : null,
+    distanceUnit: json['distanceUnit'] is String
+        ? json['distanceUnit'] as String
+        : null,
+    calories: json['calories'] is num
+        ? (json['calories'] as num).toDouble()
+        : null,
+    restSeconds: json['restSeconds'] is num
+        ? (json['restSeconds'] as num).toInt()
+        : null,
+    supersetId: json['supersetId'] is String
+        ? json['supersetId'] as String
+        : null,
+    sourceApp: json['sourceApp'] is String
+        ? json['sourceApp'] as String
+        : null,
+    sourceId: json['sourceId'] is String ? json['sourceId'] as String : null,
+    importBatchId: json['importBatchId'] is String
+        ? json['importBatchId'] as String
+        : null,
   );
 }
 
@@ -165,6 +293,9 @@ class DraftSetInput {
     required this.weight,
     required this.reps,
     required this.notes,
+    this.duration = '',
+    this.distance = '',
+    this.calories = '',
     this.programRun = 1,
     this.days = 4,
     this.retroactive = false,
@@ -181,6 +312,9 @@ class DraftSetInput {
   final String weight;
   final String reps;
   final String notes;
+  final String duration;
+  final String distance;
+  final String calories;
   final int programRun;
   final int days;
   final bool retroactive;
@@ -197,6 +331,9 @@ class DraftSetInput {
     'weight': weight,
     'reps': reps,
     'notes': notes,
+    'duration': duration,
+    'distance': distance,
+    'calories': calories,
     'programRun': programRun,
     'days': days,
     'retroactive': retroactive,
@@ -217,6 +354,9 @@ class DraftSetInput {
     weight: json['weight'] as String,
     reps: json['reps'] as String,
     notes: json['notes'] is String ? json['notes'] as String : '',
+    duration: json['duration'] is String ? json['duration'] as String : '',
+    distance: json['distance'] is String ? json['distance'] as String : '',
+    calories: json['calories'] is String ? json['calories'] as String : '',
     programRun: json['programRun'] is num
         ? (json['programRun'] as num).toInt()
         : 1,
@@ -231,7 +371,7 @@ class DraftSetInput {
 
 class AppStore extends ChangeNotifier {
   static const _channel = MethodChannel('iron_cadence/storage');
-  static const int schemaVersion = 10;
+  static const int schemaVersion = 13;
   static const double poundsToKilograms = 0.45359237;
   bool isLoaded = false;
   int days = 4;
@@ -241,6 +381,7 @@ class AppStore extends ChangeNotifier {
   List<SetLog> logs = [];
   List<WorkoutRecord> workoutHistory = [];
   List<CustomExercise> customExercises = [];
+  Set<String> favoriteBuiltInExerciseIds = {};
   DraftSetInput? draft;
   List<DraftSetInput> drafts = [];
   DateTime programStartDate = _dateOnly(DateTime.now());
@@ -254,6 +395,9 @@ class AppStore extends ChangeNotifier {
   List<AthleticAssessment> athleticAssessments = [];
   int onboardingVersionSeen = 0;
   TrainingTrack preferredTrack = TrainingTrack.strength;
+  bool automaticBackupsEnabled = true;
+  List<ImportedWorkoutRecord> importedWorkouts = [];
+  List<DataImportBatch> importHistory = [];
 
   List<SupplementPreset> supplementPresets = SupplementPreset.defaults();
   List<SupplementEvent> supplementEvents = [];
@@ -274,149 +418,10 @@ class AppStore extends ChangeNotifier {
           final original = Map<String, dynamic>.from(decoded);
           final originalVersion = _readInt(original['schemaVersion']) ?? 1;
           final data = _migrate(original);
-          final storedDays = _readInt(data['days']) ?? 4;
-          days = ProgramEngine.isSupportedDays(storedDays) ? storedDays : 4;
-          week = ProgramEngine.clampWeek(_readInt(data['week']) ?? 1);
-          workoutIndex = ProgramEngine.clampWorkoutIndex(
-            _readInt(data['workout']) ?? 0,
-            days,
-          );
-          final storedUnit = data['unit'];
-          unit = storedUnit == 'kg' ? 'kg' : 'lb';
-          final storedLogs = data['logs'];
-          if (storedLogs is List) {
-            logs = storedLogs.map(_readLog).whereType<SetLog>().toList();
-          }
-          final storedWorkouts = data['workoutHistory'];
-          if (storedWorkouts is List) {
-            workoutHistory = storedWorkouts
-                .map(_readWorkout)
-                .whereType<WorkoutRecord>()
-                .toList();
-          }
-          final storedCustomExercises = data['customExercises'];
-          if (storedCustomExercises is List) {
-            customExercises = storedCustomExercises
-                .map(_readCustomExercise)
-                .whereType<CustomExercise>()
-                .toList();
-          }
-          draft = _readDraft(data['draft']);
-          final storedDrafts = data['drafts'];
-          if (storedDrafts is List) {
-            drafts = storedDrafts
-                .map(_readDraft)
-                .whereType<DraftSetInput>()
-                .toList();
-          }
-          if (draft != null &&
-              !drafts.any((item) => item.sessionId == draft!.sessionId)) {
-            drafts.add(draft!);
-          }
-          programStartDate = data['programStartDate'] is String
-              ? DateTime.parse(data['programStartDate'] as String)
-              : _inferredProgramStartDate();
-          strengthProgramRun = (_readInt(data['strengthProgramRun']) ?? 1)
-              .clamp(1, 1000000)
-              .toInt();
-          athleticProgramRun = (_readInt(data['athleticProgramRun']) ?? 1)
-              .clamp(1, 1000000)
-              .toInt();
-          athleticWeek = (_readInt(data['athleticWeek']) ?? 1)
-              .clamp(1, AthleticProgram.totalWeeks)
-              .toInt();
-          athleticSessionIndex = (_readInt(data['athleticSessionIndex']) ?? 0)
-              .clamp(0, AthleticProgram.sessionsPerWeek - 1)
-              .toInt();
-          athleticStartDate = data['athleticStartDate'] is String
-              ? DateTime.parse(data['athleticStartDate'] as String)
-              : _dateOnly(DateTime.now());
-          final storedAthleticHistory = data['athleticHistory'];
-          if (storedAthleticHistory is List) {
-            athleticHistory = storedAthleticHistory
-                .map(_readAthleticRecord)
-                .whereType<AthleticSessionRecord>()
-                .toList();
-          }
-          final storedAthleticAssessments = data['athleticAssessments'];
-          if (storedAthleticAssessments is List) {
-            athleticAssessments = storedAthleticAssessments
-                .map(_readAthleticAssessment)
-                .whereType<AthleticAssessment>()
-                .toList();
-          }
-          onboardingVersionSeen = (_readInt(data['onboardingVersionSeen']) ?? 0)
-              .clamp(0, 1000000)
-              .toInt();
-          preferredTrack = switch (data['preferredTrack']) {
-            'athletic' => TrainingTrack.athletic,
-            _ => TrainingTrack.strength,
-          };
-          final storedPresets = data['supplementPresets'];
-          if (storedPresets is List) {
-            supplementPresets = storedPresets
-                .map(_readSupplementPreset)
-                .whereType<SupplementPreset>()
-                .toList();
-          }
-          if (supplementPresets.isEmpty) {
-            supplementPresets = SupplementPreset.defaults();
-          }
-          final storedSupplementEvents = data['supplementEvents'];
-          if (storedSupplementEvents is List) {
-            supplementEvents = storedSupplementEvents
-                .map(_readSupplementEvent)
-                .whereType<SupplementEvent>()
-                .toList();
-          }
-          final storedMeals = data['mealEvents'];
-          if (storedMeals is List) {
-            mealEvents = storedMeals
-                .map(_readMealEvent)
-                .whereType<MealEvent>()
-                .toList();
-          }
-          final storedHydration = data['hydrationEvents'];
-          if (storedHydration is List) {
-            hydrationEvents = storedHydration
-                .map(_readHydrationEvent)
-                .whereType<HydrationEvent>()
-                .toList();
-          }
-          final storedRecovery = data['recoveryCheckIns'];
-          if (storedRecovery is List) {
-            recoveryCheckIns = storedRecovery
-                .map(_readRecoveryCheckIn)
-                .whereType<RecoveryCheckIn>()
-                .toList();
-          }
-          final storedResponses = data['workoutResponses'];
-          if (storedResponses is List) {
-            workoutResponses = storedResponses
-                .map(_readWorkoutResponse)
-                .whereType<WorkoutResponse>()
-                .toList();
-          }
-          aiAnalysisEnabled = data['aiAnalysisEnabled'] == true;
-          final storedDomains = data['labDataDomains'];
-          if (storedDomains is List) {
-            labDataDomains = {
-              for (final value in storedDomains)
-                if (value is String)
-                  for (final domain in LabDataDomain.values)
-                    if (domain.name == value) domain,
-            };
-          }
-          final storedMessages = data['labMessages'];
-          if (storedMessages is List) {
-            labMessages = storedMessages
-                .map(_readLabMessage)
-                .whereType<LabMessage>()
-                .toList();
-          }
+          _applyStateData(data);
           if (originalVersion < schemaVersion) {
             try {
-              await _channel.invokeMethod('write', jsonEncode(data));
+              await _channel.invokeMethod('write', jsonEncode(exportState()));
             } on PlatformException {
               // The in-memory migration is still usable; retry on next save.
             }
@@ -434,58 +439,269 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> save() async {
-    await _channel.invokeMethod(
-      'write',
-      jsonEncode({
-        'days': days,
-        'week': week,
-        'workout': workoutIndex,
-        'unit': unit,
-        'logs': logs.map((e) => e.toJson()).toList(),
-        'schemaVersion': schemaVersion,
-        'workoutHistory': workoutHistory.map((e) => e.toJson()).toList(),
-        'customExercises': customExercises
-            .map((exercise) => exercise.toJson())
-            .toList(),
-        'draft': draft?.toJson(),
-        'drafts': _draftsForSave.map((item) => item.toJson()).toList(),
-        'programStartDate': programStartDate.toIso8601String(),
-        'strengthProgramRun': strengthProgramRun,
-        'athleticProgramRun': athleticProgramRun,
-        'athleticWeek': athleticWeek,
-        'athleticSessionIndex': athleticSessionIndex,
-        'athleticStartDate': athleticStartDate.toIso8601String(),
-        'athleticHistory': athleticHistory
-            .map((record) => record.toJson())
-            .toList(),
-        'athleticAssessments': athleticAssessments
-            .map((assessment) => assessment.toJson())
-            .toList(),
-        'onboardingVersionSeen': onboardingVersionSeen,
-        'preferredTrack': preferredTrack.name,
-        'supplementPresets': supplementPresets
-            .map((preset) => preset.toJson())
-            .toList(),
-        'supplementEvents': supplementEvents
-            .map((event) => event.toJson())
-            .toList(),
-        'mealEvents': mealEvents.map((event) => event.toJson()).toList(),
-        'hydrationEvents': hydrationEvents
-            .map((event) => event.toJson())
-            .toList(),
-        'recoveryCheckIns': recoveryCheckIns
-            .map((item) => item.toJson())
-            .toList(),
-        'workoutResponses': workoutResponses
-            .map((item) => item.toJson())
-            .toList(),
-        'aiAnalysisEnabled': aiAnalysisEnabled,
-        'labDataDomains': labDataDomains.map((domain) => domain.name).toList(),
-        'labMessages': labMessages.map((message) => message.toJson()).toList(),
-      }),
+  void _applyStateData(Map<String, dynamic> data) {
+    final storedDays = _readInt(data['days']) ?? 4;
+    days = ProgramEngine.isSupportedDays(storedDays) ? storedDays : 4;
+    week = ProgramEngine.clampWeek(_readInt(data['week']) ?? 1);
+    workoutIndex = ProgramEngine.clampWorkoutIndex(
+      _readInt(data['workout']) ?? 0,
+      days,
     );
+    unit = data['unit'] == 'kg' ? 'kg' : 'lb';
+    logs = data['logs'] is List
+        ? (data['logs'] as List).map(_readLog).whereType<SetLog>().toList()
+        : [];
+    workoutHistory = data['workoutHistory'] is List
+        ? (data['workoutHistory'] as List)
+              .map(_readWorkout)
+              .whereType<WorkoutRecord>()
+              .toList()
+        : [];
+    customExercises = data['customExercises'] is List
+        ? (data['customExercises'] as List)
+              .map(_readCustomExercise)
+              .whereType<CustomExercise>()
+              .toList()
+        : [];
+    favoriteBuiltInExerciseIds = data['favoriteBuiltInExerciseIds'] is List
+        ? (data['favoriteBuiltInExerciseIds'] as List)
+              .whereType<String>()
+              .where((id) => ExerciseLibrary.builtInById(id) != null)
+              .toSet()
+        : <String>{};
+    draft = _readDraft(data['draft']);
+    drafts = data['drafts'] is List
+        ? (data['drafts'] as List)
+              .map(_readDraft)
+              .whereType<DraftSetInput>()
+              .toList()
+        : [];
+    if (draft != null &&
+        !drafts.any((item) => item.sessionId == draft!.sessionId)) {
+      drafts.add(draft!);
+    }
+    programStartDate = data['programStartDate'] is String
+        ? DateTime.parse(data['programStartDate'] as String)
+        : _inferredProgramStartDate();
+    strengthProgramRun = (_readInt(data['strengthProgramRun']) ?? 1)
+        .clamp(1, 1000000)
+        .toInt();
+    athleticProgramRun = (_readInt(data['athleticProgramRun']) ?? 1)
+        .clamp(1, 1000000)
+        .toInt();
+    athleticWeek = (_readInt(data['athleticWeek']) ?? 1)
+        .clamp(1, AthleticProgram.totalWeeks)
+        .toInt();
+    athleticSessionIndex = (_readInt(data['athleticSessionIndex']) ?? 0)
+        .clamp(0, AthleticProgram.sessionsPerWeek - 1)
+        .toInt();
+    athleticStartDate = data['athleticStartDate'] is String
+        ? DateTime.parse(data['athleticStartDate'] as String)
+        : _dateOnly(DateTime.now());
+    athleticHistory = data['athleticHistory'] is List
+        ? (data['athleticHistory'] as List)
+              .map(_readAthleticRecord)
+              .whereType<AthleticSessionRecord>()
+              .toList()
+        : [];
+    athleticAssessments = data['athleticAssessments'] is List
+        ? (data['athleticAssessments'] as List)
+              .map(_readAthleticAssessment)
+              .whereType<AthleticAssessment>()
+              .toList()
+        : [];
+    onboardingVersionSeen = (_readInt(data['onboardingVersionSeen']) ?? 0)
+        .clamp(0, 1000000)
+        .toInt();
+    preferredTrack = data['preferredTrack'] == 'athletic'
+        ? TrainingTrack.athletic
+        : TrainingTrack.strength;
+    automaticBackupsEnabled = data['automaticBackupsEnabled'] != false;
+    importedWorkouts = data['importedWorkouts'] is List
+        ? (data['importedWorkouts'] as List)
+              .map(_readImportedWorkout)
+              .whereType<ImportedWorkoutRecord>()
+              .toList()
+        : [];
+    importHistory = data['importHistory'] is List
+        ? (data['importHistory'] as List)
+              .map(_readImportBatch)
+              .whereType<DataImportBatch>()
+              .toList()
+        : [];
+    final storedPresets = data['supplementPresets'];
+    supplementPresets = storedPresets is List
+        ? storedPresets
+              .map(_readSupplementPreset)
+              .whereType<SupplementPreset>()
+              .toList()
+        : SupplementPreset.defaults();
+    if (supplementPresets.isEmpty) {
+      supplementPresets = SupplementPreset.defaults();
+    }
+    supplementEvents = data['supplementEvents'] is List
+        ? (data['supplementEvents'] as List)
+              .map(_readSupplementEvent)
+              .whereType<SupplementEvent>()
+              .toList()
+        : [];
+    mealEvents = data['mealEvents'] is List
+        ? (data['mealEvents'] as List)
+              .map(_readMealEvent)
+              .whereType<MealEvent>()
+              .toList()
+        : [];
+    hydrationEvents = data['hydrationEvents'] is List
+        ? (data['hydrationEvents'] as List)
+              .map(_readHydrationEvent)
+              .whereType<HydrationEvent>()
+              .toList()
+        : [];
+    recoveryCheckIns = data['recoveryCheckIns'] is List
+        ? (data['recoveryCheckIns'] as List)
+              .map(_readRecoveryCheckIn)
+              .whereType<RecoveryCheckIn>()
+              .toList()
+        : [];
+    workoutResponses = data['workoutResponses'] is List
+        ? (data['workoutResponses'] as List)
+              .map(_readWorkoutResponse)
+              .whereType<WorkoutResponse>()
+              .toList()
+        : [];
+    aiAnalysisEnabled = data['aiAnalysisEnabled'] == true;
+    final storedDomains = data['labDataDomains'];
+    labDataDomains = storedDomains is List
+        ? {
+            for (final value in storedDomains)
+              if (value is String)
+                for (final domain in LabDataDomain.values)
+                  if (domain.name == value) domain,
+          }
+        : Set.of(LabDataDomain.values);
+    if (labDataDomains.isEmpty) labDataDomains = Set.of(LabDataDomain.values);
+    labMessages = data['labMessages'] is List
+        ? (data['labMessages'] as List)
+              .map(_readLabMessage)
+              .whereType<LabMessage>()
+              .toList()
+        : [];
   }
+
+  Future<void> restoreState(Map<String, dynamic> source) async {
+    final sourceVersion = _readInt(source['schemaVersion']);
+    if (sourceVersion != null && sourceVersion > schemaVersion) {
+      throw StateError(
+        'This backup was created by a newer Progression Lab data schema '
+        '(version $sourceVersion). Update the app before restoring it.',
+      );
+    }
+    final previous = exportState();
+    try {
+      final migrated = _migrate(Map<String, dynamic>.from(source));
+      _applyStateData(migrated);
+      await _channel.invokeMethod('write', jsonEncode(exportState()));
+    } on Object {
+      _applyStateData(previous);
+      notifyListeners();
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Map<String, dynamic> exportState() => {
+    'days': days,
+    'week': week,
+    'workout': workoutIndex,
+    'unit': unit,
+    'logs': logs.map((e) => e.toJson()).toList(),
+    'schemaVersion': schemaVersion,
+    'workoutHistory': workoutHistory.map((e) => e.toJson()).toList(),
+    'customExercises': customExercises
+        .map((exercise) => exercise.toJson())
+        .toList(),
+    'favoriteBuiltInExerciseIds': favoriteBuiltInExerciseIds.toList()..sort(),
+    'draft': draft?.toJson(),
+    'drafts': _draftsForSave.map((item) => item.toJson()).toList(),
+    'programStartDate': programStartDate.toIso8601String(),
+    'strengthProgramRun': strengthProgramRun,
+    'athleticProgramRun': athleticProgramRun,
+    'athleticWeek': athleticWeek,
+    'athleticSessionIndex': athleticSessionIndex,
+    'athleticStartDate': athleticStartDate.toIso8601String(),
+    'athleticHistory': athleticHistory.map((record) => record.toJson()).toList(),
+    'athleticAssessments': athleticAssessments
+        .map((assessment) => assessment.toJson())
+        .toList(),
+    'onboardingVersionSeen': onboardingVersionSeen,
+    'preferredTrack': preferredTrack.name,
+    'automaticBackupsEnabled': automaticBackupsEnabled,
+    'importedWorkouts': importedWorkouts.map((item) => item.toJson()).toList(),
+    'importHistory': importHistory.map((item) => item.toJson()).toList(),
+    'supplementPresets': supplementPresets.map((item) => item.toJson()).toList(),
+    'supplementEvents': supplementEvents.map((item) => item.toJson()).toList(),
+    'mealEvents': mealEvents.map((item) => item.toJson()).toList(),
+    'hydrationEvents': hydrationEvents.map((item) => item.toJson()).toList(),
+    'recoveryCheckIns': recoveryCheckIns.map((item) => item.toJson()).toList(),
+    'workoutResponses': workoutResponses.map((item) => item.toJson()).toList(),
+    'aiAnalysisEnabled': aiAnalysisEnabled,
+    'labDataDomains': labDataDomains.map((domain) => domain.name).toList(),
+    'labMessages': labMessages.map((item) => item.toJson()).toList(),
+  };
+
+  Future<void> save({bool createAutomaticBackup = true}) async {
+    final state = exportState();
+    await _channel.invokeMethod('write', jsonEncode(state));
+    if (automaticBackupsEnabled && createAutomaticBackup) {
+      await _writeAutomaticBackup(
+        state,
+        reason: 'automatic',
+        suppressErrors: true,
+      );
+    }
+  }
+
+  Future<void> _writeAutomaticBackup(
+    Map<String, dynamic> state, {
+    required String reason,
+    required bool suppressErrors,
+  }) async {
+    try {
+      final now = DateTime.now();
+      final stamp =
+          '${now.year.toString().padLeft(4, '0')}'
+          '${now.month.toString().padLeft(2, '0')}'
+          '${now.day.toString().padLeft(2, '0')}-'
+          '${now.hour.toString().padLeft(2, '0')}'
+          '${now.minute.toString().padLeft(2, '0')}'
+          '${now.second.toString().padLeft(2, '0')}-'
+          '${now.millisecond.toString().padLeft(3, '0')}';
+      final bytes = ProgressionBackupCodec.encode(state, reason: reason);
+      await DataPortabilityBridge.writeAutomaticBackup(
+        bytes: bytes,
+        fileName: 'Progression-Lab-$reason-$stamp.plab',
+      );
+    } on MissingPluginException {
+      if (!suppressErrors) rethrow;
+      // Tests and unsupported platforms can still persist the primary state.
+    } on PlatformException {
+      if (!suppressErrors) rethrow;
+      // Automatic backup failure must not block workout persistence.
+    } on Object {
+      if (!suppressErrors) rethrow;
+      // Keep the primary save usable if archive creation fails unexpectedly.
+    }
+  }
+
+  Future<void> createAutomaticBackup({
+    String reason = 'manual',
+    bool required = false,
+  }) => _writeAutomaticBackup(
+    exportState(),
+    reason: reason,
+    suppressErrors: !required,
+  );
+
 
   Future<void> setPreferredTrack(TrainingTrack value) async {
     if (preferredTrack == value) return;
@@ -493,7 +709,7 @@ class AppStore extends ChangeNotifier {
     preferredTrack = value;
     notifyListeners();
     try {
-      await save();
+      await save(createAutomaticBackup: false);
     } on Object {
       preferredTrack = previous;
       notifyListeners();
@@ -507,7 +723,7 @@ class AppStore extends ChangeNotifier {
     onboardingVersionSeen = version;
     notifyListeners();
     try {
-      await save();
+      await save(createAutomaticBackup: false);
     } on Object {
       onboardingVersionSeen = previous;
       notifyListeners();
@@ -802,6 +1018,172 @@ class AppStore extends ChangeNotifier {
       await save();
     } on Object {
       labDataDomains = previous;
+
+  DataImportBatch? get lastImportBatch =>
+      importHistory.isEmpty ? null : importHistory.last;
+
+  Set<String> get knownImportSignatures => {
+    for (final workout in importedWorkouts) workout.signature,
+    for (final batch in importHistory) ...batch.signatures,
+  };
+
+  Set<String> get knownExerciseNames => {
+    for (final exercise in BuiltInExercises.values) exercise.name,
+    for (final exercise in customExercises) exercise.name,
+  };
+
+  Future<void> setAutomaticBackupsEnabled(bool value) async {
+    if (automaticBackupsEnabled == value) return;
+    final previous = automaticBackupsEnabled;
+    automaticBackupsEnabled = value;
+    notifyListeners();
+    try {
+      await save(createAutomaticBackup: false);
+      if (value) await createAutomaticBackup(reason: 'enabled');
+    } on Object {
+      automaticBackupsEnabled = previous;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<DataImportBatch> applyImport(
+    WorkoutImportPlan plan, {
+    bool skipDuplicates = true,
+    Map<String, String> exerciseMappings = const {},
+  }) async {
+    final selected = [
+      for (final workout in plan.workouts)
+        if (!skipDuplicates ||
+            !plan.duplicateSignatures.contains(workout.signature))
+          workout,
+    ];
+    if (selected.isEmpty) {
+      throw StateError('No new workouts were available to import.');
+    }
+
+    final previousLogs = List<SetLog>.of(logs);
+    final previousCustomExercises = List<CustomExercise>.of(customExercises);
+    final previousImportedWorkouts = List<ImportedWorkoutRecord>.of(
+      importedWorkouts,
+    );
+    final previousImportHistory = List<DataImportBatch>.of(importHistory);
+    final now = DateTime.now();
+    final batchId = 'import-${now.microsecondsSinceEpoch}';
+    final workoutIds = <String>[];
+    final sessionIds = <String>[];
+    final createdExerciseIds = <String>[];
+    final signatures = <String>[];
+    var importedSetCount = 0;
+
+    final canonicalNames = <String, String>{
+      for (final exercise in BuiltInExercises.values)
+        _normalizeExerciseName(exercise.name): exercise.name,
+      for (final exercise in customExercises)
+        _normalizeExerciseName(exercise.name): exercise.name,
+    };
+    final normalizedMappings = <String, String>{
+      for (final entry in exerciseMappings.entries)
+        if (entry.key.trim().isNotEmpty && entry.value.trim().isNotEmpty)
+          _normalizeExerciseName(entry.key): entry.value.trim(),
+    };
+
+    try {
+      for (final workout in selected) {
+        final workoutId = '$batchId-workout-${workoutIds.length + 1}';
+        final sessionId = '$batchId-session-${sessionIds.length + 1}';
+        workoutIds.add(workoutId);
+        sessionIds.add(sessionId);
+        signatures.add(workout.signature);
+        importedWorkouts.add(
+          ImportedWorkoutRecord(
+            id: workoutId,
+            source: workout.source.label,
+            sessionId: sessionId,
+            sourceId: workout.sourceId,
+            name: workout.name,
+            startedAt: workout.startedAt,
+            sourceTimestamp: workout.sourceTimestamp,
+            durationSeconds: workout.durationSeconds,
+            notes: workout.notes,
+            signature: workout.signature,
+            importBatchId: batchId,
+          ),
+        );
+
+        final exerciseIndexes = <String, int>{};
+        for (final importedSet in workout.sets) {
+          final sourceExercise = importedSet.exercise.trim();
+          final normalizedSource = _normalizeExerciseName(sourceExercise);
+          final mappedName = normalizedMappings[normalizedSource];
+          final targetCandidate = mappedName ?? sourceExercise;
+          final normalizedTarget = _normalizeExerciseName(targetCandidate);
+          var exerciseName = canonicalNames[normalizedTarget];
+          if (exerciseName == null) {
+            final exercise = CustomExercise(
+              id: 'custom-import-${now.microsecondsSinceEpoch}-${createdExerciseIds.length}',
+              name: targetCandidate,
+            );
+            customExercises.add(exercise);
+            createdExerciseIds.add(exercise.id);
+            exerciseName = exercise.name;
+            canonicalNames[normalizedTarget] = exerciseName;
+          }
+          final exerciseIndex = exerciseIndexes.putIfAbsent(
+            normalizedTarget,
+            () => exerciseIndexes.length,
+          );
+          logs.add(
+            SetLog(
+              exercise: exerciseName,
+              weight: importedSet.weight,
+              reps: importedSet.reps,
+              date: workout.startedAt,
+              workout: workout.name,
+              notes: importedSet.notes,
+              sessionId: sessionId,
+              exerciseIndex: exerciseIndex,
+              setOrder: importedSet.setOrder,
+              setType: importedSet.setType,
+              rpe: importedSet.rpe,
+              rir: importedSet.rir,
+              durationSeconds: importedSet.durationSeconds,
+              distance: importedSet.distanceMeters,
+              distanceUnit: importedSet.distanceMeters == null ? null : 'm',
+              supersetId: importedSet.supersetId,
+              sourceApp: workout.source.label,
+              sourceId: workout.sourceId == null
+                  ? '$workoutId:${importedSet.sequence}'
+                  : '${workout.sourceId}:${importedSet.sequence}',
+              importBatchId: batchId,
+            ),
+          );
+          importedSetCount++;
+        }
+      }
+      final batch = DataImportBatch(
+        id: batchId,
+        source: plan.source.label,
+        fileName: plan.fileName,
+        fileHash: plan.fileHash,
+        importedAt: now,
+        workoutIds: List.unmodifiable(workoutIds),
+        sessionIds: List.unmodifiable(sessionIds),
+        createdExerciseIds: List.unmodifiable(createdExerciseIds),
+        signatures: List.unmodifiable(signatures),
+        workoutCount: selected.length,
+        setCount: importedSetCount,
+      );
+      importHistory.add(batch);
+      await save(createAutomaticBackup: false);
+      await createAutomaticBackup(reason: 'after-import');
+      notifyListeners();
+      return batch;
+    } on Object {
+      logs = previousLogs;
+      customExercises = previousCustomExercises;
+      importedWorkouts = previousImportedWorkouts;
+      importHistory = previousImportHistory;
       notifyListeners();
       rethrow;
     }
@@ -835,17 +1217,170 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool isPr(SetLog candidate) => !logs
-      .where((l) => l.exercise == candidate.exercise)
-      .any((l) => l.weight >= candidate.weight && l.e1rm >= candidate.e1rm);
-  SetLog? best(String exercise) {
-    final items = logs.where((l) => l.exercise == exercise).toList()
-      ..sort((a, b) => b.e1rm.compareTo(a.e1rm));
-    return items.isEmpty ? null : items.first;
+  Future<void> undoLastImport() async {
+    final batch = lastImportBatch;
+    if (batch == null) throw StateError('There is no import to undo.');
+    final previousLogs = List<SetLog>.of(logs);
+    final previousCustomExercises = List<CustomExercise>.of(customExercises);
+    final previousImportedWorkouts = List<ImportedWorkoutRecord>.of(
+      importedWorkouts,
+    );
+    final previousImportHistory = List<DataImportBatch>.of(importHistory);
+    try {
+      final sessionIds = batch.sessionIds.toSet();
+      logs.removeWhere(
+        (log) =>
+            log.importBatchId == batch.id ||
+            (log.sessionId != null && sessionIds.contains(log.sessionId)),
+      );
+      importedWorkouts.removeWhere(
+        (workout) => workout.importBatchId == batch.id,
+      );
+      for (final id in batch.createdExerciseIds) {
+        final index = customExercises.indexWhere((item) => item.id == id);
+        if (index < 0) continue;
+        final name = customExercises[index].name;
+        if (!logs.any((log) => log.exercise == name)) {
+          customExercises.removeAt(index);
+        }
+      }
+      importHistory.removeLast();
+      await save(createAutomaticBackup: false);
+      await createAutomaticBackup(reason: 'after-undo');
+      notifyListeners();
+    } on Object {
+      logs = previousLogs;
+      customExercises = previousCustomExercises;
+      importedWorkouts = previousImportedWorkouts;
+      importHistory = previousImportHistory;
+      notifyListeners();
+      rethrow;
+    }
   }
 
-  List<ExerciseOption> get selectableExercises =>
-      ExerciseLibrary.selectable(customExercises);
+  static String _normalizeExerciseName(String value) =>
+      ExerciseLibrary.normalize(value);
+
+  ExerciseDescriptor? exerciseDescriptor({String? id, String? name}) =>
+      ExerciseLibrary.descriptorFor(
+        id: id,
+        name: name,
+        customExercises: customExercises,
+      );
+
+  ExerciseOption? exerciseOptionForName(String name) {
+    final descriptor = exerciseDescriptor(name: name);
+    if (descriptor == null) return null;
+    return ExerciseLibrary.optionForDescriptor(
+      descriptor,
+      favoriteBuiltInIds: favoriteBuiltInExerciseIds,
+    );
+  }
+
+  List<SetLog> _comparableLogs(SetLog candidate) {
+    final id = candidate.exerciseId;
+    if (id != null) {
+      final byId = logs.where((item) => item.exerciseId == id).toList();
+      if (byId.isNotEmpty) return byId;
+    }
+    final normalized = _normalizeExerciseName(candidate.exercise);
+    return logs
+        .where((item) => _normalizeExerciseName(item.exercise) == normalized)
+        .toList();
+  }
+
+  ExerciseTrackingType _trackingForLog(SetLog log) {
+    final descriptor = exerciseDescriptor(
+      id: log.exerciseId,
+      name: log.exercise,
+    );
+    return descriptor?.trackingType ?? log.resolvedTrackingType;
+  }
+
+  bool _dominates(SetLog existing, SetLog candidate) {
+    final type = _trackingForLog(candidate);
+    return switch (type) {
+      ExerciseTrackingType.weightReps ||
+      ExerciseTrackingType.weightedBodyweight =>
+        existing.weight >= candidate.weight && existing.e1rm >= candidate.e1rm,
+      ExerciseTrackingType.assistedBodyweight =>
+        existing.weight <= candidate.weight && existing.reps >= candidate.reps,
+      ExerciseTrackingType.bodyweightReps ||
+      ExerciseTrackingType.repsOnly => existing.reps >= candidate.reps,
+      ExerciseTrackingType.weightOnly => existing.weight >= candidate.weight,
+      ExerciseTrackingType.duration =>
+        (existing.durationSeconds ?? 0) >= (candidate.durationSeconds ?? 0),
+      ExerciseTrackingType.durationWeight =>
+        existing.weight * (existing.durationSeconds ?? 0) >=
+            candidate.weight * (candidate.durationSeconds ?? 0),
+      ExerciseTrackingType.distanceDuration =>
+        (existing.distance ?? 0) > (candidate.distance ?? 0) ||
+            ((existing.distance ?? 0) == (candidate.distance ?? 0) &&
+                (existing.durationSeconds ?? 1 << 30) <=
+                    (candidate.durationSeconds ?? 1 << 30)),
+      ExerciseTrackingType.weightDistance =>
+        existing.weight * (existing.distance ?? 0) >=
+            candidate.weight * (candidate.distance ?? 0),
+      ExerciseTrackingType.repsDuration =>
+        existing.reps > candidate.reps ||
+            (existing.reps == candidate.reps &&
+                (existing.durationSeconds ?? 0) >=
+                    (candidate.durationSeconds ?? 0)),
+      ExerciseTrackingType.repsDistance =>
+        existing.reps * (existing.distance ?? 0) >=
+            candidate.reps * (candidate.distance ?? 0),
+      ExerciseTrackingType.distanceOnly =>
+        (existing.distance ?? 0) >= (candidate.distance ?? 0),
+      ExerciseTrackingType.caloriesDuration =>
+        (existing.calories ?? 0) >= (candidate.calories ?? 0),
+    };
+  }
+
+  bool isPr(SetLog candidate) =>
+      !_comparableLogs(candidate).any((item) => _dominates(item, candidate));
+
+  SetLog? best(String exercise, {String? exerciseId}) {
+    final descriptor = exerciseDescriptor(id: exerciseId, name: exercise);
+    final probe = SetLog(
+      exercise: exercise,
+      exerciseId: exerciseId ?? descriptor?.id,
+      trackingType:
+          descriptor?.trackingType.name ?? ExerciseTrackingType.weightReps.name,
+      weight: 0,
+      reps: 0,
+      date: DateTime.fromMillisecondsSinceEpoch(0),
+      workout: '',
+    );
+    final items = _comparableLogs(probe);
+    if (items.isEmpty) return null;
+    items.sort((a, b) {
+      if (_dominates(a, b) && !_dominates(b, a)) return -1;
+      if (_dominates(b, a) && !_dominates(a, b)) return 1;
+      return b.date.compareTo(a.date);
+    });
+    return items.first;
+  }
+
+  List<ExerciseOption> get selectableExercises => ExerciseLibrary.selectable(
+    customExercises,
+    favoriteBuiltInIds: favoriteBuiltInExerciseIds,
+  );
+
+  List<ExerciseOption> get favoriteExercises => selectableExercises
+      .where((item) => item.isFavorite)
+      .toList();
+
+  List<ExerciseOption> get recentExercises {
+    final seen = <String>{};
+    final values = <ExerciseOption>[];
+    final sorted = List<SetLog>.of(logs)..sort((a, b) => b.date.compareTo(a.date));
+    for (final log in sorted) {
+      final option = exerciseOptionForName(log.exercise);
+      if (option != null && seen.add(option.id)) values.add(option);
+      if (values.length >= 12) break;
+    }
+    return values;
+  }
 
   Future<CustomExercise> addCustomExercise(String value) async {
     final name = _validatedExerciseName(value);
@@ -853,23 +1388,102 @@ class AppStore extends ChangeNotifier {
       id: 'custom-${DateTime.now().microsecondsSinceEpoch}',
       name: name,
     );
-    customExercises.add(exercise);
+    await saveCustomExercise(exercise);
+    return exercise;
+  }
+
+  Future<void> saveCustomExercise(
+    CustomExercise value, {
+    bool allowTrackingTypeChange = false,
+  }) async {
+    final name = _validatedExerciseName(value.name, exceptId: value.id);
+    final normalizedAliases = <String>[];
+    final seen = <String>{_normalizeExerciseName(name)};
+    for (final raw in value.aliases) {
+      final alias = raw.trim();
+      if (alias.isEmpty) continue;
+      final normalized = _normalizeExerciseName(alias);
+      if (normalized.isEmpty || !seen.add(normalized)) continue;
+      normalizedAliases.add(alias);
+    }
+    final index = customExercises.indexWhere((item) => item.id == value.id);
+    final previous = List<CustomExercise>.of(customExercises);
+    if (index >= 0) {
+      final old = customExercises[index];
+      final hasHistory = logs.any(
+        (log) => log.exerciseId == old.id ||
+            _normalizeExerciseName(log.exercise) ==
+                _normalizeExerciseName(old.name),
+      );
+      if (hasHistory &&
+          old.trackingType != value.trackingType &&
+          !allowTrackingTypeChange) {
+        throw StateError(
+          'This exercise already has history. Duplicate it to use a different tracking type.',
+        );
+      }
+      customExercises[index] = value.copyWith(
+        name: name,
+        aliases: normalizedAliases,
+      );
+    } else {
+      customExercises.add(
+        value.copyWith(name: name, aliases: normalizedAliases),
+      );
+    }
     try {
       await save();
     } on Object {
-      customExercises.removeLast();
+      customExercises = previous;
       rethrow;
     }
     notifyListeners();
+  }
+
+  Future<CustomExercise> duplicateBuiltInExercise(String id) async {
+    final source = ExerciseLibrary.builtInById(id);
+    if (source == null) throw StateError('The built-in exercise was not found.');
+    var name = '${source.name} — Custom';
+    var index = 2;
+    while (_exerciseNameExists(name)) {
+      name = '${source.name} — Custom $index';
+      index++;
+    }
+    final exercise = CustomExercise(
+      id: 'custom-${DateTime.now().microsecondsSinceEpoch}',
+      name: name,
+      aliases: source.aliases,
+      primaryMuscle: source.primaryMuscle,
+      secondaryMuscles: source.secondaryMuscles,
+      equipment: source.equipment,
+      movementPattern: source.movementPattern,
+      trackingType: source.trackingType,
+      unilateralMode: source.unilateralMode,
+      isPrimaryCompound: source.isPrimaryCompound,
+      warmupEligible: source.warmupEligible,
+      notes: source.notes,
+    );
+    await saveCustomExercise(exercise);
     return exercise;
   }
 
   Future<void> renameCustomExercise(String id, String value) async {
     final index = customExercises.indexWhere((exercise) => exercise.id == id);
     if (index < 0) throw StateError('The custom exercise no longer exists.');
-    final name = _validatedExerciseName(value, exceptId: id);
+    await saveCustomExercise(customExercises[index].copyWith(name: value));
+  }
+
+  Future<void> archiveCustomExercise(String id) =>
+      _setCustomExerciseArchived(id, true);
+
+  Future<void> restoreCustomExercise(String id) =>
+      _setCustomExerciseArchived(id, false);
+
+  Future<void> _setCustomExerciseArchived(String id, bool value) async {
+    final index = customExercises.indexWhere((exercise) => exercise.id == id);
+    if (index < 0) throw StateError('The custom exercise no longer exists.');
     final previous = customExercises[index];
-    customExercises[index] = previous.copyWith(name: name);
+    customExercises[index] = previous.copyWith(isArchived: value);
     try {
       await save();
     } on Object {
@@ -879,33 +1493,53 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> archiveCustomExercise(String id) async {
-    final index = customExercises.indexWhere((exercise) => exercise.id == id);
-    if (index < 0) throw StateError('The custom exercise no longer exists.');
-    final previous = customExercises[index];
-    customExercises[index] = previous.copyWith(isArchived: true);
-    try {
-      await save();
-    } on Object {
-      customExercises[index] = previous;
-      rethrow;
+  Future<void> toggleExerciseFavorite(ExerciseOption option) async {
+    if (option.isBuiltIn) {
+      final previous = Set<String>.of(favoriteBuiltInExerciseIds);
+      if (!favoriteBuiltInExerciseIds.add(option.id)) {
+        favoriteBuiltInExerciseIds.remove(option.id);
+      }
+      try {
+        await save(createAutomaticBackup: false);
+      } on Object {
+        favoriteBuiltInExerciseIds = previous;
+        rethrow;
+      }
+    } else {
+      final index = customExercises.indexWhere((item) => item.id == option.id);
+      if (index < 0) return;
+      final previous = customExercises[index];
+      customExercises[index] = previous.copyWith(
+        isFavorite: !previous.isFavorite,
+      );
+      try {
+        await save(createAutomaticBackup: false);
+      } on Object {
+        customExercises[index] = previous;
+        rethrow;
+      }
     }
     notifyListeners();
+  }
+
+  bool _exerciseNameExists(String value, {String? exceptId}) {
+    final normalized = _normalizeExerciseName(value);
+    if (ExerciseLibrary.builtInByName(value) != null) return true;
+    return customExercises.any(
+      (exercise) =>
+          exercise.id != exceptId &&
+          (_normalizeExerciseName(exercise.name) == normalized ||
+              exercise.aliases.any(
+                (alias) => _normalizeExerciseName(alias) == normalized,
+              )),
+    );
   }
 
   String _validatedExerciseName(String value, {String? exceptId}) {
     final name = value.trim();
     if (name.isEmpty) throw ArgumentError('Exercise name cannot be empty.');
-    final normalized = name.toLowerCase();
-    final builtInCollision = BuiltInExercises.values.any(
-      (exercise) => exercise.name.toLowerCase() == normalized,
-    );
-    final customCollision = customExercises.any(
-      (exercise) =>
-          exercise.id != exceptId && exercise.name.toLowerCase() == normalized,
-    );
-    if (builtInCollision || customCollision) {
-      throw ArgumentError('An exercise with that name already exists.');
+    if (_exerciseNameExists(name, exceptId: exceptId)) {
+      throw ArgumentError('An exercise with that name or alias already exists.');
     }
     return name;
   }
@@ -914,7 +1548,7 @@ class AppStore extends ChangeNotifier {
     final pr = isPr(log);
     logs.add(log);
     try {
-      await save();
+      await save(createAutomaticBackup: false);
     } on Object {
       logs.removeLast();
       rethrow;
@@ -927,14 +1561,50 @@ class AppStore extends ChangeNotifier {
     SetLog original, {
     required double weight,
     required int reps,
+    int? durationSeconds,
+    double? distance,
+    String? distanceUnit,
+    double? calories,
     required String notes,
   }) async {
-    if (!weight.isFinite || weight <= 0 || reps <= 0) {
-      throw ArgumentError('Weight and reps must be above zero.');
+    final type = original.resolvedTrackingType;
+    if (type.usesWeight) {
+      if (!weight.isFinite ||
+          (type.requiresPositiveWeight ? weight <= 0 : weight < 0)) {
+        throw ArgumentError(
+          type == ExerciseTrackingType.assistedBodyweight
+              ? 'Assistance cannot be negative.'
+              : type == ExerciseTrackingType.weightedBodyweight
+              ? 'Added weight cannot be negative.'
+              : 'Weight must be above zero.',
+        );
+      }
+    }
+    if (type.usesReps && reps <= 0) {
+      throw ArgumentError('Repetitions must be above zero.');
+    }
+    if (type.usesDuration && (durationSeconds == null || durationSeconds <= 0)) {
+      throw ArgumentError('Duration must be above zero.');
+    }
+    if (type.usesDistance &&
+        (distance == null || !distance.isFinite || distance <= 0)) {
+      throw ArgumentError('Distance must be above zero.');
+    }
+    if (type.usesCalories &&
+        (calories == null || !calories.isFinite || calories <= 0)) {
+      throw ArgumentError('Calories must be above zero.');
     }
     final index = logs.indexOf(original);
     if (index < 0) throw StateError('The set no longer exists.');
-    final updated = original.copyWith(weight: weight, reps: reps, notes: notes);
+    final updated = original.copyWith(
+      weight: type.usesWeight ? weight : 0,
+      reps: type.usesReps ? reps : 0,
+      durationSeconds: durationSeconds,
+      distance: distance,
+      distanceUnit: distanceUnit,
+      calories: calories,
+      notes: notes,
+    );
     logs[index] = updated;
     try {
       await save();
@@ -952,7 +1622,7 @@ class AppStore extends ChangeNotifier {
     drafts.add(value);
     draft = value;
     try {
-      await save();
+      await save(createAutomaticBackup: false);
     } on Object {
       draft = previousDraft;
       drafts = previousDrafts;
@@ -970,7 +1640,7 @@ class AppStore extends ChangeNotifier {
     }
     draft = null;
     try {
-      await save();
+      await save(createAutomaticBackup: false);
     } on Object {
       draft = previous;
       drafts = previousDrafts;
@@ -1577,6 +2247,24 @@ class AppStore extends ChangeNotifier {
     }
   }
 
+  static ImportedWorkoutRecord? _readImportedWorkout(Object? value) {
+    if (value is! Map) return null;
+    try {
+      final record = ImportedWorkoutRecord.fromJson(
+        Map<String, dynamic>.from(value),
+      );
+      if (record.id.isEmpty ||
+          record.name.trim().isEmpty ||
+          record.signature.isEmpty ||
+          record.importBatchId.isEmpty) {
+        return null;
+      }
+      return record;
+    } on Object {
+      return null;
+    }
+  }
+
   static SupplementEvent? _readSupplementEvent(Object? value) {
     if (value is! Map) return null;
     try {
@@ -1640,6 +2328,17 @@ class AppStore extends ChangeNotifier {
       final item = LabMessage.fromJson(Map<String, dynamic>.from(value));
       if (item.id.isEmpty || item.text.trim().isEmpty) return null;
       return item;
+    } on Object {
+      return null;
+    }
+  }
+
+  static DataImportBatch? _readImportBatch(Object? value) {
+    if (value is! Map) return null;
+    try {
+      final batch = DataImportBatch.fromJson(Map<String, dynamic>.from(value));
+      if (batch.id.isEmpty || batch.fileHash.isEmpty) return null;
+      return batch;
     } on Object {
       return null;
     }
@@ -1757,6 +2456,9 @@ class AppStore extends ChangeNotifier {
         () => LabDataDomain.values.map((domain) => domain.name).toList(),
       );
       data.putIfAbsent('labMessages', () => <Object>[]);
+      data.putIfAbsent('automaticBackupsEnabled', () => true);
+      data.putIfAbsent('importedWorkouts', () => <Object>[]);
+      data.putIfAbsent('importHistory', () => <Object>[]);
       version = 9;
       data['schemaVersion'] = version;
     }
@@ -1790,6 +2492,79 @@ class AppStore extends ChangeNotifier {
         ];
       }
       version = 10;
+      data['schemaVersion'] = version;
+    }
+    if (version < 11) {
+      data.putIfAbsent('favoriteBuiltInExerciseIds', () => <Object>[]);
+      final custom = data['customExercises'];
+      if (custom is List) {
+        data['customExercises'] = [
+          for (final value in custom)
+            if (value is Map)
+              Map<String, dynamic>.from(value)
+                ..putIfAbsent('aliases', () => <Object>[])
+                ..putIfAbsent('primaryMuscle', () => MuscleGroup.other.name)
+                ..putIfAbsent('secondaryMuscles', () => <Object>[])
+                ..putIfAbsent('equipment', () => ExerciseEquipment.other.name)
+                ..putIfAbsent('movementPattern', () => MovementPattern.other.name)
+                ..putIfAbsent(
+                  'trackingType',
+                  () => ExerciseTrackingType.weightReps.name,
+                )
+                ..putIfAbsent('unilateralMode', () => UnilateralMode.bilateral.name)
+                ..putIfAbsent('isPrimaryCompound', () => false)
+                ..putIfAbsent('warmupEligible', () => false)
+                ..putIfAbsent('notes', () => '')
+                ..putIfAbsent('tags', () => <Object>[])
+                ..putIfAbsent('isFavorite', () => false)
+            else
+              value,
+        ];
+      }
+      version = 11;
+      data['schemaVersion'] = version;
+    }
+    if (version < 12) {
+      final storedLogs = data['logs'];
+      if (storedLogs is List) {
+        data['logs'] = [
+          for (final value in storedLogs)
+            if (value is Map)
+              () {
+                final row = Map<String, dynamic>.from(value);
+                final name = row['e'] is String ? row['e'] as String : '';
+                final builtIn = ExerciseLibrary.builtInByName(name);
+                row.putIfAbsent('exerciseId', () => builtIn?.id);
+                row.putIfAbsent(
+                  'trackingType',
+                  () => builtIn?.trackingType.name ??
+                      ExerciseTrackingType.weightReps.name,
+                );
+                return row;
+              }()
+            else
+              value,
+        ];
+      }
+      version = 12;
+      data['schemaVersion'] = version;
+    }
+    if (version < 13) {
+      void upgradeDraft(Object? raw) {
+        if (raw is Map) {
+          raw.putIfAbsent('duration', () => '');
+          raw.putIfAbsent('distance', () => '');
+          raw.putIfAbsent('calories', () => '');
+        }
+      }
+      upgradeDraft(data['draft']);
+      final storedDrafts = data['drafts'];
+      if (storedDrafts is List) {
+        for (final value in storedDrafts) {
+          upgradeDraft(value);
+        }
+      }
+      version = 13;
       data['schemaVersion'] = version;
     }
     return data;

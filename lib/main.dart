@@ -8,6 +8,8 @@ import 'athletic_program.dart';
 import 'athletic_training.dart';
 import 'brand.dart';
 import 'daily_inputs_screen.dart';
+import 'data_management_screen.dart';
+import 'exercise_library.dart';
 import 'exercise_library_screen.dart';
 import 'lab_screen.dart';
 import 'logged_sets.dart';
@@ -15,6 +17,7 @@ import 'program.dart';
 import 'program_navigator.dart';
 import 'progress_dashboard.dart';
 import 'share_card.dart';
+import 'safe_layout.dart';
 import 'store.dart';
 import 'warmup.dart';
 
@@ -1083,12 +1086,25 @@ class _WorkoutScreenState extends State<WorkoutScreen>
   Timer? draftTimer;
   final weight = TextEditingController();
   final reps = TextEditingController();
+  final duration = TextEditingController();
+  final distance = TextEditingController();
+  final calories = TextEditingController();
   final notes = TextEditingController();
   late final String sessionId;
   final Map<int, String> substitutions = {};
   bool lastPr = false;
   bool sessionHadPr = false;
   bool finishing = false;
+
+  List<TextEditingController> get _draftControllers => [
+    weight,
+    reps,
+    duration,
+    distance,
+    calories,
+    notes,
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -1106,6 +1122,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         draft.workout == widget.workout.name &&
         draft.days == widget.store.days &&
         draft.retroactive == widget.retroactive &&
+        draft.programRun == widget.store.strengthProgramRun &&
         draft.exerciseIndex >= 0 &&
         draft.exerciseIndex < widget.workout.exercises.length &&
         draft.setNumber > 0 &&
@@ -1117,6 +1134,9 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       substitutions.addAll(draft.substitutions);
       weight.text = draft.weight;
       reps.text = draft.reps;
+      duration.text = draft.duration;
+      distance.text = draft.distance;
+      calories.text = draft.calories;
       notes.text = draft.notes;
     } else {
       sessionId = DateTime.now().microsecondsSinceEpoch.toString();
@@ -1125,9 +1145,9 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     loggedSets = widget.store.logs
         .where((log) => log.sessionId == sessionId)
         .length;
-    weight.addListener(_draftChanged);
-    reps.addListener(_draftChanged);
-    notes.addListener(_draftChanged);
+    for (final controller in _draftControllers) {
+      controller.addListener(_draftChanged);
+    }
     _startTimer();
     unawaited(_persistDraft());
   }
@@ -1144,20 +1164,88 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     });
   }
 
-  void _seed({bool preserveWeight = false}) {
-    final e = _exercisePlan(exercise);
-    if (!preserveWeight) {
-      final best = widget.store.best(e.name);
-      weight.text =
-          best?.weight.toStringAsFixed(best.weight % 1 == 0 ? 0 : 1) ?? '';
+  ExerciseOption _optionForIndex(int index) {
+    final plan = _exercisePlan(index);
+    final descriptor = ExerciseLibrary.descriptorFor(
+      name: plan.name,
+      customExercises: widget.store.customExercises,
+    );
+    if (descriptor != null) {
+      return ExerciseLibrary.optionForDescriptor(
+        descriptor,
+        favoriteBuiltInIds: widget.store.favoriteBuiltInExerciseIds,
+      );
     }
-    reps.text = e.amrap && set == 1
-        ? ''
-        : e.amrap && set == 2
-        ? '4'
-        : e.reps.split(RegExp('[– +]')).first;
+    return ExerciseOption(
+      id: 'legacy-${ExerciseLibrary.normalize(plan.name).replaceAll(' ', '-')}',
+      name: plan.name,
+      primaryMuscle: MuscleGroup.other,
+      secondaryMuscles: const [],
+      equipment: ExerciseEquipment.other,
+      movementPattern: MovementPattern.other,
+      trackingType: ExerciseTrackingType.weightReps,
+      unilateralMode: UnilateralMode.bilateral,
+      isPrimaryCompound: plan.primary,
+      warmupEligible: plan.primary && WarmupCalculator.supports(plan.name),
+    );
+  }
+
+  void _seed({bool preserveWeight = false}) {
+    final plan = _exercisePlan(exercise);
+    final option = _optionForIndex(exercise);
+    final type = option.trackingType;
+    final best = widget.store.best(plan.name);
+    if (type.usesWeight && !preserveWeight) {
+      weight.text = best == null ||
+              best.resolvedTrackingType != type ||
+              (type == ExerciseTrackingType.assistedBodyweight &&
+                  best.weight <= 0)
+          ? ''
+          : _formatInputNumber(best.weight);
+    } else if (!type.usesWeight) {
+      weight.clear();
+    }
+    if (type.usesReps) {
+      reps.text = plan.amrap && set == 1
+          ? ''
+          : plan.amrap && set == 2
+          ? '4'
+          : _targetRepsSeed(plan.reps);
+    } else {
+      reps.clear();
+    }
+    if (type.usesDuration) {
+      duration.text = best?.durationSeconds == null
+          ? ''
+          : '${best!.durationSeconds}';
+    } else {
+      duration.clear();
+    }
+    if (type.usesDistance) {
+      distance.text = best?.distance == null
+          ? ''
+          : _formatInputNumber(best!.distance!);
+    } else {
+      distance.clear();
+    }
+    if (type.usesCalories) {
+      calories.text = best?.calories == null
+          ? ''
+          : _formatInputNumber(best!.calories!);
+    } else {
+      calories.clear();
+    }
     notes.clear();
   }
+
+  String _targetRepsSeed(String target) {
+    final match = RegExp(r'\d+').firstMatch(target);
+    return match?.group(0) ?? '';
+  }
+
+  String _formatInputNumber(double value) => value == value.roundToDouble()
+      ? value.round().toString()
+      : value.toStringAsFixed(1);
 
   void _draftChanged() {
     draftTimer?.cancel();
@@ -1177,6 +1265,9 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       sessionId: sessionId,
       weight: weight.text,
       reps: reps.text,
+      duration: duration.text,
+      distance: distance.text,
+      calories: calories.text,
       notes: notes.text,
       programRun: widget.store.strengthProgramRun,
       days: widget.store.days,
@@ -1207,39 +1298,67 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     WidgetsBinding.instance.removeObserver(this);
     timer?.cancel();
     draftTimer?.cancel();
-    weight.removeListener(_draftChanged);
-    reps.removeListener(_draftChanged);
-    notes.removeListener(_draftChanged);
     unawaited(_persistDraft());
-    weight.dispose();
-    reps.dispose();
-    notes.dispose();
+    for (final controller in _draftControllers) {
+      controller.removeListener(_draftChanged);
+      controller.dispose();
+    }
     super.dispose();
   }
 
   Future<void> _log() async {
-    final w = double.tryParse(weight.text);
-    final r = int.tryParse(reps.text);
-    if (w == null || r == null || w <= 0 || r <= 0) {
+    final plan = _exercisePlan(exercise);
+    final option = _optionForIndex(exercise);
+    final type = option.trackingType;
+    if (_setsForExercise(exercise) >= plan.sets) return;
+
+    final parsedWeight = type.usesWeight
+        ? double.tryParse(weight.text.trim())
+        : 0.0;
+    final parsedReps = type.usesReps ? int.tryParse(reps.text.trim()) : 0;
+    final parsedDuration = type.usesDuration
+        ? _parseDuration(duration.text)
+        : null;
+    final parsedDistance = type.usesDistance
+        ? double.tryParse(distance.text.trim())
+        : null;
+    final parsedCalories = type.usesCalories
+        ? double.tryParse(calories.text.trim())
+        : null;
+
+    final validation = _validateSet(
+      type: type,
+      weightValue: parsedWeight,
+      repsValue: parsedReps,
+      durationValue: parsedDuration,
+      distanceValue: parsedDistance,
+      caloriesValue: parsedCalories,
+    );
+    if (validation != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Enter a weight and a repetition count above zero.'),
-        ),
+        SnackBar(content: Text(validation)),
       );
       return;
     }
-    final e = _exercisePlan(exercise);
-    if (_setsForExercise(exercise) >= e.sets) return;
+
     final pr = await widget.store.add(
       SetLog(
-        exercise: e.name,
-        weight: w,
-        reps: r,
+        exercise: plan.name,
+        exerciseId: option.id,
+        trackingType: type.name,
+        weight: parsedWeight ?? 0,
+        reps: parsedReps ?? 0,
+        durationSeconds: parsedDuration,
+        distance: parsedDistance,
+        distanceUnit: type.usesDistance ? _defaultDistanceUnit : null,
+        calories: parsedCalories,
         date: DateTime.now(),
         workout: widget.workout.name,
-        notes: notes.text,
+        notes: notes.text.trim(),
         sessionId: sessionId,
         exerciseIndex: exercise,
+        setOrder: _setsForExercise(exercise) + 1,
+        restSeconds: plan.primary ? 180 : 120,
       ),
     );
     if (!mounted) return;
@@ -1248,11 +1367,11 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       lastPr = pr;
       sessionHadPr = sessionHadPr || pr;
       loggedSets++;
-      rest = e.primary ? 180 : 120;
+      rest = plan.primary ? 180 : 120;
       final exerciseSets = _setsForExercise(exercise);
-      if (exerciseSets < e.sets) {
+      if (exerciseSets < plan.sets) {
         set++;
-        if (e.amrap) {
+        if (plan.amrap) {
           _seed(preserveWeight: true);
         } else {
           notes.clear();
@@ -1272,7 +1391,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       HapticFeedback.heavyImpact();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('NEW PERSONAL RECORD'),
+          content: Text('Locked in. New best for this movement.'),
           backgroundColor: lime,
         ),
       );
@@ -1281,6 +1400,66 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       await _finish(completedAutomatically: true);
     }
   }
+
+  String? _validateSet({
+    required ExerciseTrackingType type,
+    required double? weightValue,
+    required int? repsValue,
+    required int? durationValue,
+    required double? distanceValue,
+    required double? caloriesValue,
+  }) {
+    if (type.usesWeight) {
+      if (weightValue == null || !weightValue.isFinite) {
+        return type == ExerciseTrackingType.assistedBodyweight
+            ? 'Enter the assistance used.'
+            : type == ExerciseTrackingType.weightedBodyweight
+            ? 'Enter the added weight. Use 0 for an unweighted set.'
+            : 'Enter a valid weight.';
+      }
+      if (type.requiresPositiveWeight && weightValue <= 0) {
+        return 'Enter a weight above zero.';
+      }
+      if (!type.requiresPositiveWeight && weightValue < 0) {
+        return 'The value cannot be negative.';
+      }
+    }
+    if (type.usesReps && (repsValue == null || repsValue <= 0)) {
+      return 'Enter a repetition count above zero.';
+    }
+    if (type.usesDuration && (durationValue == null || durationValue <= 0)) {
+      return 'Enter a duration above zero. Use seconds or mm:ss.';
+    }
+    if (type.usesDistance &&
+        (distanceValue == null ||
+            !distanceValue.isFinite ||
+            distanceValue <= 0)) {
+      return 'Enter a distance above zero.';
+    }
+    if (type.usesCalories &&
+        (caloriesValue == null ||
+            !caloriesValue.isFinite ||
+            caloriesValue <= 0)) {
+      return 'Enter calories above zero.';
+    }
+    return null;
+  }
+
+  int? _parseDuration(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+    if (!trimmed.contains(':')) return int.tryParse(trimmed);
+    final parts = trimmed.split(':');
+    if (parts.length != 2) return null;
+    final minutes = int.tryParse(parts[0]);
+    final seconds = int.tryParse(parts[1]);
+    if (minutes == null || seconds == null || seconds < 0 || seconds >= 60) {
+      return null;
+    }
+    return minutes * 60 + seconds;
+  }
+
+  String get _defaultDistanceUnit => widget.store.unit == 'kg' ? 'km' : 'mi';
 
   Future<void> _finish({bool completedAutomatically = false}) async {
     if (finishing) return;
@@ -1294,7 +1473,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         builder: (dialogContext) => AlertDialog(
           title: const Text('Finish this workout?'),
           content: Text(
-            '${plannedSets - loggedSets} planned sets remain. Your logged sets stay in history, but this workout will advance.',
+            '${plannedSets - loggedSets} planned sets remain. Logged sets stay saved and the program advances.',
           ),
           actions: [
             TextButton(
@@ -1320,7 +1499,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       builder: (dialogContext) => AlertDialog(
         title: const Text('Skip this workout?'),
         content: const Text(
-          'The workout will be marked skipped and the program will advance. Any sets already logged stay in history.',
+          'The program advances. Any sets already logged stay in history.',
         ),
         actions: [
           TextButton(
@@ -1372,7 +1551,9 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       setState(() => finishing = false);
       _startTimer();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not save the workout. Try again.')),
+        const SnackBar(
+          content: Text('That workout was not saved. Your set data is unchanged.'),
+        ),
       );
     }
   }
@@ -1383,35 +1564,69 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         .toList();
     final totalVolume = sessionLogs.fold<double>(
       0,
-      (sum, log) => sum + log.weight * log.reps,
+      (sum, log) => sum + log.standardVolume,
     );
-    SetLog? topSet;
+    SetLog? highlight;
     for (final log in sessionLogs) {
-      if (topSet == null || log.e1rm > topSet.e1rm) topSet = log;
+      if (highlight == null ||
+          _sharePerformanceScore(log) > _sharePerformanceScore(highlight)) {
+        highlight = log;
+      }
     }
     final exerciseCount = sessionLogs.map((log) => log.exercise).toSet().length;
-    final topValue = topSet == null
-        ? 'Workout completed'
-        : '${topSet.exercise} · ${_shareWeight(topSet.weight)} ${widget.store.unit} × ${topSet.reps}';
     return WorkoutShareData(
       program: 'Strength Program',
       title: widget.workout.name,
       contextLine:
-          'Week ${widget.week.number} · Phase ${widget.week.phase} · ${widget.week.label}',
+          'Run ${widget.store.strengthProgramRun} · Week ${widget.week.number} · Phase ${widget.week.phase}',
       completedAt: DateTime.now(),
-      achievementLabel: sessionHadPr ? 'New personal record' : null,
+      achievementLabel: sessionHadPr ? 'New personal best' : null,
       metrics: [
         ShareMetric('Duration', formatShareDuration(Duration(seconds: elapsed))),
         ShareMetric('Sets', '${sessionLogs.length}'),
-        ShareMetric(
-          'Volume',
-          '${_compactNumber(totalVolume)} ${widget.store.unit}',
-        ),
+        if (totalVolume > 0)
+          ShareMetric(
+            'Volume',
+            '${_compactNumber(totalVolume)} ${widget.store.unit}',
+          ),
         ShareMetric('Exercises', '$exerciseCount'),
       ],
-      highlightLabel: topSet == null ? 'Session' : 'Top set',
-      highlightValue: topValue,
+      highlightLabel: highlight == null ? 'Session' : 'Top result',
+      highlightValue: highlight == null
+          ? 'Workout completed'
+          : _shareSetDescription(highlight),
     );
+  }
+
+  double _sharePerformanceScore(SetLog log) => switch (log.resolvedTrackingType) {
+    ExerciseTrackingType.assistedBodyweight =>
+      log.reps * 100000 - log.weight,
+    ExerciseTrackingType.bodyweightReps || ExerciseTrackingType.repsOnly =>
+      log.reps.toDouble(),
+    ExerciseTrackingType.duration => (log.durationSeconds ?? 0).toDouble(),
+    ExerciseTrackingType.distanceOnly ||
+    ExerciseTrackingType.distanceDuration => log.distance ?? 0,
+    _ => log.e1rm,
+  };
+
+  String _shareSetDescription(SetLog log) {
+    final type = log.resolvedTrackingType;
+    return switch (type) {
+      ExerciseTrackingType.bodyweightReps || ExerciseTrackingType.repsOnly =>
+        '${log.exercise} · ${log.reps} reps',
+      ExerciseTrackingType.weightedBodyweight =>
+        '${log.exercise} · +${_shareWeight(log.weight)} ${widget.store.unit} × ${log.reps}',
+      ExerciseTrackingType.assistedBodyweight =>
+        '${log.exercise} · ${_shareWeight(log.weight)} ${widget.store.unit} assistance × ${log.reps}',
+      ExerciseTrackingType.duration =>
+        '${log.exercise} · ${_clock(log.durationSeconds ?? 0)}',
+      ExerciseTrackingType.distanceDuration =>
+        '${log.exercise} · ${_shareWeight(log.distance ?? 0)} ${log.distanceUnit ?? _defaultDistanceUnit} in ${_clock(log.durationSeconds ?? 0)}',
+      ExerciseTrackingType.distanceOnly =>
+        '${log.exercise} · ${_shareWeight(log.distance ?? 0)} ${log.distanceUnit ?? _defaultDistanceUnit}',
+      _ =>
+        '${log.exercise} · ${_shareWeight(log.weight)} ${widget.store.unit} × ${log.reps}',
+    };
   }
 
   String _shareWeight(double value) => value == value.roundToDouble()
@@ -1426,13 +1641,16 @@ class _WorkoutScreenState extends State<WorkoutScreen>
 
   @override
   Widget build(BuildContext context) {
-    final e = _exercisePlan(exercise);
+    final plan = _exercisePlan(exercise);
+    final option = _optionForIndex(exercise);
+    final type = option.trackingType;
     final activeLogs = widget.store.logs
-        .where((log) => log.sessionId == sessionId && log.exercise == e.name)
+        .where((log) => log.sessionId == sessionId && log.exercise == plan.name)
         .length;
     final progress =
-        (exercise + ((set - 1) / e.sets)) / widget.workout.exercises.length;
-    final exerciseComplete = _setsForExercise(exercise) >= e.sets;
+        (exercise + ((set - 1) / plan.sets)) / widget.workout.exercises.length;
+    final exerciseComplete = _setsForExercise(exercise) >= plan.sets;
+    final target = _targetLabel(plan, type);
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -1459,246 +1677,315 @@ class _WorkoutScreenState extends State<WorkoutScreen>
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          LinearProgressIndicator(
-            value: progress,
-            backgroundColor: Colors.white10,
-            color: lime,
-            borderRadius: BorderRadius.circular(8),
-            minHeight: 6,
-          ),
-          const SizedBox(height: 28),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  e.name,
-                  style: const TextStyle(
-                    fontSize: 29,
-                    fontWeight: FontWeight.w900,
-                    height: 1.05,
-                  ),
-                ),
-              ),
-              if (lastPr)
-                const Icon(Icons.emoji_events_rounded, color: lime, size: 34),
-              IconButton(
-                tooltip: 'Substitute exercise',
-                onPressed: _setsForExercise(exercise) == 0 && !finishing
-                    ? () => _chooseSubstitution(exercise)
-                    : null,
-                icon: const Icon(Icons.swap_horiz_rounded),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'SET $set OF ${e.sets}  •  TARGET ${e.reps} REPS',
-            style: const TextStyle(
-              color: cyan,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.1,
+      body: LabSafeScreen(
+        top: false,
+        bottomAction: SizedBox(
+          width: double.infinity,
+          height: 58,
+          child: FilledButton.icon(
+            onPressed: finishing || exerciseComplete ? null : _log,
+            style: FilledButton.styleFrom(
+              backgroundColor: lime,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.add_task_rounded),
+            label: Text(
+              exerciseComplete ? 'EXERCISE COMPLETE' : 'LOG SET',
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
             ),
           ),
-          if (substitutions.containsKey(exercise)) ...[
-            const SizedBox(height: 5),
-            Text(
-              'SUBSTITUTED FOR ${widget.workout.exercises[exercise].name.toUpperCase()}',
-              style: const TextStyle(
-                color: Colors.white54,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
+        ),
+        child: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
+          children: [
+            LinearProgressIndicator(
+              value: progress,
+              backgroundColor: Colors.white10,
+              color: lime,
+              borderRadius: BorderRadius.circular(8),
+              minHeight: 6,
             ),
-          ],
-          if (e.primary &&
-              WarmupCalculator.supports(e.name) &&
-              _setsForExercise(exercise) == 0)
-            ListenableBuilder(
-              listenable: Listenable.merge([weight, reps]),
-              builder: (context, _) {
-                final recommendation = WarmupCalculator.calculate(
-                  exercise: e.name,
-                  isPrimary: e.primary,
-                  workingWeight: double.tryParse(weight.text),
-                  workingReps: int.tryParse(reps.text),
-                  unit: widget.store.unit,
-                );
-                if (recommendation == null) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.only(top: 18),
-                  child: _WarmupCard(recommendation: recommendation),
-                );
-              },
-            ),
-          const SizedBox(height: 24),
-          _Previous(best: widget.store.best(e.name), unit: widget.store.unit),
-          const SizedBox(height: 26),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: weight,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: 'WEIGHT (${widget.store.unit})',
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: reps,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                  ),
-                  decoration: const InputDecoration(labelText: 'REPS'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: notes,
-            minLines: 1,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'SET NOTES',
-              hintText: 'Optional notes for this set',
-            ),
-          ),
-          const SizedBox(height: 16),
-          if (rest > 0)
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: cyan.withValues(alpha: .1),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.timer_outlined, color: cyan),
-                  const SizedBox(width: 12),
-                  Text(
-                    'REST  ${_clock(rest)}',
+            const SizedBox(height: 28),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    plan.name,
                     style: const TextStyle(
-                      color: cyan,
+                      fontSize: 29,
                       fontWeight: FontWeight.w900,
-                      fontSize: 18,
+                      height: 1.05,
                     ),
                   ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () => setState(() => rest = 0),
-                    child: const Text('SKIP'),
-                  ),
-                ],
-              ),
-            ),
-          const SizedBox(height: 18),
-          SizedBox(
-            height: 60,
-            child: FilledButton(
-              onPressed: finishing || exerciseComplete ? null : _log,
-              style: FilledButton.styleFrom(
-                backgroundColor: lime,
-                foregroundColor: Colors.white,
-              ),
-              child: Text(
-                exerciseComplete ? 'EXERCISE COMPLETE' : 'LOG SET',
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
                 ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Card(
-            margin: EdgeInsets.zero,
-            child: ExpansionTile(
-              leading: const Icon(Icons.history_rounded, color: cyan),
-              title: Text(
-                'LOGGED SETS ($activeLogs)',
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-              subtitle: Text('Saved for ${e.name} in this workout'),
-              childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-              children: [
-                LoggedSetsEditor(
-                  store: widget.store,
-                  predicate: (log) =>
-                      log.sessionId == sessionId && log.exercise == e.name,
-                  emptyMessage: 'No sets logged for this exercise yet.',
-                  compact: true,
+                if (lastPr)
+                  const Icon(Icons.emoji_events_rounded, color: lime, size: 34),
+                IconButton(
+                  tooltip: 'Find a substitute',
+                  onPressed: _setsForExercise(exercise) == 0 && !finishing
+                      ? () => _chooseSubstitution(exercise)
+                      : null,
+                  icon: const Icon(Icons.swap_horiz_rounded),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 28),
-          const Text(
-            'SESSION',
-            style: TextStyle(
-              color: Colors.white38,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.4,
+            const SizedBox(height: 7),
+            Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: [
+                _WorkoutMetaChip(option.primaryMuscle.label, cyan),
+                _WorkoutMetaChip(option.equipment.label, violet),
+                _WorkoutMetaChip(type.label, Colors.white70),
+              ],
             ),
-          ),
-          const SizedBox(height: 10),
-          ...widget.workout.exercises.asMap().entries.map((x) {
-            final exercisePlan = _exercisePlan(x.key);
-            final loggedForSlot = _setsForExercise(x.key);
-            final done = x.key < exercise;
-            return ListTile(
-              contentPadding: EdgeInsets.zero,
-              selected: x.key == exercise,
-              leading: CircleAvatar(
-                backgroundColor: done ? lime : Colors.white10,
-                child: Icon(
-                  done ? Icons.check : Icons.fitness_center,
-                  color: done ? ink : Colors.white54,
-                  size: 18,
+            const SizedBox(height: 12),
+            Text(
+              'SET $set OF ${plan.sets}  •  $target',
+              style: const TextStyle(
+                color: cyan,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.1,
+              ),
+            ),
+            if (substitutions.containsKey(exercise)) ...[
+              const SizedBox(height: 5),
+              Text(
+                'SUBSTITUTED FOR ${widget.workout.exercises[exercise].name.toUpperCase()}',
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              title: Text(exercisePlan.name),
-              subtitle: substitutions.containsKey(x.key)
-                  ? Text('For ${x.value.name}')
-                  : null,
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
+            ],
+            if (plan.primary &&
+                type == ExerciseTrackingType.weightReps &&
+                option.warmupEligible &&
+                _setsForExercise(exercise) == 0)
+              ListenableBuilder(
+                listenable: Listenable.merge([weight, reps]),
+                builder: (context, _) {
+                  final recommendation = WarmupCalculator.calculate(
+                    exercise: plan.name,
+                    isPrimary: plan.primary,
+                    workingWeight: double.tryParse(weight.text),
+                    workingReps: int.tryParse(reps.text),
+                    unit: widget.store.unit,
+                  );
+                  if (recommendation == null) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 18),
+                    child: _WarmupCard(recommendation: recommendation),
+                  );
+                },
+              ),
+            const SizedBox(height: 24),
+            _Previous(
+              best: widget.store.best(plan.name),
+              unit: widget.store.unit,
+            ),
+            const SizedBox(height: 24),
+            _buildInputFields(type),
+            const SizedBox(height: 12),
+            TextField(
+              controller: notes,
+              minLines: 1,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'SET NOTES',
+                hintText: 'Optional. Keep it useful.',
+              ),
+            ),
+            if (rest > 0) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: cyan.withValues(alpha: .1),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.timer_outlined, color: cyan),
+                    const SizedBox(width: 12),
+                    Text(
+                      'REST  ${_clock(rest)}',
+                      style: const TextStyle(
+                        color: cyan,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18,
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => setState(() => rest = 0),
+                      child: const Text('SKIP'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            Card(
+              margin: EdgeInsets.zero,
+              child: ExpansionTile(
+                leading: const Icon(Icons.history_rounded, color: cyan),
+                title: Text(
+                  'LOGGED SETS ($activeLogs)',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: Text('Saved for ${plan.name} in this workout'),
+                childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                 children: [
-                  Text(
-                    '${exercisePlan.sets} × ${exercisePlan.reps}',
-                    style: const TextStyle(color: Colors.white54),
-                  ),
-                  IconButton(
-                    tooltip: 'Substitute ${x.value.name}',
-                    onPressed: loggedForSlot == 0 && !finishing
-                        ? () => _chooseSubstitution(x.key)
-                        : null,
-                    icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                  LoggedSetsEditor(
+                    store: widget.store,
+                    predicate: (log) =>
+                        log.sessionId == sessionId && log.exercise == plan.name,
+                    emptyMessage: 'No sets logged for this exercise yet.',
+                    compact: true,
                   ),
                 ],
               ),
-            );
-          }),
-        ],
+            ),
+            const SizedBox(height: 28),
+            const Text(
+              'SESSION',
+              style: TextStyle(
+                color: Colors.white38,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.4,
+              ),
+            ),
+            const SizedBox(height: 10),
+            ...widget.workout.exercises.asMap().entries.map((entry) {
+              final exercisePlan = _exercisePlan(entry.key);
+              final exerciseOption = _optionForIndex(entry.key);
+              final loggedForSlot = _setsForExercise(entry.key);
+              final done = loggedForSlot >= exercisePlan.sets;
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                selected: entry.key == exercise,
+                leading: CircleAvatar(
+                  backgroundColor: done ? lime : Colors.white10,
+                  child: Icon(
+                    done ? Icons.check : Icons.fitness_center,
+                    color: done ? ink : Colors.white54,
+                    size: 18,
+                  ),
+                ),
+                title: Text(exercisePlan.name),
+                subtitle: Text(
+                  substitutions.containsKey(entry.key)
+                      ? 'For ${entry.value.name} · ${exerciseOption.trackingType.label}'
+                      : exerciseOption.trackingType.label,
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${exercisePlan.sets} × ${exercisePlan.reps}',
+                      style: const TextStyle(color: Colors.white54),
+                    ),
+                    IconButton(
+                      tooltip: 'Substitute ${entry.value.name}',
+                      onPressed: loggedForSlot == 0 && !finishing
+                          ? () => _chooseSubstitution(entry.key)
+                          : null,
+                      icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
       ),
     );
   }
 
-  String _clock(int s) =>
-      '${(s ~/ 60).toString().padLeft(2, '0')}:${(s % 60).toString().padLeft(2, '0')}';
+  Widget _buildInputFields(ExerciseTrackingType type) {
+    final fields = <Widget>[];
+    if (type.usesWeight) {
+      fields.add(
+        _WorkoutInput(
+          controller: weight,
+          label: '${type.weightLabel} (${widget.store.unit})',
+          decimal: true,
+        ),
+      );
+    }
+    if (type.usesReps) {
+      fields.add(
+        _WorkoutInput(controller: reps, label: 'REPS', decimal: false),
+      );
+    }
+    if (type.usesDuration) {
+      fields.add(
+        _WorkoutInput(
+          controller: duration,
+          label: 'DURATION',
+          hint: 'seconds or mm:ss',
+          decimal: false,
+        ),
+      );
+    }
+    if (type.usesDistance) {
+      fields.add(
+        _WorkoutInput(
+          controller: distance,
+          label: 'DISTANCE ($_defaultDistanceUnit)',
+          decimal: true,
+        ),
+      );
+    }
+    if (type.usesCalories) {
+      fields.add(
+        _WorkoutInput(
+          controller: calories,
+          label: 'CALORIES',
+          decimal: true,
+        ),
+      );
+    }
+    if (fields.length == 1) return fields.single;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 540;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final field in fields)
+              SizedBox(
+                width: wide
+                    ? (constraints.maxWidth - 12) / 2
+                    : fields.length == 2
+                    ? (constraints.maxWidth - 12) / 2
+                    : constraints.maxWidth,
+                child: field,
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _targetLabel(ExercisePlan plan, ExerciseTrackingType type) =>
+      switch (type) {
+        ExerciseTrackingType.duration ||
+        ExerciseTrackingType.durationWeight => 'TARGET ${plan.reps}',
+        ExerciseTrackingType.distanceDuration ||
+        ExerciseTrackingType.weightDistance ||
+        ExerciseTrackingType.repsDistance ||
+        ExerciseTrackingType.distanceOnly => 'TARGET ${plan.reps}',
+        _ => 'TARGET ${plan.reps} REPS',
+      };
+
+  String _clock(int seconds) =>
+      '${(seconds ~/ 60).toString().padLeft(2, '0')}:'
+      '${(seconds % 60).toString().padLeft(2, '0')}';
 
   ExercisePlan _exercisePlan(int index) {
     final prescribed = widget.workout.exercises[index];
@@ -1728,75 +2015,128 @@ class _WorkoutScreenState extends State<WorkoutScreen>
   Future<void> _chooseSubstitution(int index) async {
     if (_setsForExercise(index) > 0) return;
     final prescribed = widget.workout.exercises[index];
-    final alternatives = widget.store.selectableExercises
-        .where((item) => item.name != prescribed.name)
-        .toList();
-    var selected = substitutions[index] ?? prescribed.name;
-    final choice = await showModalBottomSheet<String>(
+    final target = ExerciseLibrary.descriptorFor(
+      name: prescribed.name,
+      customExercises: widget.store.customExercises,
+    );
+    if (target == null) return;
+    final ranked = ExerciseLibrary.rankedSubstitutions(
+      target: target,
+      custom: widget.store.customExercises,
+      favoriteBuiltInIds: widget.store.favoriteBuiltInExerciseIds,
+      limit: 60,
+    );
+    final searchController = TextEditingController();
+    var query = '';
+    String? selected = substitutions[index];
+    final choice = await showLabBottomSheet<String>(
       context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            22,
-            20,
-            20 + MediaQuery.viewInsetsOf(sheetContext).bottom,
-          ),
+      builder: (sheetContext) => DraggableScrollableSheet(
+        initialChildSize: .88,
+        minChildSize: .55,
+        maxChildSize: .96,
+        expand: false,
+        builder: (context, scrollController) => LabSafeBottomSheet(
+          padding: EdgeInsets.zero,
           child: StatefulBuilder(
-            builder: (context, setSheetState) => Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'SUBSTITUTE EXERCISE',
-                  style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  '${prescribed.name} • this session only',
-                  style: const TextStyle(color: Colors.white54),
-                ),
-                const SizedBox(height: 18),
-                DropdownButtonFormField<String>(
-                  initialValue: selected,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'EXERCISE'),
-                  items: [
-                    DropdownMenuItem(
-                      value: prescribed.name,
-                      child: Text('${prescribed.name} (prescribed)'),
-                    ),
-                    for (final item in alternatives)
-                      DropdownMenuItem(
-                        value: item.name,
-                        child: Text(
-                          '${item.name}${item.isBuiltIn ? '' : ' • Custom'}',
-                          overflow: TextOverflow.ellipsis,
+            builder: (context, setSheetState) {
+              final shown = query.trim().isEmpty
+                  ? ranked
+                  : ExerciseLibrary.search(
+                      custom: widget.store.customExercises,
+                      favoriteBuiltInIds:
+                          widget.store.favoriteBuiltInExerciseIds,
+                      query: query,
+                    ).where((item) => item.name != prescribed.name).toList();
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 18, 12, 10),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'FIND A SUBSTITUTE',
+                                style: TextStyle(
+                                  fontSize: 21,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              SizedBox(height: 3),
+                              Text(
+                                'Same role first. Everything else stays searchable.',
+                                style: TextStyle(color: BrandColors.muted),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setSheetState(() => selected = value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () => Navigator.pop(sheetContext, selected),
-                    child: const Text('APPLY TO SESSION'),
+                        IconButton(
+                          onPressed: () => Navigator.pop(sheetContext),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                    child: TextField(
+                      controller: searchController,
+                      onChanged: (value) => setSheetState(() => query = value),
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.search_rounded),
+                        hintText: 'Search name, muscle, equipment, or alias',
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: scrollController,
+                      padding: const EdgeInsets.fromLTRB(12, 2, 12, 16),
+                      itemCount: shown.length + 1,
+                      itemBuilder: (context, itemIndex) {
+                        if (itemIndex == 0) {
+                          return RadioListTile<String>(
+                            value: prescribed.name,
+                            groupValue: selected,
+                            title: Text('${prescribed.name} · prescribed'),
+                            subtitle: const Text('Remove the substitution'),
+                            onChanged: (value) {
+                              setSheetState(() => selected = value);
+                              Navigator.pop(sheetContext, value);
+                            },
+                          );
+                        }
+                        final item = shown[itemIndex - 1];
+                        return RadioListTile<String>(
+                          value: item.name,
+                          groupValue: selected,
+                          title: Text(item.name),
+                          subtitle: Text(
+                            '${item.primaryMuscle.label} · ${item.equipment.label} · ${item.trackingType.label}',
+                          ),
+                          secondary: item.isFavorite
+                              ? const Icon(Icons.star_rounded, color: violet)
+                              : null,
+                          onChanged: (value) {
+                            setSheetState(() => selected = value);
+                            Navigator.pop(sheetContext, value);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
     );
-    if (choice == null || !mounted) return;
+    searchController.dispose();
+    if (!mounted || choice == null) return;
     setState(() {
       if (choice == prescribed.name) {
         substitutions.remove(index);
@@ -1808,6 +2148,56 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     await _persistDraft();
   }
 }
+
+class _WorkoutInput extends StatelessWidget {
+  const _WorkoutInput({
+    required this.controller,
+    required this.label,
+    required this.decimal,
+    this.hint,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final bool decimal;
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) => TextField(
+    controller: controller,
+    keyboardType: decimal
+        ? const TextInputType.numberWithOptions(decimal: true)
+        : TextInputType.number,
+    style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800),
+    decoration: InputDecoration(labelText: label, hintText: hint),
+  );
+}
+
+class _WorkoutMetaChip extends StatelessWidget {
+  const _WorkoutMetaChip(this.label, this.color);
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: .10),
+      borderRadius: BorderRadius.circular(99),
+      border: Border.all(color: color.withValues(alpha: .28)),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(
+        color: color,
+        fontSize: 10,
+        fontWeight: FontWeight.w800,
+      ),
+    ),
+  );
+}
+
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({
@@ -1993,11 +2383,18 @@ class SettingsPage extends StatelessWidget {
         subtitle: 'Planned for the target-load update',
         available: false,
       ),
-      const _Setting(
+      _Setting(
         icon: Icons.backup_rounded,
-        title: 'Local-first history',
-        subtitle: 'Working now; export and restore are not yet available',
+        title: 'Backup & data',
+        subtitle: 'Automatic backups, restore, CSV export, and app migration',
         available: true,
+        badge: 'PORTABLE',
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DataManagementScreen(store: store),
+          ),
+        ),
       ),
       const SizedBox(height: 22),
       const Text(
@@ -2172,34 +2569,88 @@ class _WarmupCard extends StatelessWidget {
 
 class _Previous extends StatelessWidget {
   const _Previous({required this.best, required this.unit});
+
   final SetLog? best;
   final String unit;
+
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(17),
-    decoration: BoxDecoration(
-      color: panel,
-      borderRadius: BorderRadius.circular(17),
-    ),
-    child: Row(
-      children: [
-        const Icon(Icons.history, color: Colors.white38),
-        const SizedBox(width: 12),
-        Text(
-          best == null
-              ? 'No previous sets'
-              : 'Best  ${best!.weight.g} $unit × ${best!.reps}',
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        const Spacer(),
-        if (best != null)
-          Text(
-            'e1RM ${best!.e1rm.round()}',
-            style: const TextStyle(color: lime),
+  Widget build(BuildContext context) {
+    final log = best;
+    return Container(
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
+        color: panel,
+        borderRadius: BorderRadius.circular(17),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.history, color: Colors.white38),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              log == null ? 'No previous sets' : _summary(log),
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
-      ],
-    ),
-  );
+          if (log != null) ...[
+            const SizedBox(width: 10),
+            Text(
+              _metric(log),
+              style: const TextStyle(color: lime, fontWeight: FontWeight.w800),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _summary(SetLog log) => switch (log.resolvedTrackingType) {
+    ExerciseTrackingType.bodyweightReps || ExerciseTrackingType.repsOnly =>
+      'Best  ${log.reps} reps',
+    ExerciseTrackingType.weightedBodyweight =>
+      'Best  +${log.weight.g} $unit × ${log.reps}',
+    ExerciseTrackingType.assistedBodyweight =>
+      'Best  ${log.weight.g} $unit assistance × ${log.reps}',
+    ExerciseTrackingType.duration =>
+      'Best  ${_durationLabel(log.durationSeconds ?? 0)}',
+    ExerciseTrackingType.durationWeight =>
+      'Best  ${log.weight.g} $unit · ${_durationLabel(log.durationSeconds ?? 0)}',
+    ExerciseTrackingType.distanceDuration =>
+      'Best  ${(log.distance ?? 0).g} ${log.distanceUnit ?? ''} · ${_durationLabel(log.durationSeconds ?? 0)}',
+    ExerciseTrackingType.weightDistance =>
+      'Best  ${log.weight.g} $unit · ${(log.distance ?? 0).g} ${log.distanceUnit ?? ''}',
+    ExerciseTrackingType.repsDuration =>
+      'Best  ${log.reps} reps · ${_durationLabel(log.durationSeconds ?? 0)}',
+    ExerciseTrackingType.repsDistance =>
+      'Best  ${log.reps} reps · ${(log.distance ?? 0).g} ${log.distanceUnit ?? ''}',
+    ExerciseTrackingType.distanceOnly =>
+      'Best  ${(log.distance ?? 0).g} ${log.distanceUnit ?? ''}',
+    ExerciseTrackingType.caloriesDuration =>
+      'Best  ${(log.calories ?? 0).g} cal · ${_durationLabel(log.durationSeconds ?? 0)}',
+    ExerciseTrackingType.weightOnly => 'Best  ${log.weight.g} $unit',
+    ExerciseTrackingType.weightReps =>
+      'Best  ${log.weight.g} $unit × ${log.reps}',
+  };
+
+  String _metric(SetLog log) => switch (log.resolvedTrackingType) {
+    ExerciseTrackingType.weightReps || ExerciseTrackingType.weightedBodyweight =>
+      'e1RM ${log.e1rm.round()}',
+    ExerciseTrackingType.assistedBodyweight => 'LESS IS MORE',
+    ExerciseTrackingType.bodyweightReps || ExerciseTrackingType.repsOnly =>
+      'REP PR',
+    ExerciseTrackingType.duration || ExerciseTrackingType.durationWeight =>
+      'TIME PR',
+    ExerciseTrackingType.distanceDuration ||
+    ExerciseTrackingType.weightDistance ||
+    ExerciseTrackingType.repsDistance ||
+    ExerciseTrackingType.distanceOnly => 'DISTANCE PR',
+    ExerciseTrackingType.caloriesDuration => 'OUTPUT PR',
+    ExerciseTrackingType.repsDuration => 'WORK PR',
+    ExerciseTrackingType.weightOnly => 'LOAD PR',
+  };
+
+  String _durationLabel(int seconds) =>
+      '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
 }
 
 class _Setting extends StatelessWidget {
