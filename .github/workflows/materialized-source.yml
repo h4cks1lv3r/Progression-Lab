@@ -73,43 +73,24 @@ jobs:
           gzip -dc /tmp/program-start-position.patch.gz > /tmp/program-start-position.patch
           git apply /tmp/program-start-position.patch
 
-      - name: Convert CI to build committed source directly
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          def remove_step(path: str, next_name: str) -> None:
-              file = Path(path)
-              if not file.exists():
-                  return
-              text = file.read_text()
-              marker = "      - name: Materialize application source\n"
-              if marker not in text:
-                  return
-              start = text.index(marker)
-              end_marker = f"      - name: {next_name}\n"
-              end = text.index(end_marker, start)
-              file.write_text(text[:start] + text[end:])
-
-          remove_step('.github/workflows/android-apk.yml', 'Set up Java 17')
-          remove_step('.github/workflows/ios-test-build.yml', 'Set up Flutter stable')
-          PY
-
-          rm -f .github/workflows/materialized-source.yml
-          rm -f .github/workflows/ios-publish-source.yml
-
       - name: Commit normal Flutter source
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add -A -- \
+            CHANGELOG.md \
+            IOS_TESTING.md \
+            android \
+            ios \
+            lib \
+            pubspec.lock \
+            pubspec.yaml \
+            test
           if git diff --cached --quiet; then
             echo "No source changes to commit."
             exit 0
           fi
-          git commit -m "Materialize Progression Lab 1.9.0 source"
+          git commit -m "Materialize Progression Lab 1.9.0 application source"
           git push origin HEAD:agent/daily-inputs-gemini-lab
