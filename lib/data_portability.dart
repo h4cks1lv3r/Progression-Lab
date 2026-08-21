@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'comprehensive_export.dart';
 import 'data_portability_bridge.dart';
 import 'data_portability_core.dart';
 import 'store.dart';
@@ -53,7 +54,9 @@ class DataPortabilityController {
   );
 
   Future<String?> savePortableCsv() => DataPortabilityBridge.saveFile(
-    bytes: ProgressionCsvExport.encodePortableCsvZip(store.exportState()),
+    bytes: ComprehensivePortableExport.encodePortableCsvZip(
+      store.exportState(),
+    ),
     fileName: 'Progression-Lab-CSV-${_dateStamp()}.zip',
     mimeType: 'application/zip',
   );
