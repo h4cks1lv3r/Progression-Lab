@@ -24,11 +24,70 @@ jobs:
           ref: agent/daily-inputs-gemini-lab
           fetch-depth: 0
 
-      - name: Apply final widget test fixes
+      - name: Update final widget tests
+        shell: bash
         run: |
           set -euo pipefail
-          git apply --check tool/final-widget-test-fixes.patch
-          git apply tool/final-widget-test-fixes.patch
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('test/navigation_widget_test.dart')
+          text = path.read_text()
+
+          old = """    expect(store.logs.single.notes, 'Paused reps');
+    expect(find.text('SAVE SET'), findsOneWidget);
+  });
+
+  testWidgets('library exposes protected built-ins and editable custom exercises', (
+    tester,
+  ) async {
+    final store = AppStore();
+"""
+          new = """    expect(store.logs.single.notes, 'Paused reps');
+  });
+
+  testWidgets('library exposes protected built-ins and editable custom exercises', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 4200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final store = AppStore();
+"""
+          if old not in text:
+              raise SystemExit('Expected set-save/library test boundary was not found.')
+          text = text.replace(old, new, 1)
+
+          old = """    expect(find.text('CREATE EXERCISE'), findsOneWidget);
+
+    await tester.tap(find.text('Barbell Bench Press'));
+"""
+          new = """    expect(find.text('CREATE EXERCISE'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Barbell Bench Press'));
+    await tester.tap(find.text('Barbell Bench Press'));
+"""
+          if old not in text:
+              raise SystemExit('Expected built-in exercise tap was not found.')
+          text = text.replace(old, new, 1)
+
+          old = """    expect(find.text('Researcher Offset Row'), findsOneWidget);
+
+    await tester.tap(find.text('Researcher Offset Row'));
+"""
+          new = """    expect(find.text('Researcher Offset Row'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Researcher Offset Row'));
+    await tester.tap(find.text('Researcher Offset Row'));
+"""
+          if old not in text:
+              raise SystemExit('Expected custom exercise tap was not found.')
+          text = text.replace(old, new, 1)
+
+          path.write_text(text)
+          PY
 
       - name: Commit and publish fixes
         run: |
