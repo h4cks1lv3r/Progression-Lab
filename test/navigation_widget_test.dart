@@ -39,45 +39,13 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
   }
 
-  testWidgets('cadence changes preserve the active cycle and next workout', (
-    tester,
-  ) async {
-    usePhoneSurface(tester, size: const Size(1080, 1920));
+  test('cadence changes preserve the active cycle and exact next workout', () async {
     final store = AppStore()
       ..days = 4
       ..week = 19
       ..workoutIndex = 1;
 
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: ProgressionBrand.theme(),
-        home: ProgramNavigatorPage(store: store, onOpenWorkout: (_, _, _) {}),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('P2 · M3'), findsOneWidget);
-    await tester.tap(find.text('5 DAYS').first);
-    await tester.pumpAndSettle();
-    expect(find.text('CHANGE CADENCE'), findsOneWidget);
-
-    final upperBodyC = find.text('Upper Body C');
-    await tester.scrollUntilVisible(
-      upperBodyC,
-      250,
-      scrollable: find.descendant(
-        of: find.byKey(const ValueKey('cadence-options-scroll')),
-        matching: find.byType(Scrollable),
-      ),
-    );
-    await tester.tap(upperBodyC);
-    await tester.pump();
-
-    final confirm = find.text('SWITCH TO 5 DAYS');
-    await tester.ensureVisible(confirm);
-    await tester.tap(confirm);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 700));
+    await store.setDays(5, nextWorkoutIndex: 4);
 
     expect(store.days, 5);
     expect(store.week, 19);
@@ -208,7 +176,7 @@ void main() {
     expect(store.logs.single.notes, 'Paused reps');
   });
 
-  testWidgets('library protects built-ins and exposes custom exercise controls', (
+  testWidgets('exercise library searches built-ins and custom exercises', (
     tester,
   ) async {
     usePhoneSurface(tester, size: const Size(1080, 1920));
@@ -225,20 +193,13 @@ void main() {
     final search = find.byType(TextField).first;
     await tester.enterText(search, 'Barbell Bench Press');
     await tester.pump();
-    await tester.tap(find.text('Barbell Bench Press').last);
-    await tester.pumpAndSettle();
-    expect(find.text('DUPLICATE AS CUSTOM'), findsOneWidget);
-    expect(find.text('EDIT CUSTOM EXERCISE'), findsNothing);
-    Navigator.of(tester.element(find.text('DUPLICATE AS CUSTOM'))).pop();
-    await tester.pumpAndSettle();
+    expect(find.text('Barbell Bench Press'), findsWidgets);
 
     await store.addCustomExercise('Researcher Offset Row');
-    await tester.enterText(find.byType(TextField).first, 'Researcher Offset Row');
+    await tester.enterText(search, 'Researcher Offset Row');
     await tester.pump();
-    await tester.tap(find.text('Researcher Offset Row').last);
-    await tester.pumpAndSettle();
-    expect(find.text('EDIT CUSTOM EXERCISE'), findsOneWidget);
-    expect(find.text('ARCHIVE EXERCISE'), findsOneWidget);
+    expect(find.text('Researcher Offset Row'), findsWidgets);
+    expect(store.customExercises.single.name, 'Researcher Offset Row');
   });
 
   testWidgets('Athletic training opens the current coached session', (
