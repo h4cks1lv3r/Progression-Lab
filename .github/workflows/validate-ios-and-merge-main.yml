@@ -1,0 +1,87 @@
+name: Validate iOS and Merge Main
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/external-integrations-and-followups
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-merge:
+    runs-on: macos-15
+    timeout-minutes: 75
+
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v5
+        with:
+          ref: feature/external-integrations-and-followups
+          fetch-depth: 0
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Verify source and dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          dart format --output=none --set-exit-if-changed lib test
+          flutter analyze --no-fatal-infos
+          flutter test --reporter expanded
+
+      - name: Build iOS Simulator
+        run: flutter build ios --simulator --debug --build-name 2.1.0 --build-number 14
+
+      - name: Build unsigned iPhone release
+        run: flutter build ios --release --no-codesign --build-name 2.1.0 --build-number 14
+
+      - name: Package iOS validation artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/Payload
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/ios/iphonesimulator/Runner.app \
+            dist/Progression-Lab-2.1.0-iOS-Simulator.app.zip
+          cp -R build/ios/iphoneos/Runner.app dist/Payload/Runner.app
+          (cd dist && zip -qry Progression-Lab-2.1.0-unsigned.ipa Payload)
+          rm -rf dist/Payload
+          (cd dist && shasum -a 256 * > Progression-Lab-2.1.0-iOS.sha256)
+
+      - name: Confirm main is an ancestor
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git merge-base --is-ancestor origin/main HEAD || {
+            echo 'main moved during validation; rebase and run the gate again.' >&2
+            exit 1
+          }
+
+      - name: Publish validated source to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:main
+
+      - name: Upload iOS validation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Progression-Lab-2.1.0-iOS-build-14
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
