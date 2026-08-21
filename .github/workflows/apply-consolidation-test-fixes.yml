@@ -30,11 +30,13 @@ jobs:
           git apply --check tool/consolidation-test-fixes.patch
           git apply tool/consolidation-test-fixes.patch
 
-      - name: Commit migrated tests
+      - name: Commit and publish migrated tests
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add test/program_test.dart test/daily_inputs_lab_test.dart test/navigation_widget_test.dart
           git commit -m "Align tests with the unified catalog and current schema"
+          git fetch origin agent/daily-inputs-gemini-lab
+          git rebase origin/agent/daily-inputs-gemini-lab
           git push origin HEAD:agent/daily-inputs-gemini-lab
