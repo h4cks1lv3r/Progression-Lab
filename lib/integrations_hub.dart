@@ -216,7 +216,7 @@ class IntegrationPreferencesStore extends ChangeNotifier {
         bodyWeight = value.value * AppStore.poundsToKilograms;
         weightUnit = 'kg';
       }
-      final now = DateTime.now();
+      final recordTime = value.recordedAt.toLocal();
       await _store.saveRecoveryCheckIn(
         RecoveryCheckIn(
           id: existing?.id ?? createRecordId('recovery'),
@@ -229,8 +229,8 @@ class IntegrationPreferencesStore extends ChangeNotifier {
           weightUnit: weightUnit,
           illness: existing?.illness ?? false,
           notes: existing?.notes ?? '',
-          createdAt: existing?.createdAt ?? now,
-          updatedAt: now,
+          createdAt: existing?.createdAt ?? recordTime,
+          updatedAt: existing?.updatedAt ?? recordTime,
         ),
       );
     }
@@ -385,7 +385,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
         widget.store.recoveryCheckIns
             .where((item) => item.bodyWeight != null)
             .toList()
-          ..sort((a, b) => a.updatedAt.compareTo(b.updatedAt));
+          ..sort((a, b) => a.localDate.compareTo(b.localDate));
     final latestLocalWeight = localWeights.isEmpty ? null : localWeights.last;
     final recentHealthMetrics = List<HealthBodyMetric>.of(
       _preferences.healthBodyMetrics,
@@ -459,7 +459,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
               _health.busy || !status.available || latestLocalWeight == null
               ? null
               : () => _run(() async {
-                  final entry = latestLocalWeight!;
+                  final entry = latestLocalWeight;
                   final written = await _health.writeBodyWeight(
                     HealthBodyMetric(
                       type: 'bodyWeight',

@@ -70,72 +70,75 @@ void main() {
     expect(migrated['recoveryCheckIns'], hasLength(1));
   });
 
-  test('integration state persists and survives an exact plab backup', () async {
-    final integrationState = <String, Object?>{
-      'healthBodyMetrics': <Object?>[
-        <String, Object?>{
-          'type': 'bodyFatPercentage',
-          'value': 18.5,
-          'unit': '%',
-          'recordedAt': '2026-08-22T12:00:00.000Z',
-          'source': 'Progression Lab',
+  test(
+    'integration state persists and survives an exact plab backup',
+    () async {
+      final integrationState = <String, Object?>{
+        'healthBodyMetrics': <Object?>[
+          <String, Object?>{
+            'type': 'bodyFatPercentage',
+            'value': 18.5,
+            'unit': '%',
+            'recordedAt': '2026-08-22T12:00:00.000Z',
+            'source': 'Progression Lab',
+          },
+        ],
+        'externalWorkouts': <Object?>[
+          <String, Object?>{
+            'id': 'health-workout-1',
+            'source': 'healthConnect',
+            'format': 'fit',
+            'title': 'Imported run',
+            'sport': 'running',
+            'startedAt': '2026-08-21T10:00:00.000Z',
+            'endedAt': '2026-08-21T10:30:00.000Z',
+          },
+        ],
+        'experiments': <Object?>[
+          <String, Object?>{
+            'id': 'experiment-1',
+            'name': 'Caffeine timing',
+            'status': 'active',
+          },
+        ],
+        'sharePreferences': <String, Object?>{
+          'template': 'achievement',
+          'aspect': 'story',
+          'includeCaption': true,
         },
-      ],
-      'externalWorkouts': <Object?>[
-        <String, Object?>{
-          'id': 'health-workout-1',
-          'source': 'healthConnect',
-          'format': 'fit',
-          'title': 'Imported run',
-          'sport': 'running',
-          'startedAt': '2026-08-21T10:00:00.000Z',
-          'endedAt': '2026-08-21T10:30:00.000Z',
-        },
-      ],
-      'experiments': <Object?>[
-        <String, Object?>{
-          'id': 'experiment-1',
-          'name': 'Caffeine timing',
-          'status': 'active',
-        },
-      ],
-      'sharePreferences': <String, Object?>{
-        'template': 'achievement',
-        'aspect': 'story',
-        'includeCaption': true,
-      },
-      'weeklyReviewEnabled': true,
-    };
+        'weeklyReviewEnabled': true,
+      };
 
-    final store = AppStore();
-    await store.setIntegrationState(
-      Map<String, dynamic>.from(integrationState),
-    );
+      final store = AppStore();
+      await store.setIntegrationState(
+        Map<String, dynamic>.from(integrationState),
+      );
 
-    final restored = AppStore();
-    await restored.load();
-    expect(restored.integrationState, integrationState);
+      final restored = AppStore();
+      await restored.load();
+      expect(restored.integrationState, integrationState);
 
-    final state = restored.exportState();
-    final backup = ProgressionBackupCodec.encode(
-      state,
-      createdAt: DateTime.utc(2026, 8, 22, 13),
-      reason: 'integration-state-test',
-    );
-    final decoded = ProgressionBackupCodec.decode(backup);
+      final state = restored.exportState();
+      final backup = ProgressionBackupCodec.encode(
+        state,
+        createdAt: DateTime.utc(2026, 8, 22, 13),
+        reason: 'integration-state-test',
+      );
+      final decoded = ProgressionBackupCodec.decode(backup);
 
-    expect(decoded.state['integrationState'], integrationState);
-    expect(
-      (decoded.state['integrationState'] as Map)['healthBodyMetrics'],
-      hasLength(1),
-    );
-    expect(
-      (decoded.state['integrationState'] as Map)['externalWorkouts'],
-      hasLength(1),
-    );
-    expect(
-      jsonEncode(decoded.state),
-      isNot(anyOf(contains('accessToken'), contains('refreshToken'))),
-    );
-  });
+      expect(decoded.state['integrationState'], integrationState);
+      expect(
+        (decoded.state['integrationState'] as Map)['healthBodyMetrics'],
+        hasLength(1),
+      );
+      expect(
+        (decoded.state['integrationState'] as Map)['externalWorkouts'],
+        hasLength(1),
+      );
+      expect(
+        jsonEncode(decoded.state),
+        isNot(anyOf(contains('accessToken'), contains('refreshToken'))),
+      );
+    },
+  );
 }
