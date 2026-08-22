@@ -34,11 +34,82 @@ def update_ios_app_delegate_compat() -> None:
     _original_update_ios_app_delegate()
 
 
+def repair_dart_compile_errors() -> None:
+    experiments = Path("lib/lab_experiments.dart")
+    text = experiments.read_text()
+    text = text.replace(
+        """    final percent = difference == null || meanB == 0
+        ? null
+        : difference / meanB * 100;
+""",
+        """    final percent = difference == null || meanB == null || meanB == 0
+        ? null
+        : difference / meanB * 100.0;
+""",
+    )
+    experiments.write_text(text)
+
+    share_card = Path("lib/share_card.dart")
+    text = share_card.read_text().replace(
+        "achievement: data.achievementLabel,",
+        "achievement: data.achievementLabel ?? '',",
+    )
+    share_card.write_text(text)
+
+    main = Path("lib/main.dart")
+    text = main.read_text()
+    old_root_lifecycle = """  @override
+  void initState() {
+    _automaticCloudSync = CloudBackupSyncService.shared(store);
+    unawaited(_automaticCloudSync!.initialize());
+    super.initState();
+    store.load();
+  }
+
+"""
+    new_root_lifecycle = """  @override
+  void initState() {
+    super.initState();
+    _automaticCloudSync = CloudBackupSyncService.shared(store);
+    unawaited(_automaticCloudSync!.initialize());
+    unawaited(store.load());
+  }
+
+  @override
+  void dispose() {
+    _automaticCloudSync?.dispose();
+    store.dispose();
+    super.dispose();
+  }
+
+"""
+    if old_root_lifecycle in text:
+        text = text.replace(old_root_lifecycle, new_root_lifecycle, 1)
+
+    old_shell_dispose = """  @override
+  void dispose() {
+    _automaticCloudSync?.dispose();
+    widget.store.removeListener(_maybeStartAutomaticTour);
+    super.dispose();
+  }
+"""
+    new_shell_dispose = """  @override
+  void dispose() {
+    widget.store.removeListener(_maybeStartAutomaticTour);
+    super.dispose();
+  }
+"""
+    text = text.replace(old_shell_dispose, new_shell_dispose, 1)
+    main.write_text(text)
+
+
 base.update_ios_app_delegate = update_ios_app_delegate_compat
 
 # Importing v5 runs the complete canonical finalization after the compatibility
 # override above has been installed.
 import finalize_integrations_v5  # noqa: E402,F401
+
+repair_dart_compile_errors()
 
 # The manifest transformation can preserve indentation on an otherwise empty
 # line. Normalize it so the committed direct source passes git's whitespace
