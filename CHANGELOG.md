@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.1.1+15 — 2026-08-22
+
+### Corrected
+
+- Replaced the misleading functional-training exercise dropdown with a track-aware Progress view.
+- Functional Progress now lists every programmed drill before any session is completed.
+- Completed functional sessions now populate drill history, completion counts, effort averages, and program appearances without inventing strength-set data.
+- Strength and Functional progress data remain separate and use metrics appropriate to each training track.
+- Isolated Functional Progress expansion state from list scroll state to prevent page-storage type collisions.
+
 ## 2.1.0+14 — 2026-08-21
 
 ### Added

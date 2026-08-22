@@ -84,8 +84,7 @@ class AthleticProgressDashboard extends StatefulWidget {
       _AthleticProgressDashboardState();
 }
 
-class _AthleticProgressDashboardState
-    extends State<AthleticProgressDashboard> {
+class _AthleticProgressDashboardState extends State<AthleticProgressDashboard> {
   String? selectedDrill;
 
   @override
@@ -127,7 +126,9 @@ class _AthleticProgressDashboardState
     final completed = _completed(active)
       ..sort((a, b) => b.record.completedAt.compareTo(a.record.completedAt));
     final currentRun = completed
-        .where((item) => item.record.programRun == widget.store.athleticProgramRun)
+        .where(
+          (item) => item.record.programRun == widget.store.athleticProgramRun,
+        )
         .length;
     final averageEffort = completed.isEmpty
         ? null
@@ -324,6 +325,7 @@ class _AthleticProgressDashboardState
         LabPanel(
           padding: EdgeInsets.zero,
           child: ExpansionTile(
+            key: PageStorageKey('functional-program-appearances-$active'),
             title: const Text(
               'PROGRAM APPEARANCES',
               style: TextStyle(fontWeight: FontWeight.w900),
@@ -350,9 +352,9 @@ class _AthleticProgressDashboardState
       final week = AthleticProgram.week(number);
       for (final sessionEntry in week.sessions.asMap().entries) {
         for (final drill in sessionEntry.value.drills) {
-          values.putIfAbsent(drill.name, () => []).add(
-            _Appearance(week, sessionEntry.value, drill),
-          );
+          values
+              .putIfAbsent(drill.name, () => [])
+              .add(_Appearance(week, sessionEntry.value, drill));
         }
       }
     }
@@ -385,7 +387,8 @@ class _AthleticProgressDashboardState
       return null;
     }
     final week = AthleticProgram.week(record.week);
-    if (record.sessionIndex < 0 || record.sessionIndex >= week.sessions.length) {
+    if (record.sessionIndex < 0 ||
+        record.sessionIndex >= week.sessions.length) {
       return null;
     }
     return week.sessions[record.sessionIndex];
