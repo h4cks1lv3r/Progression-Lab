@@ -1,0 +1,279 @@
+name: Progression Lab 2.1 Safe Finalization
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/finalize-progression-lab-2-1
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    name: Materialize canonical 2.1 source
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      candidate_sha: ${{ steps.candidate.outputs.sha }}
+
+    steps:
+      - name: Check out the safety branch
+        uses: actions/checkout@v5
+        with:
+          ref: fix/finalize-progression-lab-2-1
+          fetch-depth: 0
+
+      - name: Guard the canonical PR 17 architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f lib/integrations_hub.dart
+          test -f lib/health_sync.dart
+          test -f lib/external_workout_formats.dart
+          test -f lib/provider_integrations.dart
+          test -f lib/cloud_sync.dart
+          test -f lib/contextual_guides.dart
+          test -f lib/lab_experiments.dart
+          test -f lib/share_options.dart
+          test -f android/app/src/main/kotlin/com/h4cks1lv3/iron_cadence/IntegrationBridge.kt
+          test -f ios/Runner/IntegrationBridge.swift
+          for parallel_file in \
+            lib/external_activity.dart \
+            lib/account_connectors.dart \
+            lib/cloud_backup_sync.dart \
+            lib/contextual_tips.dart \
+            lib/personal_experiments.dart \
+            lib/share_studio.dart; do
+            if [[ -e "$parallel_file" ]]; then
+              echo "Refusing to mix the PR 18 parallel implementation: $parallel_file" >&2
+              exit 1
+            fi
+          done
+
+      - name: Apply the reviewed v5 finalizer
+        run: python3 tool/finalize_integrations_v5.py
+
+      - name: Normalize release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          pubspec = Path('pubspec.yaml')
+          pubspec.write_text(re.sub(
+              r'^version:\s*\S+',
+              'version: 2.1.0+14',
+              pubspec.read_text(),
+              count=1,
+              flags=re.M,
+          ))
+
+          gradle = Path('android/app/build.gradle.kts')
+          text = gradle.read_text()
+          text = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 14', text)
+          text = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "2.1.0"', text)
+          gradle.write_text(text)
+          PY
+
+      - name: Set up Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve and format source
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          dart format lib test
+          git diff --check
+
+      - name: Verify required wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q '^version: 2.1.0+14$' pubspec.yaml
+          grep -q "import 'integrations_hub.dart';" lib/main.dart
+          grep -q 'Connections & Experiments' lib/main.dart
+          grep -q 'IntegrationsHubScreen' lib/main.dart
+          grep -q 'versionCode = 14' android/app/build.gradle.kts
+          grep -q 'versionName = "2.1.0"' android/app/build.gradle.kts
+          grep -q 'androidx.health.connect:connect-client:1.1.0' android/app/build.gradle.kts
+          grep -q 'android.permission.health.READ_EXERCISE' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.health.WRITE_EXERCISE' android/app/src/main/AndroidManifest.xml
+          grep -q 'com.google.android.apps.healthdata' android/app/src/main/AndroidManifest.xml
+          grep -q 'android:scheme="progressionlab"' android/app/src/main/AndroidManifest.xml
+          grep -q 'IntegrationBridge(this, flutterEngine.dartExecutor.binaryMessenger)' android/app/src/main/kotlin/com/h4cks1lv3/iron_cadence/MainActivity.kt
+          grep -q 'IntegrationBridge.swift in Sources' ios/Runner.xcodeproj/project.pbxproj
+          grep -q 'CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;' ios/Runner.xcodeproj/project.pbxproj
+          grep -q 'NSHealthShareUsageDescription' ios/Runner/Info.plist
+          grep -q 'NSHealthUpdateUsageDescription' ios/Runner/Info.plist
+          grep -q 'CFBundleURLTypes' ios/Runner/Info.plist
+
+      - name: Commit candidate direct source
+        id: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- pubspec.yaml pubspec.lock android ios lib test docs README.md CHANGELOG.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Materialize Progression Lab 2.1 candidate source"
+            git push origin HEAD:fix/finalize-progression-lab-2-1
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  android:
+    name: Analyze, test, and build Android
+    needs: materialize
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+
+    steps:
+      - name: Check out candidate source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.materialize.outputs.candidate_sha }}
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Enforce formatting
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Analyze
+        id: analyze
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter analyze --no-fatal-infos 2>&1 | tee analyze-results.txt
+
+      - name: Run tests
+        id: tests
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          for test_file in test/*_test.dart; do
+            echo "=== Running ${test_file} ==="
+            timeout --signal=INT --kill-after=10s 180s \
+              flutter test "$test_file" --reporter expanded
+          done 2>&1 | tee test-results.txt
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Progression-Lab-2.1.0-validation-${{ needs.materialize.outputs.candidate_sha }}
+          path: |
+            analyze-results.txt
+            test-results.txt
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Enforce validation
+        if: steps.analyze.outcome != 'success' || steps.tests.outcome != 'success'
+        run: exit 1
+
+      - name: Build release APK
+        run: >-
+          flutter build apk --release
+          --build-name 2.1.0
+          --build-number 14
+
+      - name: Prepare Android artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk dist/Progression-Lab-2.1.0+14.apk
+          (cd dist && sha256sum Progression-Lab-2.1.0+14.apk > Progression-Lab-2.1.0+14.apk.sha256)
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Progression-Lab-2.1.0-build-14
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+  ios:
+    name: Build iOS simulator and unsigned device artifacts
+    needs: materialize
+    runs-on: macos-15
+    timeout-minutes: 75
+
+    steps:
+      - name: Check out candidate source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.materialize.outputs.candidate_sha }}
+
+      - name: Set up Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Build simulator app
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter build ios --simulator --debug \
+            --build-name 2.1.0 \
+            --build-number 14 2>&1 | tee ios-simulator-build.txt
+
+      - name: Build unsigned device app
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter build ios --release --no-codesign \
+            --build-name 2.1.0 \
+            --build-number 14 2>&1 | tee ios-device-build.txt
+
+      - name: Package iOS test artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/ios/iphonesimulator/Runner.app \
+            dist/Progression-Lab-2.1.0+14-iOS-Simulator.zip
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/ios/iphoneos/Runner.app \
+            dist/Progression-Lab-2.1.0+14-iOS-Unsigned-Device.zip
+
+      - name: Upload iOS artifacts and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Progression-Lab-2.1.0-build-14-iOS
+          path: |
+            dist/*
+            ios-simulator-build.txt
+            ios-device-build.txt
+          if-no-files-found: warn
+          retention-days: 30
