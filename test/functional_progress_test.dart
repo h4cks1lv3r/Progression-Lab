@@ -96,7 +96,24 @@ void main() {
           .data,
       '8.0 / 10',
     );
-    expect(find.textContaining('Run 1 • Week 1'), findsOneWidget);
+
+    final historyText = find.textContaining('Run 1 • Week 1');
+    final dashboard = find.byKey(
+      const PageStorageKey('functional-progress-dashboard'),
+    );
+    final scrollable = find.descendant(
+      of: dashboard,
+      matching: find.byType(Scrollable),
+    );
+    expect(scrollable, findsOneWidget);
+    await tester.scrollUntilVisible(
+      historyText,
+      300,
+      scrollable: scrollable,
+    );
+    await tester.pumpAndSettle();
+
+    expect(historyText, findsOneWidget);
     expect(find.text('8/10'), findsOneWidget);
   });
 
