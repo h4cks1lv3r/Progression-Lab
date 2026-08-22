@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - fix/finalize-progression-lab-2-1
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
