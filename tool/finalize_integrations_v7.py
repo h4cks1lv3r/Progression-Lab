@@ -10,7 +10,7 @@ def repair_integrations_health_ui() -> None:
     path = Path("lib/integrations_hub.dart")
     text = path.read_text()
 
-    completed_markers = <str>[
+    completed_markers = [
         "import 'daily_inputs.dart';",
         "final List<HealthBodyMetric> healthBodyMetrics",
         "final rawHealthMetrics = map['healthBodyMetrics'];",
