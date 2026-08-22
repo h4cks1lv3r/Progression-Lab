@@ -47,9 +47,6 @@ def repair_ios_project_membership() -> None:
     build_ref = build_match.group(1)
     entry = f"{build_ref} /* IntegrationBridge.swift in Sources */"
 
-    # The original finalizer selected the first Sources phase, which is the
-    # RunnerTests target in current Flutter projects. Remove every list entry,
-    # then add exactly one entry to the phase that already compiles AppDelegate.
     text = re.sub(rf"\n\s*{re.escape(entry)},", "", text)
     phase_pattern = re.compile(
         r"(\t\t[A-F0-9]{24} /\* Sources \*/ = \{\n"
@@ -98,6 +95,157 @@ def repair_ios_date_formatter() -> None:
   }()
 """
     path.write_text(text.replace(marker, marker + addition, 1))
+
+
+def repair_health_bridges() -> None:
+    android = Path(
+        "android/app/src/main/kotlin/com/h4cks1lv3/iron_cadence/IntegrationBridge.kt"
+    )
+    text = android.read_text()
+    if "import androidx.health.connect.client.units.Percentage" not in text:
+        text = text.replace(
+            "import androidx.health.connect.client.units.Mass\n",
+            "import androidx.health.connect.client.units.Mass\n"
+            "import androidx.health.connect.client.units.Percentage\n",
+            1,
+        )
+    read_body_fat = (
+        "        HealthPermission.getReadPermission(BodyFatRecord::class),\n"
+    )
+    write_body_fat = (
+        "        HealthPermission.getWritePermission(BodyFatRecord::class),\n"
+    )
+    if write_body_fat not in text:
+        if read_body_fat not in text:
+            raise RuntimeError("Android BodyFatRecord read permission was not found")
+        text = text.replace(
+            read_body_fat,
+            read_body_fat + write_body_fat,
+            1,
+        )
+
+    if '            "writeBodyFat" -> scope.launch {' not in text:
+        health_start = text.find("    private fun handleHealth(")
+        health_end = text.find("\n    private fun handleCloud(", health_start)
+        if health_start < 0 or health_end < 0:
+            raise RuntimeError("Android health handler was not bounded")
+        health_section = text[health_start:health_end]
+        default_marker = "            else -> result.notImplemented()"
+        insertion_index = health_section.rfind(default_marker)
+        if insertion_index < 0:
+            raise RuntimeError("Android health handler default case was not found")
+        body_fat_case = """            "writeBodyFat" -> scope.launch {
+                try {
+                    val arguments = call.arguments as? Map<*, *>
+                        ?: throw IllegalArgumentException("Body-fat arguments are missing.")
+                    val time = Instant.parse(arguments["recordedAt"] as String)
+                    val raw = (arguments["value"] as Number).toDouble()
+                    require(raw in 0.0..100.0) {
+                        "Body-fat percentage must be between 0 and 100."
+                    }
+                    val zoneOffset: ZoneOffset = ZoneId.systemDefault().rules.getOffset(time)
+                    healthClient.insertRecords(
+                        listOf(
+                            BodyFatRecord(
+                                time = time,
+                                zoneOffset = zoneOffset,
+                                percentage = Percentage(raw),
+                                metadata = Metadata.manualEntry(
+                                    clientRecordId =
+                                        "progression-lab-body-fat-${time.toEpochMilli()}",
+                                    clientRecordVersion = 1,
+                                ),
+                            )
+                        )
+                    )
+                    result.success(true)
+                } catch (error: Exception) {
+                    result.error("health_body_fat_write_failed", error.message, null)
+                }
+            }
+"""
+        health_section = (
+            health_section[:insertion_index]
+            + body_fat_case
+            + health_section[insertion_index:]
+        )
+        text = text[:health_start] + health_section + text[health_end:]
+    android.write_text(text)
+
+    ios = Path("ios/Runner/IntegrationBridge.swift")
+    text = ios.read_text()
+    old_authorization = """      let workout = HKObjectType.workoutType()
+      let bodyMass = HKObjectType.quantityType(forIdentifier: .bodyMass)!
+      let bodyFat = HKObjectType.quantityType(forIdentifier: .bodyFatPercentage)!
+      let heartRate = HKObjectType.quantityType(forIdentifier: .heartRate)!
+      let steps = HKObjectType.quantityType(forIdentifier: .stepCount)!
+      let energy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
+      let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!
+      healthStore.requestAuthorization(
+        toShare: [workout, bodyMass],
+        read: [workout, bodyMass, bodyFat, heartRate, steps, energy, sleep]
+      ) { granted, error in
+"""
+    new_authorization = """      let workout = HKObjectType.workoutType()
+      let bodyMass = HKObjectType.quantityType(forIdentifier: .bodyMass)!
+      let bodyFat = HKObjectType.quantityType(forIdentifier: .bodyFatPercentage)!
+      healthStore.requestAuthorization(
+        toShare: [workout, bodyMass, bodyFat],
+        read: [workout, bodyMass, bodyFat]
+      ) { granted, error in
+"""
+    if old_authorization in text:
+        text = text.replace(old_authorization, new_authorization, 1)
+    elif "toShare: [workout, bodyMass, bodyFat]" not in text:
+        raise RuntimeError("iOS HealthKit authorization block was not recognized")
+
+    if '    case "writeBodyFat":' not in text:
+        health_start = text.find(
+            "  private func handleHealth(_ call: FlutterMethodCall,"
+        )
+        health_end = text.find("\n  private func readBodyMetrics(", health_start)
+        if health_start < 0 or health_end < 0:
+            raise RuntimeError("iOS health handler was not bounded")
+        health_section = text[health_start:health_end]
+        default_marker = "    default:\n      result(FlutterMethodNotImplemented)"
+        insertion_index = health_section.rfind(default_marker)
+        if insertion_index < 0:
+            raise RuntimeError("iOS health handler default case was not found")
+        body_fat_case = """    case "writeBodyFat":
+      guard let arguments = call.arguments as? [String: Any],
+            let recordedAt = isoDate(arguments["recordedAt"]),
+            let raw = arguments["value"] as? NSNumber,
+            raw.doubleValue >= 0,
+            raw.doubleValue <= 100 else {
+        result(FlutterError(code: "invalid_arguments", message: "Body-fat percentage must be between 0 and 100.", details: nil))
+        return
+      }
+      let type = HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!
+      let sample = HKQuantitySample(
+        type: type,
+        quantity: HKQuantity(unit: .percent(), doubleValue: raw.doubleValue / 100.0),
+        start: recordedAt,
+        end: recordedAt,
+        metadata: [HKMetadataKeyExternalUUID: "progression-lab-body-fat-\(recordedAt.timeIntervalSince1970)"]
+      )
+      healthStore.save(sample) { saved, error in
+        DispatchQueue.main.async {
+          if let error = error {
+            result(FlutterError(code: "health_body_fat_write_failed", message: error.localizedDescription, details: nil))
+          } else {
+            result(saved)
+          }
+        }
+      }
+
+"""
+        health_section = (
+            health_section[:insertion_index]
+            + body_fat_case
+            + health_section[insertion_index:]
+        )
+        text = text[:health_start] + health_section + text[health_end:]
+    ios.write_text(text)
 
 
 def repair_android_gradle() -> None:
@@ -273,19 +421,15 @@ def repair_dart_compile_errors() -> None:
 
 base.update_ios_app_delegate = update_ios_app_delegate_compat
 
-# Importing v5 runs the complete canonical finalization after the compatibility
-# override above has been installed.
 import finalize_integrations_v5  # noqa: E402,F401
 
 repair_ios_project_membership()
 repair_ios_date_formatter()
+repair_health_bridges()
 repair_android_gradle()
 repair_android_activity_lifecycle()
 repair_dart_compile_errors()
 
-# The manifest transformation can preserve indentation on an otherwise empty
-# line. Normalize it so the committed direct source passes git's whitespace
-# checks and remains stable when the finalizer is rerun.
 manifest = Path("android/app/src/main/AndroidManifest.xml")
 manifest.write_text(
     "\n".join(line.rstrip() for line in manifest.read_text().splitlines()) + "\n"
