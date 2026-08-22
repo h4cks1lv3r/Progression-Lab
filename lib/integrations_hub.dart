@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'cloud_sync.dart';
+import 'daily_inputs.dart';
 import 'contextual_guides.dart';
 import 'external_workout_formats.dart';
 import 'health_sync.dart';
@@ -25,6 +26,7 @@ class IntegrationPreferencesStore extends ChangeNotifier {
   final MethodChannel _channel;
   final List<LabExperiment> experiments = <LabExperiment>[];
   final List<ExternalWorkout> externalWorkouts = <ExternalWorkout>[];
+  final List<HealthBodyMetric> healthBodyMetrics = <HealthBodyMetric>[];
   WorkoutSharePreferences sharePreferences = const WorkoutSharePreferences();
   bool weeklyReviewEnabled = false;
   bool loaded = false;
@@ -64,6 +66,18 @@ class IntegrationPreferencesStore extends ChangeNotifier {
             );
           }
           weeklyReviewEnabled = map['weeklyReviewEnabled'] == true;
+          final rawHealthMetrics = map['healthBodyMetrics'];
+          if (rawHealthMetrics is List) {
+            healthBodyMetrics
+              ..clear()
+              ..addAll(
+                rawHealthMetrics.whereType<Map>().map(
+                  (raw) => HealthBodyMetric.fromJson(
+                    Map<Object?, Object?>.from(raw),
+                  ),
+                ),
+              );
+          }
           AdvancedWorkoutShareCardGenerator.currentPreferences =
               sharePreferences;
           final rawExternal = map['externalWorkouts'];
@@ -129,6 +143,9 @@ class IntegrationPreferencesStore extends ChangeNotifier {
       'experiments': experiments.map((item) => item.toJson()).toList(),
       'sharePreferences': sharePreferences.toJson(),
       'weeklyReviewEnabled': weeklyReviewEnabled,
+      'healthBodyMetrics': healthBodyMetrics
+          .map((item) => item.toJson())
+          .toList(),
       'externalWorkouts': externalWorkouts
           .map((item) => item.toJson())
           .toList(),
@@ -165,6 +182,58 @@ class IntegrationPreferencesStore extends ChangeNotifier {
 
   Future<void> setWeeklyReviewEnabled(bool value) async {
     weeklyReviewEnabled = value;
+    await save();
+    notifyListeners();
+  }
+
+  Future<void> addHealthBodyMetrics(Iterable<HealthBodyMetric> values) async {
+    final incoming = values.toList()
+      ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+    final keys = healthBodyMetrics
+        .map(
+          (item) =>
+              '${item.type}|${item.recordedAt.toUtc().toIso8601String()}|${item.source}',
+        )
+        .toSet();
+    for (final value in incoming) {
+      final key =
+          '${value.type}|${value.recordedAt.toUtc().toIso8601String()}|${value.source}';
+      if (keys.add(key)) healthBodyMetrics.add(value);
+      if (value.type != 'bodyWeight' ||
+          !value.value.isFinite ||
+          value.value <= 0) {
+        continue;
+      }
+      final day = dateOnly(value.recordedAt.toLocal());
+      final existing = _store.recoveryForDay(day);
+      if (existing?.bodyWeight != null) continue;
+      var bodyWeight = value.value;
+      var weightUnit = value.unit;
+      if (value.unit == 'kg' && _store.unit == 'lb') {
+        bodyWeight = value.value / AppStore.poundsToKilograms;
+        weightUnit = 'lb';
+      } else if (value.unit == 'lb' && _store.unit == 'kg') {
+        bodyWeight = value.value * AppStore.poundsToKilograms;
+        weightUnit = 'kg';
+      }
+      final now = DateTime.now();
+      await _store.saveRecoveryCheckIn(
+        RecoveryCheckIn(
+          id: existing?.id ?? createRecordId('recovery'),
+          localDate: day,
+          sleepHours: existing?.sleepHours,
+          sleepQuality: existing?.sleepQuality,
+          stress: existing?.stress,
+          soreness: existing?.soreness,
+          bodyWeight: bodyWeight,
+          weightUnit: weightUnit,
+          illness: existing?.illness ?? false,
+          notes: existing?.notes ?? '',
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: now,
+        ),
+      );
+    }
     await save();
     notifyListeners();
   }
@@ -312,6 +381,15 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
       HealthPlatformKind.appleHealth => 'Apple Health',
       HealthPlatformKind.unavailable => 'Health platform',
     };
+    final localWeights =
+        widget.store.recoveryCheckIns
+            .where((item) => item.bodyWeight != null)
+            .toList()
+          ..sort((a, b) => a.updatedAt.compareTo(b.updatedAt));
+    final latestLocalWeight = localWeights.isEmpty ? null : localWeights.last;
+    final recentHealthMetrics = List<HealthBodyMetric>.of(
+      _preferences.healthBodyMetrics,
+    )..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
     return _ScrollSection(
       children: <Widget>[
         _Hero(
@@ -319,7 +397,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
           eyebrow: 'PLATFORM HEALTH',
           title: name,
           description:
-              'Share workout summaries and read bodyweight, heart rate, sleep, steps, and recovery context. Progression Lab remains the source of truth for detailed sets.',
+              'Read and write workout summaries, bodyweight, and body-fat percentage. Progression Lab remains the source of truth for detailed sets and private daily inputs.',
         ),
         _StatusCard(
           title: status.available ? 'AVAILABLE' : 'NOT AVAILABLE',
@@ -358,11 +436,98 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
           icon: const Icon(Icons.sync_rounded),
           label: const Text('IMPORT RECENT WORKOUT SUMMARIES'),
         ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: _health.busy || !status.available
+              ? null
+              : () => _run(() async {
+                  final now = DateTime.now();
+                  final metrics = await _health.readBodyMetrics(
+                    start: now.subtract(const Duration(days: 365)),
+                    end: now,
+                  );
+                  await _preferences.addHealthBodyMetrics(metrics);
+                  _message =
+                      '${metrics.length} body metric records reviewed. Existing local bodyweight entries were preserved.';
+                }),
+          icon: const Icon(Icons.monitor_weight_outlined),
+          label: const Text('IMPORT RECENT BODY METRICS'),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed:
+              _health.busy || !status.available || latestLocalWeight == null
+              ? null
+              : () => _run(() async {
+                  final entry = latestLocalWeight!;
+                  final written = await _health.writeBodyWeight(
+                    HealthBodyMetric(
+                      type: 'bodyWeight',
+                      value: entry.bodyWeight!,
+                      unit: entry.weightUnit ?? widget.store.unit,
+                      recordedAt: entry.updatedAt.toUtc(),
+                    ),
+                  );
+                  _message = written
+                      ? 'Latest local bodyweight was written to $name.'
+                      : 'The latest local bodyweight was not written.';
+                }),
+          icon: const Icon(Icons.upload_rounded),
+          label: const Text('WRITE LATEST LOCAL BODYWEIGHT'),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: _health.busy || !status.available
+              ? null
+              : _writeBodyFatReading,
+          icon: const Icon(Icons.percent_rounded),
+          label: const Text('ADD & WRITE BODY-FAT READING'),
+        ),
+        if (recentHealthMetrics.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 18),
+          _Panel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'BODY METRIC ARCHIVE',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${recentHealthMetrics.length} unique records',
+                  style: const TextStyle(color: Colors.white60),
+                ),
+                const Divider(height: 24),
+                for (final metric in recentHealthMetrics.take(6))
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      metric.type == 'bodyWeight'
+                          ? Icons.monitor_weight_outlined
+                          : Icons.percent_rounded,
+                    ),
+                    title: Text(
+                      metric.type == 'bodyWeight'
+                          ? 'Bodyweight'
+                          : 'Body-fat percentage',
+                    ),
+                    subtitle: Text(
+                      metric.recordedAt.toLocal().toString().split('.').first,
+                    ),
+                    trailing: Text(
+                      '${metric.value.toStringAsFixed(1)} ${metric.unit}',
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 20),
         const _Info(
           title: 'What is shared',
           text:
-              'Workout title, activity type, time, duration, optional energy, distance, and session effort. Set-by-set loads, notes, substitutions, and supplement records stay in Progression Lab.',
+              'Workout summaries can be read or written. Bodyweight and body-fat percentage can be imported or written after you approve access. Imported bodyweight fills only an empty Daily Inputs bodyweight field; existing local values, detailed sets, notes, substitutions, supplements, meals, hydration, and recovery ratings stay unchanged.',
         ),
       ],
     );
@@ -919,6 +1084,59 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
     LabExperimentTemplate.hydrationTarget => 'Hydration target',
     LabExperimentTemplate.custom => 'Custom experiment',
   };
+
+  Future<void> _writeBodyFatReading() async {
+    final controller = TextEditingController();
+    final raw = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Add body-fat reading'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: 'BODY-FAT PERCENTAGE',
+            suffixText: '%',
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, controller.text.trim()),
+            child: const Text('SAVE & WRITE'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (raw == null) return;
+    final value = double.tryParse(raw);
+    if (value == null || !value.isFinite || value < 0 || value > 100) {
+      if (mounted) {
+        setState(() => _message = 'Enter a body-fat percentage from 0 to 100.');
+      }
+      return;
+    }
+    await _run(() async {
+      final metric = HealthBodyMetric(
+        type: 'bodyFatPercentage',
+        value: value,
+        unit: '%',
+        recordedAt: DateTime.now().toUtc(),
+        source: 'Progression Lab',
+      );
+      await _preferences.addHealthBodyMetrics(<HealthBodyMetric>[metric]);
+      final written = await _health.writeBodyFat(metric);
+      _message = written
+          ? 'Body-fat reading was saved locally and written to the health platform.'
+          : 'Body-fat reading was saved locally but was not written.';
+    });
+  }
 
   Future<void> _saveShare(WorkoutSharePreferences value) =>
       _run(() => _preferences.setSharePreferences(value));
