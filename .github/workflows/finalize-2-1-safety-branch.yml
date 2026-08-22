@@ -55,8 +55,8 @@ jobs:
             fi
           done
 
-      - name: Apply the reviewed v5 finalizer
-        run: python3 tool/finalize_integrations_v5.py
+      - name: Apply the reviewed v6 finalizer
+        run: python3 tool/finalize_integrations_v6.py
 
       - name: Normalize release version
         shell: bash
