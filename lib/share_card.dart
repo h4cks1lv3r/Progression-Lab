@@ -66,9 +66,7 @@ class WorkoutShareCardGenerator {
   static double? _doubleMetric(List<ShareMetric> metrics, String label) {
     for (final metric in metrics) {
       if (metric.label.toLowerCase() == label) {
-        return double.tryParse(
-          metric.value.replaceAll(RegExp('[^0-9.]'), ''),
-        );
+        return double.tryParse(metric.value.replaceAll(RegExp('[^0-9.]'), ''));
       }
     }
     return null;
@@ -83,10 +81,8 @@ class WorkoutShareCardGenerator {
           final minutes = int.tryParse(parts.last) ?? 0;
           return Duration(hours: hours, minutes: minutes);
         }
-        final minutes = int.tryParse(
-              metric.value.replaceAll(RegExp('[^0-9]'), ''),
-            ) ??
-            0;
+        final minutes =
+            int.tryParse(metric.value.replaceAll(RegExp('[^0-9]'), '')) ?? 0;
         return Duration(minutes: minutes);
       }
     }
@@ -95,9 +91,7 @@ class WorkoutShareCardGenerator {
 }
 
 class ShareImageBridge {
-  static const MethodChannel _channel = MethodChannel(
-    'progression_lab/share',
-  );
+  static const MethodChannel _channel = MethodChannel('progression_lab/share');
 
   static Future<String?> savePng(Uint8List bytes, String fileName) async {
     try {
@@ -128,10 +122,7 @@ String shareFileName(DateTime date) {
 }
 
 class WorkoutSharePreview extends StatelessWidget {
-  const WorkoutSharePreview({
-    super.key,
-    required this.data,
-  });
+  const WorkoutSharePreview({super.key, required this.data});
 
   final WorkoutShareData data;
 
@@ -185,9 +176,7 @@ class WorkoutSharePreview extends StatelessWidget {
                 spacing: 12,
                 runSpacing: 12,
                 children: data.metrics
-                    .map(
-                      (metric) => _PreviewMetric(metric: metric),
-                    )
+                    .map((metric) => _PreviewMetric(metric: metric))
                     .toList(growable: false),
               ),
               const SizedBox(height: 20),
@@ -203,10 +192,7 @@ class WorkoutSharePreview extends StatelessWidget {
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: <Widget>[
-                      const Icon(
-                        Icons.auto_graph_rounded,
-                        color: Brand.accent,
-                      ),
+                      const Icon(Icons.auto_graph_rounded, color: Brand.accent),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -235,7 +221,8 @@ class WorkoutSharePreview extends StatelessWidget {
                   ),
                 ),
               ),
-              if (data.achievementLabel case final String achievement) ...<Widget>[
+              if (data.achievementLabel
+                  case final String achievement) ...<Widget>[
                 const SizedBox(height: 16),
                 Text(
                   achievement,
@@ -269,32 +256,32 @@ class _PreviewMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                metric.label.toUpperCase(),
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Colors.white54,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                metric.value,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-            ],
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.06),
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            metric.label.toUpperCase(),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Colors.white54,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-      );
+          const SizedBox(height: 4),
+          Text(
+            metric.value,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
