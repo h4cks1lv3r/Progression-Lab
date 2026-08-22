@@ -1,0 +1,68 @@
+name: Materialize Functional Progress Fix
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/functional-progress-drill-dropdown
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out fix branch
+        uses: actions/checkout@v5
+        with:
+          ref: fix/functional-progress-drill-dropdown
+          fetch-depth: 0
+
+      - name: Apply direct-source wiring and version update
+        run: python3 tool/materialize_functional_progress_fix.py
+
+      - name: Set up Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve and format
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          dart format lib/main.dart lib/progress_hub.dart test/functional_progress_test.dart
+          git diff --check
+
+      - name: Verify source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "import 'progress_hub.dart';" lib/main.dart
+          grep -q 'ProgressHub(store: widget.store)' lib/main.dart
+          grep -q '^version: 2.1.1+15$' pubspec.yaml
+          grep -q 'versionCode = 15' android/app/build.gradle.kts
+          grep -q 'versionName = "2.1.1"' android/app/build.gradle.kts
+          grep -q "functional-drill-dropdown" lib/progress_hub.dart
+          grep -q "functional progress exposes programmed drills without history" test/functional_progress_test.dart
+
+      - name: Run focused regression tests
+        run: flutter test test/functional_progress_test.dart --reporter expanded
+
+      - name: Commit materialized fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib/main.dart lib/progress_hub.dart test/functional_progress_test.dart \
+            pubspec.yaml android/app/build.gradle.kts README.md CHANGELOG.md
+          if ! git diff --cached --quiet; then
+            git commit -m 'Fix functional progress drill dropdown and history'
+            git push origin HEAD:fix/functional-progress-drill-dropdown
+          fi
