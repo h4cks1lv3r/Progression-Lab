@@ -75,6 +75,100 @@ def repair_ios_project_membership() -> None:
     project.write_text(text)
 
 
+def repair_android_gradle() -> None:
+    path = Path("android/app/build.gradle.kts")
+    text = path.read_text()
+    dependencies_index = text.find("\ndependencies {")
+    if dependencies_index < 0:
+        raise RuntimeError("The Android dependencies block was not found")
+    dependencies = """
+
+dependencies {
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
+    implementation("androidx.health.connect:connect-client:1.1.0")
+    implementation("androidx.documentfile:documentfile:1.0.1")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+}
+"""
+    path.write_text(text[:dependencies_index].rstrip() + dependencies)
+
+
+def repair_android_activity_lifecycle() -> None:
+    path = Path(
+        "android/app/src/main/kotlin/com/h4cks1lv3/iron_cadence/MainActivity.kt"
+    )
+    text = path.read_text()
+
+    document_only = """    @Deprecated("Deprecated in Android; retained for the document picker bridge.")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        when (requestCode) {
+            REQUEST_CREATE_DOCUMENT -> finishSaveFile(resultCode, data?.data)
+            REQUEST_OPEN_DOCUMENT -> finishPickFile(resultCode, data?.data)
+        }
+    }
+"""
+    combined_activity_result = """    @Deprecated("Deprecated in Android; retained for native integration bridges.")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (integrationBridge?.onActivityResult(requestCode, resultCode, data) == true) {
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
+        when (requestCode) {
+            REQUEST_CREATE_DOCUMENT -> finishSaveFile(resultCode, data?.data)
+            REQUEST_OPEN_DOCUMENT -> finishPickFile(resultCode, data?.data)
+        }
+    }
+"""
+    if document_only in text:
+        text = text.replace(document_only, combined_activity_result, 1)
+
+    bridge_only_activity_result = """    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (integrationBridge?.onActivityResult(requestCode, resultCode, data) == true) {
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
+    }
+"""
+    text = text.replace(bridge_only_activity_result, "", 1)
+
+    ai_only_destroy = """    override fun onDestroy() {
+        generationJob?.cancel()
+        generativeModel?.close()
+        generativeModel = null
+        aiScope.cancel()
+        super.onDestroy()
+    }
+"""
+    combined_destroy = """    override fun onDestroy() {
+        generationJob?.cancel()
+        generativeModel?.close()
+        generativeModel = null
+        aiScope.cancel()
+        integrationBridge?.dispose()
+        integrationBridge = null
+        super.onDestroy()
+    }
+"""
+    if ai_only_destroy in text:
+        text = text.replace(ai_only_destroy, combined_destroy, 1)
+
+    bridge_only_destroy = """    override fun onDestroy() {
+        integrationBridge?.dispose()
+        integrationBridge = null
+        super.onDestroy()
+    }
+"""
+    text = text.replace(bridge_only_destroy, "", 1)
+
+    if text.count("override fun onActivityResult(") != 1:
+        raise RuntimeError("MainActivity must contain exactly one onActivityResult override")
+    if text.count("override fun onDestroy()") != 1:
+        raise RuntimeError("MainActivity must contain exactly one onDestroy override")
+    path.write_text(text)
+
+
 def repair_dart_compile_errors() -> None:
     experiments = Path("lib/lab_experiments.dart")
     text = experiments.read_text()
@@ -158,6 +252,8 @@ base.update_ios_app_delegate = update_ios_app_delegate_compat
 import finalize_integrations_v5  # noqa: E402,F401
 
 repair_ios_project_membership()
+repair_android_gradle()
+repair_android_activity_lifecycle()
 repair_dart_compile_errors()
 
 # The manifest transformation can preserve indentation on an otherwise empty
