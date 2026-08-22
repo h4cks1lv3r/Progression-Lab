@@ -12,6 +12,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: progression-lab-2-1-${{ github.actor }}
+  cancel-in-progress: true
+
 jobs:
   materialize:
     name: Materialize canonical 2.1 source
@@ -112,11 +116,42 @@ jobs:
           grep -q 'com.google.android.apps.healthdata' android/app/src/main/AndroidManifest.xml
           grep -q 'android:scheme="progressionlab"' android/app/src/main/AndroidManifest.xml
           grep -q 'IntegrationBridge(this, flutterEngine.dartExecutor.binaryMessenger)' android/app/src/main/kotlin/com/h4cks1lv3/iron_cadence/MainActivity.kt
-          grep -q 'IntegrationBridge.swift in Sources' ios/Runner.xcodeproj/project.pbxproj
           grep -q 'CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;' ios/Runner.xcodeproj/project.pbxproj
           grep -q 'NSHealthShareUsageDescription' ios/Runner/Info.plist
           grep -q 'NSHealthUpdateUsageDescription' ios/Runner/Info.plist
           grep -q 'CFBundleURLTypes' ios/Runner/Info.plist
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          activity = Path('android/app/src/main/kotlin/com/h4cks1lv3/iron_cadence/MainActivity.kt').read_text()
+          assert activity.count('override fun onActivityResult(') == 1
+          assert activity.count('override fun onDestroy()') == 1
+
+          gradle = Path('android/app/build.gradle.kts').read_text()
+          assert gradle.count('\ndependencies {') == 1
+          assert gradle.count('kotlinx-coroutines-android:') == 1
+
+          project = Path('ios/Runner.xcodeproj/project.pbxproj').read_text()
+          phase_pattern = re.compile(
+              r'([A-F0-9]{24} /\* Sources \*/ = \{.*?files = \()(.*?)(\n\s*\);)',
+              re.S,
+          )
+          runner_phase = next(
+              (match.group(2) for match in phase_pattern.finditer(project)
+               if 'AppDelegate.swift in Sources' in match.group(2)),
+              None,
+          )
+          assert runner_phase is not None
+          assert runner_phase.count('IntegrationBridge.swift in Sources') == 1
+          test_phase = next(
+              (match.group(2) for match in phase_pattern.finditer(project)
+               if 'RunnerTests.swift in Sources' in match.group(2)),
+              None,
+          )
+          assert test_phase is not None
+          assert 'IntegrationBridge.swift in Sources' not in test_phase
+          PY
 
       - name: Commit candidate direct source
         id: candidate
@@ -128,7 +163,17 @@ jobs:
           git add -A -- pubspec.yaml pubspec.lock android ios lib test docs README.md CHANGELOG.md
           if ! git diff --cached --quiet; then
             git commit -m "Materialize Progression Lab 2.1 candidate source"
-            git push origin HEAD:fix/finalize-progression-lab-2-1
+            pushed=false
+            for attempt in 1 2 3; do
+              git fetch origin fix/finalize-progression-lab-2-1
+              git rebase origin/fix/finalize-progression-lab-2-1
+              if git push origin HEAD:fix/finalize-progression-lab-2-1; then
+                pushed=true
+                break
+              fi
+              sleep $((attempt * 2))
+            done
+            test "$pushed" = true
           fi
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
