@@ -83,7 +83,7 @@ def repair_advanced_share_flow() -> None:
     text = text.replace("Brand.accent", "BrandColors.violet")
 
     if "class WorkoutSharePreviewScreen extends StatefulWidget" not in text:
-        helpers = """
+        helpers = r"""
 class WorkoutSharePreviewScreen extends StatefulWidget {
   const WorkoutSharePreviewScreen({super.key, required this.data});
 
