@@ -11,6 +11,7 @@ on:
 permissions:
   actions: read
   contents: write
+  issues: write
 
 jobs:
   publish:
@@ -19,12 +20,6 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Check out the repository
-        uses: actions/checkout@v5
-        with:
-          ref: main
-          fetch-depth: 0
-
       - name: Download the validated Android artifact
         env:
           GH_TOKEN: ${{ github.token }}
@@ -131,65 +126,30 @@ jobs:
             exit 1
           fi
 
-      - name: Record the verified public release links
+      - name: Report verified public links on PR 19
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          gh release view v2.1.0 \
+          release_url="$(gh release view v2.1.0 --repo "$GITHUB_REPOSITORY" --json url --jq '.url')"
+          assets="$(gh release view v2.1.0 --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
+          grep -Fxq 'Progression-Lab-2.1.0.apk' <<< "$assets"
+          grep -Fxq 'Progression-Lab-2.1.0.apk.sha256' <<< "$assets"
+          apk_url='https://github.com/h4cks1lv3r/Progression-Lab/releases/download/v2.1.0/Progression-Lab-2.1.0.apk'
+          checksum_url='https://github.com/h4cks1lv3r/Progression-Lab/releases/download/v2.1.0/Progression-Lab-2.1.0.apk.sha256'
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          cat > verification-comment.md <<EOF
+          GitHub Release publication verified.
+
+          - Release: $release_url
+          - APK: $apk_url
+          - SHA-256 file: $checksum_url
+          - APK SHA-256: \`e33ade21ba8bf0844f3c540267b1f05764eb0527003122e25834db8cf718321d\`
+          - Verification run: $run_url
+
+          The workflow downloaded the APK back from GitHub Releases and verified the published file against the validated CI digest before posting this comment.
+          EOF
+          gh pr comment 19 \
             --repo "$GITHUB_REPOSITORY" \
-            --json tagName,name,url,assets \
-            > release.json
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-
-          release = json.loads(Path('release.json').read_text())
-          assets = {asset['name']: asset for asset in release['assets']}
-          required = {
-              'Progression-Lab-2.1.0.apk',
-              'Progression-Lab-2.1.0.apk.sha256',
-          }
-          missing = required.difference(assets)
-          if missing:
-              raise SystemExit(f'Missing release assets: {sorted(missing)}')
-          apk = assets['Progression-Lab-2.1.0.apk']
-          checksum = assets['Progression-Lab-2.1.0.apk.sha256']
-          if int(apk.get('size', 0)) < 1_000_000:
-              raise SystemExit('Published APK is unexpectedly small')
-
-          release_url = release['url']
-          apk_url = apk.get('url') or (
-              'https://github.com/h4cks1lv3r/Progression-Lab/releases/'
-              'download/v2.1.0/Progression-Lab-2.1.0.apk'
-          )
-          checksum_url = checksum.get('url') or (
-              'https://github.com/h4cks1lv3r/Progression-Lab/releases/'
-              'download/v2.1.0/Progression-Lab-2.1.0.apk.sha256'
-          )
-          Path('docs/releases').mkdir(parents=True, exist_ok=True)
-          Path('docs/releases/v2.1.0.md').write_text(f'''# Progression Lab 2.1.0 Android release
-
-The validated Android APK is available from the GitHub release:
-
-- Release: {release_url}
-- APK: {apk_url}
-- SHA-256 file: {checksum_url}
-
-APK SHA-256:
-
-```text
-e33ade21ba8bf0844f3c540267b1f05764eb0527003122e25834db8cf718321d
-```
-
-This is a test distribution build and is not signed with the permanent Play Store production key.
-''')
-          PY
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs/releases/v2.1.0.md
-          if ! git diff --cached --quiet; then
-            git commit -m 'Record verified Progression Lab 2.1.0 release [skip ci]'
-            git push origin HEAD:main
-          fi
+            --body-file verification-comment.md
