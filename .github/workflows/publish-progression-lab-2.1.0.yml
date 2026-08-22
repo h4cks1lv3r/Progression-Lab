@@ -19,6 +19,12 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
       - name: Download the validated Android artifact
         env:
           GH_TOKEN: ${{ github.token }}
@@ -106,7 +112,26 @@ jobs:
               --repo "$GITHUB_REPOSITORY"
           fi
 
-      - name: Verify published assets
+      - name: Download and verify the GitHub-hosted APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='e33ade21ba8bf0844f3c540267b1f05764eb0527003122e25834db8cf718321d'
+          rm -rf published
+          mkdir -p published
+          gh release download v2.1.0 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'Progression-Lab-2.1.0.apk' \
+            --dir published
+          actual="$(sha256sum published/Progression-Lab-2.1.0.apk | awk '{print $1}')"
+          if [[ "$actual" != "$expected" ]]; then
+            echo "Published APK digest mismatch: expected $expected, got $actual" >&2
+            exit 1
+          fi
+
+      - name: Record the verified public release links
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -115,4 +140,56 @@ jobs:
           gh release view v2.1.0 \
             --repo "$GITHUB_REPOSITORY" \
             --json tagName,name,url,assets \
-            --jq '{tag: .tagName, name: .name, url: .url, assets: [.assets[].name]}'
+            > release.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          release = json.loads(Path('release.json').read_text())
+          assets = {asset['name']: asset for asset in release['assets']}
+          required = {
+              'Progression-Lab-2.1.0.apk',
+              'Progression-Lab-2.1.0.apk.sha256',
+          }
+          missing = required.difference(assets)
+          if missing:
+              raise SystemExit(f'Missing release assets: {sorted(missing)}')
+          apk = assets['Progression-Lab-2.1.0.apk']
+          checksum = assets['Progression-Lab-2.1.0.apk.sha256']
+          if int(apk.get('size', 0)) < 1_000_000:
+              raise SystemExit('Published APK is unexpectedly small')
+
+          release_url = release['url']
+          apk_url = apk.get('url') or (
+              'https://github.com/h4cks1lv3r/Progression-Lab/releases/'
+              'download/v2.1.0/Progression-Lab-2.1.0.apk'
+          )
+          checksum_url = checksum.get('url') or (
+              'https://github.com/h4cks1lv3r/Progression-Lab/releases/'
+              'download/v2.1.0/Progression-Lab-2.1.0.apk.sha256'
+          )
+          Path('docs/releases').mkdir(parents=True, exist_ok=True)
+          Path('docs/releases/v2.1.0.md').write_text(f'''# Progression Lab 2.1.0 Android release
+
+The validated Android APK is available from the GitHub release:
+
+- Release: {release_url}
+- APK: {apk_url}
+- SHA-256 file: {checksum_url}
+
+APK SHA-256:
+
+```text
+e33ade21ba8bf0844f3c540267b1f05764eb0527003122e25834db8cf718321d
+```
+
+This is a test distribution build and is not signed with the permanent Play Store production key.
+''')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/releases/v2.1.0.md
+          if ! git diff --cached --quiet; then
+            git commit -m 'Record verified Progression Lab 2.1.0 release [skip ci]'
+            git push origin HEAD:main
+          fi
