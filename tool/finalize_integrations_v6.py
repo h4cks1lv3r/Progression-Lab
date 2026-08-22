@@ -75,6 +75,31 @@ def repair_ios_project_membership() -> None:
     project.write_text(text)
 
 
+def repair_ios_date_formatter() -> None:
+    path = Path("ios/Runner/IntegrationBridge.swift")
+    text = path.read_text()
+    declaration = "static let progressionLabWholeSeconds: ISO8601DateFormatter"
+    if declaration in text:
+        return
+    marker = """  static let progressionLab: ISO8601DateFormatter = {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return formatter
+  }()
+"""
+    if marker not in text:
+        raise RuntimeError("The primary iOS ISO-8601 formatter was not found")
+    addition = """
+
+  static let progressionLabWholeSeconds: ISO8601DateFormatter = {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime]
+    return formatter
+  }()
+"""
+    path.write_text(text.replace(marker, marker + addition, 1))
+
+
 def repair_android_gradle() -> None:
     path = Path("android/app/build.gradle.kts")
     text = path.read_text()
@@ -185,7 +210,8 @@ def repair_dart_compile_errors() -> None:
     experiments.write_text(text)
 
     share_card = Path("lib/share_card.dart")
-    text = share_card.read_text().replace(
+    text = share_card.read_text().replace("import 'dart:ui' as ui;\n\n", "", 1)
+    text = text.replace(
         "achievement: data.achievementLabel,",
         "achievement: data.achievementLabel ?? '',",
     )
@@ -252,6 +278,7 @@ base.update_ios_app_delegate = update_ios_app_delegate_compat
 import finalize_integrations_v5  # noqa: E402,F401
 
 repair_ios_project_membership()
+repair_ios_date_formatter()
 repair_android_gradle()
 repair_android_activity_lifecycle()
 repair_dart_compile_errors()
