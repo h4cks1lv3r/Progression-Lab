@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 import finalize_integrations as base
 
@@ -32,6 +33,46 @@ def update_ios_app_delegate_compat() -> None:
         return
 
     _original_update_ios_app_delegate()
+
+
+def repair_ios_project_membership() -> None:
+    project = Path("ios/Runner.xcodeproj/project.pbxproj")
+    text = project.read_text()
+    build_match = re.search(
+        r"([A-F0-9]{24}) /\* IntegrationBridge\.swift in Sources \*/ =",
+        text,
+    )
+    if build_match is None:
+        raise RuntimeError("IntegrationBridge.swift build reference was not found")
+    build_ref = build_match.group(1)
+    entry = f"{build_ref} /* IntegrationBridge.swift in Sources */"
+
+    # The original finalizer selected the first Sources phase, which is the
+    # RunnerTests target in current Flutter projects. Remove every list entry,
+    # then add exactly one entry to the phase that already compiles AppDelegate.
+    text = re.sub(rf"\n\s*{re.escape(entry)},", "", text)
+    phase_pattern = re.compile(
+        r"(\t\t[A-F0-9]{24} /\* Sources \*/ = \{\n"
+        r"\t\t\tisa = PBXSourcesBuildPhase;.*?"
+        r"\t\t\tfiles = \()(.*?)(\n\t\t\t\);)",
+        re.S,
+    )
+    phases = list(phase_pattern.finditer(text))
+    runner_phase = next(
+        (phase for phase in phases if "AppDelegate.swift in Sources" in phase.group(2)),
+        None,
+    )
+    if runner_phase is None:
+        raise RuntimeError("The Runner Sources build phase was not found")
+    body = runner_phase.group(2)
+    replacement = (
+        runner_phase.group(1)
+        + f"\n\t\t\t\t{entry},"
+        + body
+        + runner_phase.group(3)
+    )
+    text = text[: runner_phase.start()] + replacement + text[runner_phase.end() :]
+    project.write_text(text)
 
 
 def repair_dart_compile_errors() -> None:
@@ -116,6 +157,7 @@ base.update_ios_app_delegate = update_ios_app_delegate_compat
 # override above has been installed.
 import finalize_integrations_v5  # noqa: E402,F401
 
+repair_ios_project_membership()
 repair_dart_compile_errors()
 
 # The manifest transformation can preserve indentation on an otherwise empty
