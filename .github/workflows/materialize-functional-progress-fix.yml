@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - fix/functional-progress-drill-dropdown
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
