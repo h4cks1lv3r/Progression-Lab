@@ -15,7 +15,7 @@ import 'lab_screen.dart';
 import 'logged_sets.dart';
 import 'program.dart';
 import 'program_navigator.dart';
-import 'progress_dashboard.dart';
+import 'progress_hub.dart';
 import 'share_card.dart';
 import 'safe_layout.dart';
 import 'store.dart';
@@ -293,7 +293,7 @@ class _ShellState extends State<Shell> {
         onOpenStrength: _openStrengthProgram,
         onOpenAthletic: _openAthleticProgram,
       ),
-      ProgressDashboard(store: widget.store),
+      ProgressHub(store: widget.store),
       SettingsPage(
         store: widget.store,
         helpGuidesKey: _helpGuidesKey,
