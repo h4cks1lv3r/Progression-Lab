@@ -43,14 +43,8 @@ void main() {
     final arguments = Map<String, Object?>.from(
       authorization.arguments! as Map,
     );
-    expect(
-      arguments['read'],
-      <String>['workouts', 'bodyWeight', 'bodyFat'],
-    );
-    expect(
-      arguments['write'],
-      <String>['workouts', 'bodyWeight', 'bodyFat'],
-    );
+    expect(arguments['read'], <String>['workouts', 'bodyWeight', 'bodyFat']);
+    expect(arguments['write'], <String>['workouts', 'bodyWeight', 'bodyFat']);
     expect(service.status.authorization, HealthAuthorizationState.authorized);
   });
 
@@ -76,21 +70,24 @@ void main() {
     expect(arguments['recordedAt'], recordedAt.toIso8601String());
   });
 
-  test('rejects invalid body-fat values before invoking the platform', () async {
-    final service = HealthSyncService(channel: channel);
-    addTearDown(service.dispose);
+  test(
+    'rejects invalid body-fat values before invoking the platform',
+    () async {
+      final service = HealthSyncService(channel: channel);
+      addTearDown(service.dispose);
 
-    expect(
-      () => service.writeBodyFat(
-        HealthBodyMetric(
-          type: 'bodyFatPercentage',
-          value: 101,
-          unit: '%',
-          recordedAt: DateTime.utc(2026, 8, 22),
+      expect(
+        () => service.writeBodyFat(
+          HealthBodyMetric(
+            type: 'bodyFatPercentage',
+            value: 101,
+            unit: '%',
+            recordedAt: DateTime.utc(2026, 8, 22),
+          ),
         ),
-      ),
-      throwsArgumentError,
-    );
-    expect(calls, isEmpty);
-  });
+        throwsArgumentError,
+      );
+      expect(calls, isEmpty);
+    },
+  );
 }
