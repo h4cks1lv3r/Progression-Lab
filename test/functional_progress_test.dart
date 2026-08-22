@@ -38,8 +38,15 @@ void main() {
     expect(dropdownFinder, findsOneWidget);
     expect(find.text(currentDrill), findsWidgets);
 
-    final dropdown = tester.widget<DropdownButtonFormField<String>>(
-      dropdownFinder,
+    final innerDropdownFinder = find.descendant(
+      of: dropdownFinder,
+      matching: find.byWidgetPredicate(
+        (widget) => widget is DropdownButton<String>,
+      ),
+    );
+    expect(innerDropdownFinder, findsOneWidget);
+    final dropdown = tester.widget<DropdownButton<String>>(
+      innerDropdownFinder,
     );
     final values = dropdown.items!.map((item) => item.value).toSet();
     expect(values, contains(currentDrill));
