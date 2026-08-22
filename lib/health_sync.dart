@@ -169,16 +169,8 @@ class HealthSyncService extends ChangeNotifier {
           await _channel.invokeMethod<bool>(
             'requestAuthorization',
             <String, Object>{
-              'read': <String>[
-                'workouts',
-                'bodyWeight',
-                'bodyFat',
-                'heartRate',
-                'sleep',
-                'steps',
-                'activeEnergy',
-              ],
-              'write': <String>['workouts', 'bodyWeight'],
+              'read': <String>['workouts', 'bodyWeight', 'bodyFat'],
+              'write': <String>['workouts', 'bodyWeight', 'bodyFat'],
             },
           ) ??
           false;
@@ -228,6 +220,9 @@ class HealthSyncService extends ChangeNotifier {
   }
 
   Future<bool> writeWorkout(HealthWorkoutWriteRequest request) async {
+    if (!request.endedAt.isAfter(request.startedAt)) {
+      throw ArgumentError('Workout end time must be after its start time.');
+    }
     return _guard(() async {
       return await _channel.invokeMethod<bool>(
             'writeWorkout',
@@ -245,9 +240,40 @@ class HealthSyncService extends ChangeNotifier {
         'Must be bodyWeight',
       );
     }
+    if (!metric.value.isFinite || metric.value <= 0) {
+      throw ArgumentError.value(
+        metric.value,
+        'metric.value',
+        'Body weight must be above zero',
+      );
+    }
     return _guard(() async {
       return await _channel.invokeMethod<bool>(
             'writeBodyWeight',
+            metric.toJson(),
+          ) ??
+          false;
+    });
+  }
+
+  Future<bool> writeBodyFat(HealthBodyMetric metric) async {
+    if (metric.type != 'bodyFatPercentage') {
+      throw ArgumentError.value(
+        metric.type,
+        'metric.type',
+        'Must be bodyFatPercentage',
+      );
+    }
+    if (!metric.value.isFinite || metric.value < 0 || metric.value > 100) {
+      throw ArgumentError.value(
+        metric.value,
+        'metric.value',
+        'Body-fat percentage must be between 0 and 100',
+      );
+    }
+    return _guard(() async {
+      return await _channel.invokeMethod<bool>(
+            'writeBodyFat',
             metric.toJson(),
           ) ??
           false;
