@@ -31,7 +31,7 @@ def main() -> None:
               'PROGRAM APPEARANCES',
 """,
         """          child: ExpansionTile(
-            key: ValueKey('functional-program-appearances-$active'),
+            key: PageStorageKey('functional-program-appearances-$active'),
             title: const Text(
               'PROGRAM APPEARANCES',
 """,
