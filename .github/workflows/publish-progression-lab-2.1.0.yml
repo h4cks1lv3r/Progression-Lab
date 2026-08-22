@@ -2,6 +2,9 @@ name: Publish Progression Lab 2.1.0 APK
 
 on:
   workflow_dispatch:
+  issues:
+    types:
+      - opened
   push:
     branches:
       - main
@@ -16,6 +19,7 @@ permissions:
 jobs:
   publish:
     name: Publish validated APK to GitHub Releases
+    if: github.event_name != 'issues' || github.event.issue.title == 'Publish Progression Lab 2.1.0 APK'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -126,9 +130,10 @@ jobs:
             exit 1
           fi
 
-      - name: Report verified public links on PR 19
+      - name: Report verified public links
         env:
           GH_TOKEN: ${{ github.token }}
+          REPORT_NUMBER: ${{ github.event.issue.number || 19 }}
         shell: bash
         run: |
           set -euo pipefail
@@ -150,6 +155,6 @@ jobs:
 
           The workflow downloaded the APK back from GitHub Releases and verified the published file against the validated CI digest before posting this comment.
           EOF
-          gh pr comment 19 \
+          gh issue comment "$REPORT_NUMBER" \
             --repo "$GITHUB_REPOSITORY" \
             --body-file verification-comment.md
