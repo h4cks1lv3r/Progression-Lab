@@ -39,3 +39,11 @@ base.update_ios_app_delegate = update_ios_app_delegate_compat
 # Importing v5 runs the complete canonical finalization after the compatibility
 # override above has been installed.
 import finalize_integrations_v5  # noqa: E402,F401
+
+# The manifest transformation can preserve indentation on an otherwise empty
+# line. Normalize it so the committed direct source passes git's whitespace
+# checks and remains stable when the finalizer is rerun.
+manifest = Path("android/app/src/main/AndroidManifest.xml")
+manifest.write_text(
+    "\n".join(line.rstrip() for line in manifest.read_text().splitlines()) + "\n"
+)
