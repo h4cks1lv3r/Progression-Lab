@@ -89,7 +89,7 @@ class WorkoutShareCardGenerator {
       exercises: metricInt('Exercises'),
       volume: metricDouble('Volume'),
       phaseLabel: data.contextLine,
-      achievement: data.achievementLabel,
+      achievement: data.achievementLabel ?? '',
       highlights: <ShareHighlight>[
         if (data.highlightValue.isNotEmpty)
           ShareHighlight(

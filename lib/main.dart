@@ -45,10 +45,17 @@ class _ProgressionLabAppState extends State<ProgressionLabApp> {
   final store = AppStore();
   @override
   void initState() {
+    super.initState();
     _automaticCloudSync = CloudBackupSyncService.shared(store);
     unawaited(_automaticCloudSync!.initialize());
-    super.initState();
-    store.load();
+    unawaited(store.load());
+  }
+
+  @override
+  void dispose() {
+    _automaticCloudSync?.dispose();
+    store.dispose();
+    super.dispose();
   }
 
   @override
@@ -166,7 +173,6 @@ class _ShellState extends State<Shell> {
 
   @override
   void dispose() {
-    _automaticCloudSync?.dispose();
     widget.store.removeListener(_maybeStartAutomaticTour);
     super.dispose();
   }

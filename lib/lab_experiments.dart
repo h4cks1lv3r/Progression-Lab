@@ -424,9 +424,9 @@ abstract final class LabExperimentAnalyzer {
     final meanA = _mean(samplesA.map((sample) => sample.value));
     final meanB = _mean(samplesB.map((sample) => sample.value));
     final difference = meanA == null || meanB == null ? null : meanA - meanB;
-    final percent = difference == null || meanB == 0
+    final percent = difference == null || meanB == null || meanB == 0
         ? null
-        : difference / meanB * 100;
+        : difference / meanB * 100.0;
     final effect = _cohensD(
       samplesA.map((sample) => sample.value).toList(),
       samplesB.map((sample) => sample.value).toList(),
