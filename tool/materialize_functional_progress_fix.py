@@ -24,6 +24,18 @@ def main() -> None:
         "ProgressDashboard(store: widget.store),",
         "ProgressHub(store: widget.store),",
     )
+    replace_once(
+        "lib/progress_hub.dart",
+        """          child: ExpansionTile(
+            title: const Text(
+              'PROGRAM APPEARANCES',
+""",
+        """          child: ExpansionTile(
+            key: ValueKey('functional-program-appearances-$active'),
+            title: const Text(
+              'PROGRAM APPEARANCES',
+""",
+    )
     replace_once("pubspec.yaml", "version: 2.1.0+14", "version: 2.1.1+15")
     replace_once(
         "android/app/build.gradle.kts",
@@ -55,6 +67,7 @@ def main() -> None:
 - Functional Progress now lists every programmed drill before any session is completed.
 - Completed functional sessions now populate drill history, completion counts, effort averages, and program appearances without inventing strength-set data.
 - Strength and Functional progress data remain separate and use metrics appropriate to each training track.
+- Isolated Functional Progress expansion state from list scroll state to prevent page-storage type collisions.
 
 """
         if not text.startswith("# Changelog\n"):
