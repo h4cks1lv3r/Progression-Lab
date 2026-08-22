@@ -54,6 +54,13 @@ def repair_dart_compile_errors() -> None:
         "achievement: data.achievementLabel,",
         "achievement: data.achievementLabel ?? '',",
     )
+    helper_start = text.find("\n  static void _drawGrid")
+    if helper_start >= 0:
+        helper_end_marker = "\n}\n\nclass ShareImageBridge"
+        helper_end = text.find(helper_end_marker, helper_start)
+        if helper_end < 0:
+            raise RuntimeError("The obsolete share-card helper block was not bounded")
+        text = text[:helper_start] + text[helper_end:]
     share_card.write_text(text)
 
     main = Path("lib/main.dart")
