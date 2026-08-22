@@ -16,6 +16,7 @@ import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.units.Mass
+import androidx.health.connect.client.units.Percentage
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import io.flutter.embedding.android.FlutterActivity
@@ -67,6 +68,7 @@ class IntegrationBridge(
         HealthPermission.getReadPermission(WeightRecord::class),
         HealthPermission.getWritePermission(WeightRecord::class),
         HealthPermission.getReadPermission(BodyFatRecord::class),
+        HealthPermission.getWritePermission(BodyFatRecord::class),
     )
 
     private val encryptedPreferences by lazy {
@@ -372,6 +374,35 @@ class IntegrationBridge(
                     result.success(true)
                 } catch (error: Exception) {
                     result.error("health_weight_write_failed", error.message, null)
+                }
+            }
+            "writeBodyFat" -> scope.launch {
+                try {
+                    val arguments = call.arguments as? Map<*, *>
+                        ?: throw IllegalArgumentException("Body-fat arguments are missing.")
+                    val time = Instant.parse(arguments["recordedAt"] as String)
+                    val raw = (arguments["value"] as Number).toDouble()
+                    require(raw in 0.0..100.0) {
+                        "Body-fat percentage must be between 0 and 100."
+                    }
+                    val zoneOffset: ZoneOffset = ZoneId.systemDefault().rules.getOffset(time)
+                    healthClient.insertRecords(
+                        listOf(
+                            BodyFatRecord(
+                                time = time,
+                                zoneOffset = zoneOffset,
+                                percentage = Percentage(raw),
+                                metadata = Metadata.manualEntry(
+                                    clientRecordId =
+                                        "progression-lab-body-fat-${time.toEpochMilli()}",
+                                    clientRecordVersion = 1,
+                                ),
+                            )
+                        )
+                    )
+                    result.success(true)
+                } catch (error: Exception) {
+                    result.error("health_body_fat_write_failed", error.message, null)
                 }
             }
             else -> result.notImplemented()

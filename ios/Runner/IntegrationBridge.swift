@@ -94,13 +94,9 @@ final class IntegrationBridgeIOS: NSObject, UIDocumentPickerDelegate, ASWebAuthe
       let workout = HKObjectType.workoutType()
       let bodyMass = HKObjectType.quantityType(forIdentifier: .bodyMass)!
       let bodyFat = HKObjectType.quantityType(forIdentifier: .bodyFatPercentage)!
-      let heartRate = HKObjectType.quantityType(forIdentifier: .heartRate)!
-      let steps = HKObjectType.quantityType(forIdentifier: .stepCount)!
-      let energy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
-      let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!
       healthStore.requestAuthorization(
-        toShare: [workout, bodyMass],
-        read: [workout, bodyMass, bodyFat, heartRate, steps, energy, sleep]
+        toShare: [workout, bodyMass, bodyFat],
+        read: [workout, bodyMass, bodyFat]
       ) { granted, error in
         DispatchQueue.main.async {
           if let error = error {
@@ -227,6 +223,33 @@ final class IntegrationBridgeIOS: NSObject, UIDocumentPickerDelegate, ASWebAuthe
         DispatchQueue.main.async {
           if let error = error {
             result(FlutterError(code: "health_weight_write_failed", message: error.localizedDescription, details: nil))
+          } else {
+            result(saved)
+          }
+        }
+      }
+
+    case "writeBodyFat":
+      guard let arguments = call.arguments as? [String: Any],
+            let recordedAt = isoDate(arguments["recordedAt"]),
+            let raw = arguments["value"] as? NSNumber,
+            raw.doubleValue >= 0,
+            raw.doubleValue <= 100 else {
+        result(FlutterError(code: "invalid_arguments", message: "Body-fat percentage must be between 0 and 100.", details: nil))
+        return
+      }
+      let type = HKQuantityType.quantityType(forIdentifier: .bodyFatPercentage)!
+      let sample = HKQuantitySample(
+        type: type,
+        quantity: HKQuantity(unit: .percent(), doubleValue: raw.doubleValue / 100.0),
+        start: recordedAt,
+        end: recordedAt,
+        metadata: [HKMetadataKeyExternalUUID: "progression-lab-body-fat-\(recordedAt.timeIntervalSince1970)"]
+      )
+      healthStore.save(sample) { saved, error in
+        DispatchQueue.main.async {
+          if let error = error {
+            result(FlutterError(code: "health_body_fat_write_failed", message: error.localizedDescription, details: nil))
           } else {
             result(saved)
           }
