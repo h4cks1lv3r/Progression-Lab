@@ -44,16 +44,10 @@ flutter {
     source = "../.."
 }
 
-
 dependencies {
     implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-}
-
-
-dependencies {
     implementation("androidx.health.connect:connect-client:1.1.0")
     implementation("androidx.documentfile:documentfile:1.0.1")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 }

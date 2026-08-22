@@ -357,8 +357,11 @@ class MainActivity : FlutterActivity() {
         startActivityForResult(intent, REQUEST_OPEN_DOCUMENT)
     }
 
-    @Deprecated("Deprecated in Android; retained for the document picker bridge.")
+    @Deprecated("Deprecated in Android; retained for native integration bridges.")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (integrationBridge?.onActivityResult(requestCode, resultCode, data) == true) {
+            return
+        }
         super.onActivityResult(requestCode, resultCode, data)
         when (requestCode) {
             REQUEST_CREATE_DOCUMENT -> finishSaveFile(resultCode, data?.data)
@@ -574,6 +577,8 @@ class MainActivity : FlutterActivity() {
         generativeModel?.close()
         generativeModel = null
         aiScope.cancel()
+        integrationBridge?.dispose()
+        integrationBridge = null
         super.onDestroy()
     }
 
@@ -589,18 +594,7 @@ class MainActivity : FlutterActivity() {
         integrationBridge?.handleIntent(intent)
     }
 
-    override fun onDestroy() {
-        integrationBridge?.dispose()
-        integrationBridge = null
-        super.onDestroy()
-    }
 
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (integrationBridge?.onActivityResult(requestCode, resultCode, data) == true) {
-            return
-        }
-        super.onActivityResult(requestCode, resultCode, data)
-    }
 
 }
