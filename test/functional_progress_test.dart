@@ -32,12 +32,19 @@ void main() {
 
     expect(find.text('FUNCTIONAL PROGRESS'), findsOneWidget);
     expect(find.text('No exercises logged'), findsNothing);
-    expect(find.byKey(const ValueKey('functional-drill-dropdown')), findsOneWidget);
+    final dropdownFinder = find.byKey(
+      const ValueKey('functional-drill-dropdown'),
+    );
+    expect(dropdownFinder, findsOneWidget);
     expect(find.text(currentDrill), findsWidgets);
 
-    await tester.tap(find.byKey(const ValueKey('functional-drill-dropdown')));
-    await tester.pumpAndSettle();
-    expect(find.text(anotherDrill), findsWidgets);
+    final dropdown = tester.widget<DropdownButtonFormField<String>>(
+      dropdownFinder,
+    );
+    final values = dropdown.items!.map((item) => item.value).toSet();
+    expect(values, contains(currentDrill));
+    expect(values, contains(anotherDrill));
+    expect(values.length, greaterThan(20));
   });
 
   testWidgets('functional progress derives drill history from completed sessions', (
@@ -67,18 +74,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('functional-completions-value')),
-        matching: find.text('1'),
-      ),
-      findsOneWidget,
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('functional-completions-value')),
+          )
+          .data,
+      '1',
     );
     expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('functional-average-effort-value')),
-        matching: find.text('8.0 / 10'),
-      ),
-      findsOneWidget,
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('functional-average-effort-value')),
+          )
+          .data,
+      '8.0 / 10',
     );
     expect(find.textContaining('Run 1 • Week 1'), findsOneWidget);
     expect(find.text('8/10'), findsOneWidget);
