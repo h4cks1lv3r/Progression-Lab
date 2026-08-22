@@ -45,6 +45,7 @@ jobs:
           test -f lib/lab_experiments.dart
           test -f lib/share_options.dart
           test -f android/app/src/main/kotlin/com/h4cks1lv3/iron_cadence/IntegrationBridge.kt
+          test -f android/app/src/main/kotlin/com/h4cks1lv3/iron_cadence/PermissionsRationaleActivity.kt
           test -f ios/Runner/IntegrationBridge.swift
           for parallel_file in \
             lib/external_activity.dart \
@@ -59,8 +60,8 @@ jobs:
             fi
           done
 
-      - name: Apply the reviewed v6 finalizer
-        run: python3 tool/finalize_integrations_v6.py
+      - name: Apply the reviewed v8 finalizer
+        run: python3 tool/finalize_integrations_v8.py
 
       - name: Normalize release version
         shell: bash
@@ -113,13 +114,30 @@ jobs:
           grep -q 'androidx.health.connect:connect-client:1.1.0' android/app/build.gradle.kts
           grep -q 'android.permission.health.READ_EXERCISE' android/app/src/main/AndroidManifest.xml
           grep -q 'android.permission.health.WRITE_EXERCISE' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.health.READ_WEIGHT' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.health.WRITE_WEIGHT' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.health.READ_BODY_FAT' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.health.WRITE_BODY_FAT' android/app/src/main/AndroidManifest.xml
           grep -q 'com.google.android.apps.healthdata' android/app/src/main/AndroidManifest.xml
+          grep -q 'androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.intent.action.VIEW_PERMISSION_USAGE' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.START_VIEW_PERMISSION_USAGE' android/app/src/main/AndroidManifest.xml
           grep -q 'android:scheme="progressionlab"' android/app/src/main/AndroidManifest.xml
           grep -q 'IntegrationBridge(this, flutterEngine.dartExecutor.binaryMessenger)' android/app/src/main/kotlin/com/h4cks1lv3/iron_cadence/MainActivity.kt
+          grep -q '"writeBodyFat" -> scope.launch' android/app/src/main/kotlin/com/h4cks1lv3/iron_cadence/IntegrationBridge.kt
+          grep -q 'percentage = Percentage(raw)' android/app/src/main/kotlin/com/h4cks1lv3/iron_cadence/IntegrationBridge.kt
+          grep -q 'Progression Lab and Health Connect' android/app/src/main/kotlin/com/h4cks1lv3/iron_cadence/PermissionsRationaleActivity.kt
           grep -q 'CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;' ios/Runner.xcodeproj/project.pbxproj
           grep -q 'NSHealthShareUsageDescription' ios/Runner/Info.plist
           grep -q 'NSHealthUpdateUsageDescription' ios/Runner/Info.plist
           grep -q 'CFBundleURLTypes' ios/Runner/Info.plist
+          grep -q 'case "writeBodyFat":' ios/Runner/IntegrationBridge.swift
+          grep -q 'toShare: \[workout, bodyMass, bodyFat\]' ios/Runner/IntegrationBridge.swift
+          grep -q 'IMPORT RECENT BODY METRICS' lib/integrations_hub.dart
+          grep -q 'WRITE LATEST LOCAL BODYWEIGHT' lib/integrations_hub.dart
+          grep -q 'ADD & WRITE BODY-FAT READING' lib/integrations_hub.dart
+          grep -q "'healthBodyMetrics': healthBodyMetrics" lib/integrations_hub.dart
+          test -f test/health_sync_test.dart
           python3 - <<'PY'
           import re
           from pathlib import Path
@@ -131,6 +149,12 @@ jobs:
           gradle = Path('android/app/build.gradle.kts').read_text()
           assert gradle.count('\ndependencies {') == 1
           assert gradle.count('kotlinx-coroutines-android:') == 1
+
+          manifest = Path('android/app/src/main/AndroidManifest.xml').read_text()
+          assert manifest.count('<queries>') == 1
+          assert manifest.count('android.permission.health.WRITE_BODY_FAT') == 1
+          assert manifest.count('androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE') == 1
+          assert manifest.count('android.intent.action.VIEW_PERMISSION_USAGE') == 1
 
           project = Path('ios/Runner.xcodeproj/project.pbxproj').read_text()
           phase_pattern = re.compile(
