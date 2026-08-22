@@ -1,0 +1,118 @@
+name: Publish Progression Lab 2.1.0 APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/publish-progression-lab-2.1.0.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    name: Publish validated APK to GitHub Releases
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Download the validated Android artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download 32564233371 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name Progression-Lab-2.1.0-build-14 \
+            --dir dist
+          test -f dist/Progression-Lab-2.1.0.apk
+          test -f dist/Progression-Lab-2.1.0.apk.sha256
+
+      - name: Verify the exact validated APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='e33ade21ba8bf0844f3c540267b1f05764eb0527003122e25834db8cf718321d'
+          actual="$(sha256sum dist/Progression-Lab-2.1.0.apk | awk '{print $1}')"
+          if [[ "$actual" != "$expected" ]]; then
+            echo "APK digest mismatch: expected $expected, got $actual" >&2
+            exit 1
+          fi
+          printf '%s  %s\n' "$actual" 'Progression-Lab-2.1.0.apk' \
+            > dist/Progression-Lab-2.1.0.apk.sha256
+
+      - name: Prepare release notes
+        shell: bash
+        run: |
+          cat > release-notes.md <<'EOF'
+          ## Progression Lab 2.1.0+14
+
+          This release provides the installable Android APK produced by the validated Progression Lab 2.1.0 CI build.
+
+          ### Included
+
+          - Health Connect workout, bodyweight, and body-fat integration
+          - FIT, TCX, and GPX activity import
+          - Optional brokered Strava and Garmin connections
+          - User-selected cloud/file backup
+          - Personal experiments and weekly review
+          - Contextual integration guides
+          - Multi-format workout sharing with privacy controls
+          - Additive migration and exact `.plab` backup support
+
+          ### Integrity
+
+          `Progression-Lab-2.1.0.apk` SHA-256:
+
+          `e33ade21ba8bf0844f3c540267b1f05764eb0527003122e25834db8cf718321d`
+
+          ### Important installation note
+
+          This is a test distribution build, not a Play Store production-signed release. Android will reject an in-place update when the installed copy was signed with a different certificate. Back up important local data before uninstalling or replacing an existing build.
+          EOF
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag='v2.1.0'
+          target='729a7587fe9fb5e69c6e925461f9c54f7fe9a506'
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" \
+              dist/Progression-Lab-2.1.0.apk \
+              dist/Progression-Lab-2.1.0.apk.sha256 \
+              --clobber \
+              --repo "$GITHUB_REPOSITORY"
+            gh release edit "$tag" \
+              --title 'Progression Lab 2.1.0' \
+              --notes-file release-notes.md \
+              --latest \
+              --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$tag" \
+              dist/Progression-Lab-2.1.0.apk \
+              dist/Progression-Lab-2.1.0.apk.sha256 \
+              --target "$target" \
+              --title 'Progression Lab 2.1.0' \
+              --notes-file release-notes.md \
+              --latest \
+              --repo "$GITHUB_REPOSITORY"
+          fi
+
+      - name: Verify published assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view v2.1.0 \
+            --repo "$GITHUB_REPOSITORY" \
+            --json tagName,name,url,assets \
+            --jq '{tag: .tagName, name: .name, url: .url, assets: [.assets[].name]}'
