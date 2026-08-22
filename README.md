@@ -4,7 +4,7 @@ Progression Lab is an original, local-first strength, bodybuilding, and athletic
 
 Current version: **2.1.0+14**
 
-The product combines a 48-week Strength program, a 12-week Athletic Functional Training program, a structured exercise library, Daily Inputs and recovery tracking, deterministic performance analysis, optional on-device Gemini narration, data portability, and branded workout sharing.
+The product combines a 48-week Strength program, a 12-week Athletic Functional Training program, a structured exercise library, Daily Inputs and recovery tracking, deterministic performance analysis, optional on-device Gemini narration, data portability, health and wearable integrations, personal experiments, and branded workout sharing.
 
 ## Core training systems
 
@@ -50,6 +50,22 @@ Daily Inputs can record:
 
 Lab Core calculates deterministic evidence before any generative model is involved. It reports associations, sample sizes, date ranges, confidence, and likely confounders. Optional Gemini Nano narration is off by default, uses only enabled data domains, and has no automatic cloud fallback. Unsupported devices retain the complete deterministic Lab experience.
 
+## Connections and experiments
+
+Open **More → Connections & Experiments** to use the version 2.1 integration tools:
+
+- Health Connect on Android and Apple Health on iOS for permission-controlled workout summaries, bodyweight, and body-fat data
+- local FIT, TCX, and GPX activity import
+- optional Strava and Garmin account sync through an operator-managed OAuth broker
+- user-selected automatic backup locations through Android document providers or iOS Files/iCloud Drive
+- deterministic personal experiments and user-triggered weekly evidence reviews
+- contextual coach marks with replay and reset controls
+- Performance, Achievement, and Session Recap share templates in Story, portrait-feed, and square formats
+
+Direct Strava and Garmin connections are intentionally unavailable until a protected HTTPS broker is configured. Provider client secrets do not ship in the mobile app. Manual file import remains available without provider credentials.
+
+See [External integrations](docs/EXTERNAL_INTEGRATIONS.md) for architecture, configuration, data-handling, and device-validation details.
+
 ## Data ownership
 
 Progression Lab supports:
@@ -62,7 +78,7 @@ Progression Lab supports:
 - Strong, Hevy, FitNotes, portable ZIP, and generic CSV import
 - import preview, exercise mapping, duplicate detection, and undo
 
-Exact backups retain the full application state, including program runs, custom exercises, Daily Inputs, recovery records, Lab settings, and history. Portable CSV exports intentionally exclude private Lab conversation text.
+Exact backups retain the full application state, including program runs, custom exercises, Daily Inputs, recovery records, Lab settings, imported external activities, health-derived integration state, personal experiments, share preferences, contextual-guide state, and history. Provider session tokens stay in native secure storage and are not written into `.plab` backups. Portable CSV exports intentionally exclude private Lab conversation text.
 
 ## Navigation and onboarding
 
@@ -73,13 +89,13 @@ The primary navigation is:
 - Progress
 - More
 
-A skippable first-launch tour uses a branded guide to highlight the live interface. It can be replayed from **More → Help & Guides → App Tour**.
+A skippable first-launch tour uses a branded guide to highlight the live interface. It can be replayed from **More → Help & Guides → App Tour**. Integration-specific coach marks can be replayed or reset from **Connections & Experiments**.
 
 Shared safe-layout components keep primary actions above Android gesture or three-button navigation, the iOS home indicator, display cutouts, and the software keyboard.
 
 ## Social sharing
 
-Completed Strength and Athletic sessions can generate an offline, branded 1080 × 1920 workout story image for saving or sharing through the platform share sheet.
+Completed Strength and Athletic sessions can generate offline branded workout images in 9:16 Story, 4:5 portrait-feed, and 1:1 square formats. Privacy controls can hide exact weights or produce completion-only captions before saving or sharing through the platform share sheet.
 
 ## Build and validation
 
@@ -104,7 +120,9 @@ Android also requires the same signing certificate for an in-place update. Test 
 
 - Public Android distribution still needs a permanent private release key.
 - Physical-iPhone distribution needs Apple signing and TestFlight or App Store Connect configuration.
+- Direct Strava and Garmin account sync needs provider approval, server-side credentials, and configured HTTPS broker endpoints. Manual FIT, TCX, and GPX import does not.
+- Health Connect and Apple Health features depend on platform availability, granted permissions, and device-level validation.
 - Gemini Nano availability depends on the device, AICore, and current ML Kit support.
-- Health Connect, Apple Health, direct Strava/Garmin account connections, and FIT/TCX/GPX import remain separate future integrations.
+- Release QA still requires installation, upgrade, permission, import, backup, and restore checks on representative physical Android and iOS devices.
 
 Progression Lab is independent software. It does not copy competitor source code, artwork, exercise media, or proprietary coaching content.
