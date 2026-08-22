@@ -398,9 +398,9 @@ Future<void> showProgramPositionSheet(
           } on StateError catch (error) {
             if (!sheetContext.mounted) return;
             setSheetState(() => saving = false);
-            ScaffoldMessenger.of(sheetContext).showSnackBar(
-              SnackBar(content: Text(error.message.toString())),
-            );
+            ScaffoldMessenger.of(
+              sheetContext,
+            ).showSnackBar(SnackBar(content: Text(error.message.toString())));
           } on Object {
             if (!sheetContext.mounted) return;
             setSheetState(() => saving = false);
@@ -497,9 +497,8 @@ Future<void> showProgramPositionSheet(
                         current: currentWeek.phase,
                         onSelected: saving
                             ? (_) {}
-                            : (phase) => setSheetState(
-                                () => targetPhase = phase,
-                              ),
+                            : (phase) =>
+                                  setSheetState(() => targetPhase = phase),
                       ),
                       const SizedBox(height: 22),
                       const _Eyebrow('CYCLE'),
@@ -813,165 +812,163 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
         color: _ink,
         child: SafeArea(
           child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 980),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const LabMark(size: 52),
-                            const SizedBox(width: 13),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'PROGRAM',
-                                    style: TextStyle(
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: -.6,
+            slivers: [
+              SliverToBoxAdapter(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 980),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const LabMark(size: 52),
+                              const SizedBox(width: 13),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'PROGRAM',
+                                      style: TextStyle(
+                                        fontSize: 32,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: -.6,
+                                      ),
                                     ),
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    'Your complete training map',
-                                    style: TextStyle(color: Colors.white54),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            _CurrentBadge(
-                              phase: current.phase,
-                              microcycle: current.microcycle,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 22),
-                        _CadencePanel(
-                          days: widget.store.days,
-                          onSelected: (days) => showCadenceSwitchSheet(
-                            context,
-                            widget.store,
-                            requestedDays: days,
-                          ),
-                        ),
-                        const SizedBox(height: 22),
-                        _PositionPanel(
-                          current: current,
-                          run: widget.store.strengthProgramRun,
-                          workoutIndex: widget.store.workoutIndex,
-                          selectedPhase: _phase,
-                          onJumpToCurrent: () =>
-                              _showCurrentPhase(current.phase),
-                          onChangePosition: () => showProgramPositionSheet(
-                            context,
-                            widget.store,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        const _Eyebrow('PHASE NAVIGATOR'),
-                        const SizedBox(height: 10),
-                        _PhaseSelector(
-                          selected: _phase,
-                          current: current.phase,
-                          onSelected: _showPhase,
-                        ),
-                        const SizedBox(height: 22),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'PHASE $_phase',
-                                    style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w900,
+                                    SizedBox(height: 4),
+                                    Text(
+                                      'Your complete training map',
+                                      style: TextStyle(color: Colors.white54),
                                     ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    '${ProgramEngine.weeksPerPhase} microcycles · ${widget.store.days}-day cadence',
-                                    style: const TextStyle(
-                                      color: Colors.white54,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (_phase != current.phase)
-                              TextButton.icon(
-                                onPressed: () =>
-                                    _showCurrentPhase(current.phase),
-                                icon: const Icon(
-                                  Icons.my_location_rounded,
-                                  size: 17,
+                                  ],
                                 ),
-                                label: const Text('CURRENT'),
                               ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _KindFilters(
-                          selected: _visibleKinds,
-                          onChanged: (next) =>
-                              setState(() => _visibleKinds = next),
-                        ),
-                        const SizedBox(height: 18),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 980),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 360),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder: (child, animation) {
-                        final offset = Tween<Offset>(
-                          begin: const Offset(.055, 0),
-                          end: Offset.zero,
-                        ).animate(animation);
-                        return FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: offset,
-                            child: child,
+                              _CurrentBadge(
+                                phase: current.phase,
+                                microcycle: current.microcycle,
+                              ),
+                            ],
                           ),
-                        );
-                      },
-                      child: _WeekGrid(
-                        key: ValueKey(
-                          'phase-$_phase-${_visibleKinds.hashCode}',
-                        ),
-                        weeks: weeks,
-                        currentWeek: current.number,
-                        currentWorkout: widget.store.workoutIndex,
-                        store: widget.store,
-                        onOpenWorkout: widget.onOpenWorkout,
+                          const SizedBox(height: 22),
+                          _CadencePanel(
+                            days: widget.store.days,
+                            onSelected: (days) => showCadenceSwitchSheet(
+                              context,
+                              widget.store,
+                              requestedDays: days,
+                            ),
+                          ),
+                          const SizedBox(height: 22),
+                          _PositionPanel(
+                            current: current,
+                            run: widget.store.strengthProgramRun,
+                            workoutIndex: widget.store.workoutIndex,
+                            selectedPhase: _phase,
+                            onJumpToCurrent: () =>
+                                _showCurrentPhase(current.phase),
+                            onChangePosition: () =>
+                                showProgramPositionSheet(context, widget.store),
+                          ),
+                          const SizedBox(height: 24),
+                          const _Eyebrow('PHASE NAVIGATOR'),
+                          const SizedBox(height: 10),
+                          _PhaseSelector(
+                            selected: _phase,
+                            current: current.phase,
+                            onSelected: _showPhase,
+                          ),
+                          const SizedBox(height: 22),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'PHASE $_phase',
+                                      style: const TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      '${ProgramEngine.weeksPerPhase} microcycles · ${widget.store.days}-day cadence',
+                                      style: const TextStyle(
+                                        color: Colors.white54,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (_phase != current.phase)
+                                TextButton.icon(
+                                  onPressed: () =>
+                                      _showCurrentPhase(current.phase),
+                                  icon: const Icon(
+                                    Icons.my_location_rounded,
+                                    size: 17,
+                                  ),
+                                  label: const Text('CURRENT'),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          _KindFilters(
+                            selected: _visibleKinds,
+                            onChanged: (next) =>
+                                setState(() => _visibleKinds = next),
+                          ),
+                          const SizedBox(height: 18),
+                        ],
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
+              SliverToBoxAdapter(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 980),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 360),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, animation) {
+                          final offset = Tween<Offset>(
+                            begin: const Offset(.055, 0),
+                            end: Offset.zero,
+                          ).animate(animation);
+                          return FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: offset,
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: _WeekGrid(
+                          key: ValueKey(
+                            'phase-$_phase-${_visibleKinds.hashCode}',
+                          ),
+                          weeks: weeks,
+                          currentWeek: current.number,
+                          currentWorkout: widget.store.workoutIndex,
+                          store: widget.store,
+                          onOpenWorkout: widget.onOpenWorkout,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -1240,7 +1237,6 @@ class _PositionPanel extends StatelessWidget {
   }
 }
 
-
 class _PositionModeOption extends StatelessWidget {
   const _PositionModeOption({
     required this.selected,
@@ -1267,9 +1263,7 @@ class _PositionModeOption extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: selected
-              ? _electric.withValues(alpha: .1)
-              : _surfaceRaised,
+          color: selected ? _electric.withValues(alpha: .1) : _surfaceRaised,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: selected

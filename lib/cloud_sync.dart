@@ -85,7 +85,9 @@ class CloudBackupInfo {
         modifiedAt: DateTime.parse('${value['modifiedAt']}').toUtc(),
         size: (value['size'] as num?)?.toInt() ?? 0,
         token: value['token'] is String ? value['token']! as String : '',
-        deviceId: value['deviceId'] is String ? value['deviceId']! as String : '',
+        deviceId: value['deviceId'] is String
+            ? value['deviceId']! as String
+            : '',
         schemaVersion: (value['schemaVersion'] as num?)?.toInt(),
         createdAt: value['createdAt'] is String
             ? DateTime.tryParse(value['createdAt']! as String)?.toUtc()
@@ -112,12 +114,16 @@ class CloudSyncPreview {
 /// iCloud Drive, OneDrive, Dropbox, and other Files providers can participate
 /// without Progression Lab receiving those account credentials.
 class CloudBackupSyncService extends ChangeNotifier {
-  CloudBackupSyncService({
-    required AppStore store,
-    MethodChannel? channel,
-  })  : _store = store,
-        _portability = DataPortabilityController(store),
-        _channel = channel ?? const MethodChannel('progression_lab/cloud_sync');
+  static final Expando<CloudBackupSyncService> _shared =
+      Expando<CloudBackupSyncService>('progression-lab-cloud-sync');
+
+  static CloudBackupSyncService shared(AppStore store) =>
+      _shared[store] ??= CloudBackupSyncService(store: store);
+
+  CloudBackupSyncService({required AppStore store, MethodChannel? channel})
+    : _store = store,
+      _portability = DataPortabilityController(store),
+      _channel = channel ?? const MethodChannel('progression_lab/cloud_sync');
 
   final AppStore _store;
   final DataPortabilityController _portability;
@@ -170,12 +176,13 @@ class CloudBackupSyncService extends ChangeNotifier {
 
   Future<void> setAutomaticSyncEnabled(bool enabled) async {
     if (enabled && !_status.configured) {
-      throw StateError('Choose a backup folder before enabling automatic sync.');
+      throw StateError(
+        'Choose a backup folder before enabling automatic sync.',
+      );
     }
-    await _channel.invokeMethod<void>(
-      'setAutomaticSyncEnabled',
-      <String, bool>{'enabled': enabled},
-    );
+    await _channel.invokeMethod<void>('setAutomaticSyncEnabled', <String, bool>{
+      'enabled': enabled,
+    });
     _automaticSyncEnabled = enabled;
     if (enabled) {
       _startListening();
@@ -187,11 +194,15 @@ class CloudBackupSyncService extends ChangeNotifier {
 
   Future<List<CloudBackupInfo>> listBackups() async {
     return _guard(() async {
-      final result = await _channel.invokeListMethod<Object?>('listBackups') ??
+      final result =
+          await _channel.invokeListMethod<Object?>('listBackups') ??
           const <Object?>[];
       final values = result
           .whereType<Map>()
-          .map((item) => CloudBackupInfo.fromJson(Map<Object?, Object?>.from(item)))
+          .map(
+            (item) =>
+                CloudBackupInfo.fromJson(Map<Object?, Object?>.from(item)),
+          )
           .toList();
       values.sort((a, b) => b.modifiedAt.compareTo(a.modifiedAt));
       return values;
@@ -201,7 +212,9 @@ class CloudBackupSyncService extends ChangeNotifier {
   Future<CloudSyncPreview> preview() async {
     final localBytes = _portability.buildBackup(reason: 'cloud-preview');
     final localDocument = ProgressionBackupCodec.decode(localBytes);
-    final localCreatedAt = DateTime.tryParse('${localDocument.manifest['createdAt']}')?.toUtc();
+    final localCreatedAt = DateTime.tryParse(
+      '${localDocument.manifest['createdAt']}',
+    )?.toUtc();
     final backups = await listBackups();
     if (backups.isEmpty) {
       return CloudSyncPreview(
@@ -244,23 +257,25 @@ class CloudBackupSyncService extends ChangeNotifier {
     );
   }
 
-  Future<CloudBackupInfo> uploadNow({String reason = 'manual-cloud-sync'}) async {
-    if (!_status.configured) throw StateError('No cloud backup folder is configured.');
+  Future<CloudBackupInfo> uploadNow({
+    String reason = 'manual-cloud-sync',
+  }) async {
+    if (!_status.configured)
+      throw StateError('No cloud backup folder is configured.');
     return _guard(() async {
       final bytes = _portability.buildBackup(reason: reason);
       final document = ProgressionBackupCodec.decode(bytes);
       final createdAt = '${document.manifest['createdAt']}';
       final fileName = 'Progression-Lab-${_safeTimestamp(createdAt)}.plab';
-      final result = await _channel.invokeMapMethod<Object?, Object?>(
-        'writeBackup',
-        <String, Object>{
-          'name': fileName,
-          'bytes': bytes,
-          'createdAt': createdAt,
-          'schemaVersion': AppStore.schemaVersion,
-        },
-      );
-      if (result == null) throw StateError('The cloud provider did not return a saved backup.');
+      final result = await _channel
+          .invokeMapMethod<Object?, Object?>('writeBackup', <String, Object>{
+            'name': fileName,
+            'bytes': bytes,
+            'createdAt': createdAt,
+            'schemaVersion': AppStore.schemaVersion,
+          });
+      if (result == null)
+        throw StateError('The cloud provider did not return a saved backup.');
       _status = CloudFolderStatus(
         configured: _status.configured,
         provider: _status.provider,

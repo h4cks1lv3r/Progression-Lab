@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'store.dart';
+
 enum ContextualGuideId {
   strengthWorkout,
   strengthWeekNavigator,
@@ -31,9 +33,11 @@ class ContextualGuideStep {
 }
 
 class ContextualGuideState extends ChangeNotifier {
-  ContextualGuideState({MethodChannel? channel})
-      : _channel = channel ?? const MethodChannel('progression_lab/guide_state');
+  ContextualGuideState({AppStore? store, MethodChannel? channel})
+    : _store = store,
+      _channel = channel ?? const MethodChannel('progression_lab/guide_state');
 
+  final AppStore? _store;
   final MethodChannel _channel;
   final Set<ContextualGuideId> _seen = <ContextualGuideId>{};
   bool _tipsEnabled = true;
@@ -45,7 +49,13 @@ class ContextualGuideState extends ChangeNotifier {
 
   Future<void> load() async {
     try {
-      final data = await _channel.invokeMapMethod<Object?, Object?>('read');
+      Map<Object?, Object?>? data;
+      final embedded = _store?.integrationState['contextualGuides'];
+      if (embedded is Map) {
+        data = Map<Object?, Object?>.from(embedded);
+      } else {
+        data = await _channel.invokeMapMethod<Object?, Object?>('read');
+      }
       _tipsEnabled = data?['tipsEnabled'] != false;
       final rawSeen = data?['seen'];
       if (rawSeen is List) {
@@ -53,9 +63,11 @@ class ContextualGuideState extends ChangeNotifier {
           ..clear()
           ..addAll(
             rawSeen
-                .map((value) => ContextualGuideId.values
-                    .where((item) => item.name == '$value')
-                    .firstOrNull)
+                .map(
+                  (value) => ContextualGuideId.values
+                      .where((item) => item.name == '$value')
+                      .firstOrNull,
+                )
                 .whereType<ContextualGuideId>(),
           );
       }
@@ -66,8 +78,7 @@ class ContextualGuideState extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool shouldShow(ContextualGuideId id) =>
-      _tipsEnabled && !_seen.contains(id);
+  bool shouldShow(ContextualGuideId id) => _tipsEnabled && !_seen.contains(id);
 
   Future<void> markSeen(ContextualGuideId id) async {
     if (!_seen.add(id)) return;
@@ -95,16 +106,20 @@ class ContextualGuideState extends ChangeNotifier {
   }
 
   Future<void> _save() async {
+    final data = <String, Object>{
+      'tipsEnabled': _tipsEnabled,
+      'seen': _seen.map((item) => item.name).toList(),
+    };
+    final store = _store;
+    if (store != null) {
+      final merged = Map<String, dynamic>.from(store.integrationState)
+        ..['contextualGuides'] = data;
+      await store.setIntegrationState(merged);
+    }
     try {
-      await _channel.invokeMethod<void>(
-        'write',
-        <String, Object>{
-          'tipsEnabled': _tipsEnabled,
-          'seen': _seen.map((item) => item.name).toList(),
-        },
-      );
+      await _channel.invokeMethod<void>('write', data);
     } on PlatformException {
-      // Do not block app use when lightweight tip persistence fails.
+      // Exact app state remains available when platform mirroring fails.
     }
   }
 }
@@ -142,7 +157,8 @@ class _ContextualGuideOverlayState extends State<ContextualGuideOverlay> {
   @override
   void didUpdateWidget(covariant ContextualGuideOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.guideId != widget.guideId || oldWidget.steps != widget.steps) {
+    if (oldWidget.guideId != widget.guideId ||
+        oldWidget.steps != widget.steps) {
       _dismiss(markSeen: false);
       _index = 0;
       WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShow());
@@ -150,7 +166,9 @@ class _ContextualGuideOverlayState extends State<ContextualGuideOverlay> {
   }
 
   Future<void> _maybeShow() async {
-    if (!mounted || widget.steps.isEmpty || !widget.state.shouldShow(widget.guideId)) {
+    if (!mounted ||
+        widget.steps.isEmpty ||
+        !widget.state.shouldShow(widget.guideId)) {
       return;
     }
     final targetContext = widget.steps[_index].targetKey.currentContext;
@@ -170,17 +188,20 @@ class _ContextualGuideOverlayState extends State<ContextualGuideOverlay> {
     if (box == null || !box.hasSize) return const SizedBox.shrink();
     final target = box.localToGlobal(Offset.zero) & box.size;
     final media = MediaQuery.of(overlayContext);
-    final reduceMotion = media.disableAnimations ||
+    final reduceMotion =
+        media.disableAnimations ||
         media.accessibleNavigation ||
         MediaQuery.maybeOf(context)?.disableAnimations == true;
     final screen = media.size;
     final cardWidth = mathMin(360, screen.width - 32);
-    final placeBelow = target.bottom + 190 < screen.height - media.padding.bottom;
+    final placeBelow =
+        target.bottom + 190 < screen.height - media.padding.bottom;
     final cardTop = placeBelow
         ? target.bottom + 16
         : mathMax(media.padding.top + 16, target.top - 174);
     final cardLeft = (target.center.dx - cardWidth / 2)
-        .clamp(16.0, screen.width - cardWidth - 16.0);
+        .clamp(16.0, screen.width - cardWidth - 16.0)
+        .toDouble();
 
     return Material(
       color: Colors.transparent,
@@ -190,9 +211,7 @@ class _ContextualGuideOverlayState extends State<ContextualGuideOverlay> {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {},
-              child: CustomPaint(
-                painter: _CoachMaskPainter(target.inflate(8)),
-              ),
+              child: CustomPaint(painter: _CoachMaskPainter(target.inflate(8))),
             ),
           ),
           Positioned.fromRect(
@@ -200,7 +219,9 @@ class _ContextualGuideOverlayState extends State<ContextualGuideOverlay> {
             child: IgnorePointer(
               child: TweenAnimationBuilder<double>(
                 tween: Tween<double>(begin: .3, end: 1),
-                duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 520),
+                duration: reduceMotion
+                    ? Duration.zero
+                    : const Duration(milliseconds: 520),
                 curve: Curves.easeOutCubic,
                 builder: (context, value, child) => DecoratedBox(
                   decoration: BoxDecoration(
@@ -211,7 +232,9 @@ class _ContextualGuideOverlayState extends State<ContextualGuideOverlay> {
                     ),
                     boxShadow: <BoxShadow>[
                       BoxShadow(
-                        color: const Color(0xff7c3aed).withValues(alpha: .35 * value),
+                        color: const Color(
+                          0xff7c3aed,
+                        ).withValues(alpha: .35 * value),
                         blurRadius: 24,
                         spreadRadius: 2,
                       ),
@@ -289,74 +312,84 @@ class _CoachCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
-        decoration: BoxDecoration(
-          color: const Color(0xff11131c),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xffa855f7).withValues(alpha: .55)),
-          boxShadow: const <BoxShadow>[
-            BoxShadow(color: Colors.black54, blurRadius: 30, offset: Offset(0, 14)),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    decoration: BoxDecoration(
+      color: const Color(0xff11131c),
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: const Color(0xffa855f7).withValues(alpha: .55)),
+      boxShadow: const <BoxShadow>[
+        BoxShadow(color: Colors.black54, blurRadius: 30, offset: Offset(0, 14)),
+      ],
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
             children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        colors: <Color>[Color(0xff22d3ee), Color(0xffa855f7)],
-                      ),
-                      boxShadow: <BoxShadow>[
-                        BoxShadow(
-                          color: const Color(0xff7c3aed).withValues(alpha: .45),
-                          blurRadius: 14,
-                        ),
-                      ],
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: <Color>[Color(0xff22d3ee), Color(0xffa855f7)],
+                  ),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: const Color(0xff7c3aed).withValues(alpha: .45),
+                      blurRadius: 14,
                     ),
-                    child: const Icon(Icons.science_rounded, size: 19, color: Colors.white),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      step.title,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                  Text(
-                    '${index + 1} / $count',
-                    style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.w700),
-                  ),
-                ],
+                  ],
+                ),
+                child: const Icon(
+                  Icons.science_rounded,
+                  size: 19,
+                  color: Colors.white,
+                ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  step.title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
               Text(
-                step.message,
-                style: const TextStyle(color: Colors.white70, height: 1.45),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: <Widget>[
-                  TextButton(onPressed: onSkip, child: const Text('SKIP')),
-                  const Spacer(),
-                  if (onBack != null)
-                    TextButton(onPressed: onBack, child: const Text('BACK')),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: onNext,
-                    child: Text(index + 1 == count ? 'GOT IT' : 'NEXT'),
-                  ),
-                ],
+                '${index + 1} / $count',
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
-        ),
-      );
+          const SizedBox(height: 14),
+          Text(
+            step.message,
+            style: const TextStyle(color: Colors.white70, height: 1.45),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: <Widget>[
+              TextButton(onPressed: onSkip, child: const Text('SKIP')),
+              const Spacer(),
+              if (onBack != null)
+                TextButton(onPressed: onBack, child: const Text('BACK')),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: onNext,
+                child: Text(index + 1 == count ? 'GOT IT' : 'NEXT'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _CoachMaskPainter extends CustomPainter {

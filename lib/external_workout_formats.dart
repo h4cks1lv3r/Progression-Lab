@@ -32,17 +32,17 @@ class ExternalWorkoutPoint {
   final int? powerWatts;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        if (time != null) 'time': time!.toUtc().toIso8601String(),
-        if (latitude != null) 'latitude': latitude,
-        if (longitude != null) 'longitude': longitude,
-        if (altitudeMeters != null) 'altitudeMeters': altitudeMeters,
-        if (distanceMeters != null) 'distanceMeters': distanceMeters,
-        if (speedMetersPerSecond != null)
-          'speedMetersPerSecond': speedMetersPerSecond,
-        if (heartRate != null) 'heartRate': heartRate,
-        if (cadence != null) 'cadence': cadence,
-        if (powerWatts != null) 'powerWatts': powerWatts,
-      };
+    if (time != null) 'time': time!.toUtc().toIso8601String(),
+    if (latitude != null) 'latitude': latitude,
+    if (longitude != null) 'longitude': longitude,
+    if (altitudeMeters != null) 'altitudeMeters': altitudeMeters,
+    if (distanceMeters != null) 'distanceMeters': distanceMeters,
+    if (speedMetersPerSecond != null)
+      'speedMetersPerSecond': speedMetersPerSecond,
+    if (heartRate != null) 'heartRate': heartRate,
+    if (cadence != null) 'cadence': cadence,
+    if (powerWatts != null) 'powerWatts': powerWatts,
+  };
 }
 
 class ExternalWorkout {
@@ -85,25 +85,25 @@ class ExternalWorkout {
   final Map<String, dynamic> metadata;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'id': id,
-        'source': source.name,
-        'format': format.name,
-        'title': title,
-        'sport': sport,
-        'startedAt': startedAt.toUtc().toIso8601String(),
-        'endedAt': endedAt.toUtc().toIso8601String(),
-        if (distanceMeters != null) 'distanceMeters': distanceMeters,
-        if (durationSeconds != null) 'durationSeconds': durationSeconds,
-        if (calories != null) 'calories': calories,
-        if (averageHeartRate != null) 'averageHeartRate': averageHeartRate,
-        if (maximumHeartRate != null) 'maximumHeartRate': maximumHeartRate,
-        if (averageCadence != null) 'averageCadence': averageCadence,
-        if (averagePowerWatts != null) 'averagePowerWatts': averagePowerWatts,
-        if (notes.isNotEmpty) 'notes': notes,
-        if (points.isNotEmpty)
-          'points': points.map((point) => point.toJson()).toList(),
-        if (metadata.isNotEmpty) 'metadata': metadata,
-      };
+    'id': id,
+    'source': source.name,
+    'format': format.name,
+    'title': title,
+    'sport': sport,
+    'startedAt': startedAt.toUtc().toIso8601String(),
+    'endedAt': endedAt.toUtc().toIso8601String(),
+    if (distanceMeters != null) 'distanceMeters': distanceMeters,
+    if (durationSeconds != null) 'durationSeconds': durationSeconds,
+    if (calories != null) 'calories': calories,
+    if (averageHeartRate != null) 'averageHeartRate': averageHeartRate,
+    if (maximumHeartRate != null) 'maximumHeartRate': maximumHeartRate,
+    if (averageCadence != null) 'averageCadence': averageCadence,
+    if (averagePowerWatts != null) 'averagePowerWatts': averagePowerWatts,
+    if (notes.isNotEmpty) 'notes': notes,
+    if (points.isNotEmpty)
+      'points': points.map((point) => point.toJson()).toList(),
+    if (metadata.isNotEmpty) 'metadata': metadata,
+  };
 }
 
 class ExternalWorkoutParseResult {
@@ -162,11 +162,16 @@ class _GpxParser {
         ..._elements(container, 'rtept'),
       ];
       if (rawPoints.isEmpty) {
-        warnings.add('GPX item ${index + 1} contained no points and was skipped.');
+        warnings.add(
+          'GPX item ${index + 1} contained no points and was skipped.',
+        );
         continue;
       }
       final points = rawPoints.map(_gpxPoint).toList(growable: false);
-      final times = points.map((point) => point.time).whereType<DateTime>().toList();
+      final times = points
+          .map((point) => point.time)
+          .whereType<DateTime>()
+          .toList();
       final startedAt = times.isNotEmpty ? times.first : DateTime.now().toUtc();
       final endedAt = times.length > 1 ? times.last : startedAt;
       final title = _firstText(container, 'name')?.trim();
@@ -175,7 +180,10 @@ class _GpxParser {
       final suppliedDistance = points
           .map((point) => point.distanceMeters)
           .whereType<double>()
-          .fold<double?>(null, (value, item) => value == null || item > value ? item : value);
+          .fold<double?>(
+            null,
+            (value, item) => value == null || item > value ? item : value,
+          );
       final duration = endedAt.difference(startedAt).inMilliseconds / 1000;
       workouts.add(
         ExternalWorkout(
@@ -187,7 +195,8 @@ class _GpxParser {
           startedAt: startedAt,
           endedAt: endedAt,
           durationSeconds: duration > 0 ? duration : null,
-          distanceMeters: suppliedDistance ??
+          distanceMeters:
+              suppliedDistance ??
               (calculatedDistance > 0 ? calculatedDistance : null),
           averageHeartRate: _meanInt(points.map((point) => point.heartRate)),
           maximumHeartRate: _maxInt(points.map((point) => point.heartRate)),
@@ -199,7 +208,9 @@ class _GpxParser {
       );
     }
     if (workouts.isEmpty) {
-      throw const FormatException('No usable workout was found in the GPX file.');
+      throw const FormatException(
+        'No usable workout was found in the GPX file.',
+      );
     }
     return ExternalWorkoutParseResult(workouts: workouts, warnings: warnings);
   }
@@ -245,10 +256,17 @@ class _TcxParser {
     final warnings = <String>[];
     for (var index = 0; index < activities.length; index++) {
       final activity = activities[index];
-      final trackpoints = _elements(activity, 'Trackpoint').map(_tcxPoint).toList();
+      final trackpoints = _elements(
+        activity,
+        'Trackpoint',
+      ).map(_tcxPoint).toList();
       final activityId = _parseDate(_firstText(activity, 'Id'));
-      final times = trackpoints.map((point) => point.time).whereType<DateTime>().toList();
-      final startedAt = activityId ??
+      final times = trackpoints
+          .map((point) => point.time)
+          .whereType<DateTime>()
+          .toList();
+      final startedAt =
+          activityId ??
           (times.isNotEmpty ? times.first : DateTime.now().toUtc());
       final endedAt = times.isNotEmpty ? times.last : startedAt;
       final laps = _elements(activity, 'Lap').toList();
@@ -262,49 +280,65 @@ class _TcxParser {
       final distance = sumDouble('DistanceMeters');
       final calories = sumInt('Calories');
       final averageHeartRates = laps
-          .map((lap) => int.tryParse(
-                _firstText(
-                      _elements(lap, 'AverageHeartRateBpm').firstOrNull,
-                      'Value',
-                    ) ??
-                    '',
-              ))
+          .map(
+            (lap) => int.tryParse(
+              _firstText(
+                    _elements(lap, 'AverageHeartRateBpm').firstOrNull,
+                    'Value',
+                  ) ??
+                  '',
+            ),
+          )
           .whereType<int>();
       final maximumHeartRates = laps
-          .map((lap) => int.tryParse(
-                _firstText(
-                      _elements(lap, 'MaximumHeartRateBpm').firstOrNull,
-                      'Value',
-                    ) ??
-                    '',
-              ))
+          .map(
+            (lap) => int.tryParse(
+              _firstText(
+                    _elements(lap, 'MaximumHeartRateBpm').firstOrNull,
+                    'Value',
+                  ) ??
+                  '',
+            ),
+          )
           .whereType<int>();
       final sport = activity.getAttribute('Sport')?.trim();
       if (trackpoints.isEmpty) {
-        warnings.add('TCX activity ${index + 1} has no trackpoints; summary data was imported.');
+        warnings.add(
+          'TCX activity ${index + 1} has no trackpoints; summary data was imported.',
+        );
       }
       workouts.add(
         ExternalWorkout(
           id: 'tcx-${startedAt.microsecondsSinceEpoch}-$index',
           source: source,
           format: ExternalWorkoutFormat.tcx,
-          title: sport?.isNotEmpty == true ? '$sport Activity' : 'Imported TCX Activity',
+          title: sport?.isNotEmpty == true
+              ? '$sport Activity'
+              : 'Imported TCX Activity',
           sport: sport?.isNotEmpty == true ? sport! : 'other',
           startedAt: startedAt,
           endedAt: totalTime > 0
-              ? startedAt.add(Duration(milliseconds: (totalTime * 1000).round()))
+              ? startedAt.add(
+                  Duration(milliseconds: (totalTime * 1000).round()),
+                )
               : endedAt,
           durationSeconds: totalTime > 0
               ? totalTime
-              : math.max(0, endedAt.difference(startedAt).inMilliseconds / 1000),
+              : math
+                    .max(0, endedAt.difference(startedAt).inMilliseconds / 1000)
+                    .toDouble(),
           distanceMeters: distance > 0 ? distance : null,
           calories: calories > 0 ? calories : null,
           averageHeartRate: _weightedMean(averageHeartRates),
           maximumHeartRate: maximumHeartRates.isEmpty
               ? _maxInt(trackpoints.map((point) => point.heartRate))
-              : maximumHeartRates.reduce(math.max),
+              : maximumHeartRates.reduce(
+                  (left, right) => left > right ? left : right,
+                ),
           averageCadence: _meanInt(trackpoints.map((point) => point.cadence)),
-          averagePowerWatts: _meanInt(trackpoints.map((point) => point.powerWatts)),
+          averagePowerWatts: _meanInt(
+            trackpoints.map((point) => point.powerWatts),
+          ),
           points: trackpoints,
           metadata: <String, dynamic>{'lapCount': laps.length},
         ),
@@ -320,10 +354,18 @@ class _TcxParser {
     return ExternalWorkoutPoint(
       time: _parseDate(_firstText(element, 'Time')),
       latitude: double.tryParse(_firstText(position, 'LatitudeDegrees') ?? ''),
-      longitude: double.tryParse(_firstText(position, 'LongitudeDegrees') ?? ''),
-      altitudeMeters: double.tryParse(_firstText(element, 'AltitudeMeters') ?? ''),
-      distanceMeters: double.tryParse(_firstText(element, 'DistanceMeters') ?? ''),
-      speedMetersPerSecond: double.tryParse(_firstText(extensions, 'Speed') ?? ''),
+      longitude: double.tryParse(
+        _firstText(position, 'LongitudeDegrees') ?? '',
+      ),
+      altitudeMeters: double.tryParse(
+        _firstText(element, 'AltitudeMeters') ?? '',
+      ),
+      distanceMeters: double.tryParse(
+        _firstText(element, 'DistanceMeters') ?? '',
+      ),
+      speedMetersPerSecond: double.tryParse(
+        _firstText(extensions, 'Speed') ?? '',
+      ),
       heartRate: int.tryParse(_firstText(heartRate, 'Value') ?? ''),
       cadence: int.tryParse(_firstText(element, 'Cadence') ?? ''),
       powerWatts: int.tryParse(_firstText(extensions, 'Watts') ?? ''),
@@ -357,7 +399,7 @@ class _FitParser {
     final view = ByteData.sublistView(bytes);
     final dataSize = view.getUint32(4, Endian.little);
     final dataStart = headerSize;
-    final dataEnd = math.min(bytes.length, dataStart + dataSize);
+    final dataEnd = math.min(bytes.length, dataStart + dataSize).toInt();
     var offset = dataStart;
     while (offset < dataEnd) {
       try {
@@ -368,16 +410,21 @@ class _FitParser {
       }
     }
 
-    final defaultStart = _points.map((point) => point.time).whereType<DateTime>().firstOrNull ??
+    final defaultStart =
+        _points.map((point) => point.time).whereType<DateTime>().firstOrNull ??
         _fileCreatedAt ??
         DateTime.now().toUtc();
-    final defaultEnd = _points.map((point) => point.time).whereType<DateTime>().lastOrNull ??
+    final defaultEnd =
+        _points.map((point) => point.time).whereType<DateTime>().lastOrNull ??
         defaultStart;
-    final session = _sessions.isNotEmpty ? _sessions.last : const <String, num>{};
+    final session = _sessions.isNotEmpty
+        ? _sessions.last
+        : const <String, num>{};
     final startedAt = _fitDate(session['startTime']) ?? defaultStart;
     final endedAt = _fitDate(session['timestamp']) ?? defaultEnd;
     final sport = _fitSport(session['sport']?.toInt());
-    final durationSeconds = _scaled(session['totalTimerTime'], 1000) ??
+    final durationSeconds =
+        _scaled(session['totalTimerTime'], 1000) ??
         _scaled(session['totalElapsedTime'], 1000) ??
         math.max(0, endedAt.difference(startedAt).inMilliseconds / 1000);
     final workout = ExternalWorkout(
@@ -391,13 +438,17 @@ class _FitParser {
       distanceMeters: _scaled(session['totalDistance'], 100),
       durationSeconds: durationSeconds,
       calories: session['totalCalories']?.toInt(),
-      averageHeartRate: session['averageHeartRate']?.toInt() ??
+      averageHeartRate:
+          session['averageHeartRate']?.toInt() ??
           _meanInt(_points.map((point) => point.heartRate)),
-      maximumHeartRate: session['maximumHeartRate']?.toInt() ??
+      maximumHeartRate:
+          session['maximumHeartRate']?.toInt() ??
           _maxInt(_points.map((point) => point.heartRate)),
-      averageCadence: session['averageCadence']?.toInt() ??
+      averageCadence:
+          session['averageCadence']?.toInt() ??
           _meanInt(_points.map((point) => point.cadence)),
-      averagePowerWatts: session['averagePower']?.toInt() ??
+      averagePowerWatts:
+          session['averagePower']?.toInt() ??
           _meanInt(_points.map((point) => point.powerWatts)),
       points: List.unmodifiable(_points),
       metadata: <String, dynamic>{
@@ -405,7 +456,10 @@ class _FitParser {
         'profileVersion': view.getUint16(2, Endian.little),
       },
     );
-    return ExternalWorkoutParseResult(workouts: <ExternalWorkout>[workout], warnings: _warnings);
+    return ExternalWorkoutParseResult(
+      workouts: <ExternalWorkout>[workout],
+      warnings: _warnings,
+    );
   }
 
   int _parseMessage(int offset, int dataEnd) {
@@ -415,7 +469,9 @@ class _FitParser {
       final localType = (header >> 5) & 0x03;
       final definition = _definitions[localType];
       if (definition == null) {
-        throw FormatException('FIT compressed record references missing definition $localType.');
+        throw FormatException(
+          'FIT compressed record references missing definition $localType.',
+        );
       }
       return _parseData(offset, dataEnd, definition);
     }
@@ -425,7 +481,9 @@ class _FitParser {
     if (!isDefinition) {
       final definition = _definitions[localType];
       if (definition == null) {
-        throw FormatException('FIT record references missing definition $localType.');
+        throw FormatException(
+          'FIT record references missing definition $localType.',
+        );
       }
       return _parseData(offset, dataEnd, definition);
     }
@@ -443,17 +501,23 @@ class _FitParser {
       if (offset + 3 > dataEnd) {
         throw const FormatException('FIT field definition is truncated.');
       }
-      fields.add(_FitField(bytes[offset], bytes[offset + 1], bytes[offset + 2]));
+      fields.add(
+        _FitField(bytes[offset], bytes[offset + 1], bytes[offset + 2]),
+      );
       offset += 3;
     }
     if (hasDeveloperData) {
       if (offset >= dataEnd) {
-        throw const FormatException('FIT developer-field definition is truncated.');
+        throw const FormatException(
+          'FIT developer-field definition is truncated.',
+        );
       }
       final developerCount = bytes[offset++];
       final developerBytes = developerCount * 3;
       if (offset + developerBytes > dataEnd) {
-        throw const FormatException('FIT developer-field definitions are truncated.');
+        throw const FormatException(
+          'FIT developer-field definitions are truncated.',
+        );
       }
       offset += developerBytes;
     }
@@ -467,13 +531,19 @@ class _FitParser {
       if (offset + field.size > dataEnd) {
         throw const FormatException('FIT data message is truncated.');
       }
-      final value = _readFitNumber(offset, field.size, field.baseType, definition.endian);
+      final value = _readFitNumber(
+        offset,
+        field.size,
+        field.baseType,
+        definition.endian,
+      );
       if (value != null) values[field.number] = value;
       offset += field.size;
     }
     switch (definition.globalMessage) {
       case 0:
         _fileCreatedAt = _fitDate(values[4]);
+        break;
       case 18:
         _sessions.add(<String, num>{
           if (values[2] != null) 'startTime': values[2]!,
@@ -488,6 +558,7 @@ class _FitParser {
           if (values[18] != null) 'averageCadence': values[18]!,
           if (values[20] != null) 'averagePower': values[20]!,
         });
+        break;
       case 20:
         _points.add(
           ExternalWorkoutPoint(
@@ -506,6 +577,9 @@ class _FitParser {
             powerWatts: values[7]?.toInt(),
           ),
         );
+        break;
+      default:
+        break;
     }
     return offset;
   }
@@ -592,16 +666,16 @@ double? _semicircles(num? value) =>
     value == null ? null : value.toDouble() * 180 / 2147483648;
 
 String _fitSport(int? value) => switch (value) {
-      1 => 'running',
-      2 => 'cycling',
-      4 => 'fitness equipment',
-      5 => 'swimming',
-      10 => 'training',
-      11 => 'walking',
-      15 => 'rowing',
-      20 => 'strength training',
-      _ => 'other',
-    };
+  1 => 'running',
+  2 => 'cycling',
+  4 => 'fitness equipment',
+  5 => 'swimming',
+  10 => 'training',
+  11 => 'walking',
+  15 => 'rowing',
+  20 => 'strength training',
+  _ => 'other',
+};
 
 String _titleCase(String value) => value
     .split(' ')
@@ -634,7 +708,8 @@ double _haversine(double lat1, double lon1, double lat2, double lon2) {
   double radians(double degrees) => degrees * math.pi / 180;
   final dLat = radians(lat2 - lat1);
   final dLon = radians(lon2 - lon1);
-  final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+  final a =
+      math.sin(dLat / 2) * math.sin(dLat / 2) +
       math.cos(radians(lat1)) *
           math.cos(radians(lat2)) *
           math.sin(dLon / 2) *
@@ -657,7 +732,7 @@ int? _weightedMean(Iterable<int> values) {
 int? _maxInt(Iterable<int?> values) {
   final items = values.whereType<int>().toList();
   if (items.isEmpty) return null;
-  return items.reduce(math.max);
+  return items.reduce((left, right) => left > right ? left : right);
 }
 
 extension _FirstOrNull<T> on Iterable<T> {

@@ -420,7 +420,7 @@ final class IntegrationBridgeIOS: NSObject, UIDocumentPickerDelegate, ASWebAuthe
       folderResult = nil
       do {
         let bookmark = try url.bookmarkData(
-          options: [.withSecurityScope],
+          options: [],
           includingResourceValuesForKeys: nil,
           relativeTo: nil
         )
@@ -567,12 +567,12 @@ final class IntegrationBridgeIOS: NSObject, UIDocumentPickerDelegate, ASWebAuthe
     do {
       let url = try URL(
         resolvingBookmarkData: bookmark,
-        options: [.withSecurityScope],
+        options: [],
         relativeTo: nil,
         bookmarkDataIsStale: &stale
       )
       if stale {
-        let refreshed = try url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
+        let refreshed = try url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
         defaults.set(refreshed, forKey: Keys.cloudBookmark)
       }
       return url
@@ -640,6 +640,7 @@ final class IntegrationBridgeIOS: NSObject, UIDocumentPickerDelegate, ASWebAuthe
   private func isoDate(_ value: Any?) -> Date? {
     guard let value = value as? String else { return nil }
     return ISO8601DateFormatter.progressionLab.date(from: value)
+      ?? ISO8601DateFormatter.progressionLabWholeSeconds.date(from: value)
   }
 
   private func isoString(_ value: Date) -> String {

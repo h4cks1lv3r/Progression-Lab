@@ -175,137 +175,137 @@ class _ProgressDashboardState extends State<ProgressDashboard>
       color: _ink,
       child: SafeArea(
         child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
-        children: [
-          _Header(
-            exerciseCount: exercises.length,
-            setCount: widget.store.logs.length,
-          ),
-          const SizedBox(height: 16),
-          LabPanel(
-            accent: BrandColors.cyan,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => InputsPerformanceScreen(store: widget.store),
-              ),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.science_rounded, color: BrandColors.cyan),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'INPUTS & PERFORMANCE',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: .7,
-                        ),
-                      ),
-                      SizedBox(height: 3),
-                      Text(
-                        'Compare supplements, meals, and recovery with matched workouts.',
-                        style: TextStyle(
-                          color: BrandColors.muted,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.arrow_forward_rounded, color: BrandColors.muted),
-              ],
-            ),
-          ),
-          const SizedBox(height: 22),
-          _ControlPanel(
-            exercises: exercises,
-            selectedExercise: exercise,
-            selectedMetric: _metric,
-            selectedWindow: _window,
-            onExerciseChanged: _selectExercise,
-            onMetricChanged: _selectMetric,
-            onWindowChanged: _selectWindow,
-          ),
-          const SizedBox(height: 16),
-          if (exercise == null)
-            const _EmptyState(
-              icon: Icons.query_stats_rounded,
-              title: 'Your progress starts with a set',
-              message:
-                  'Log a completed set in a workout. Real strength and volume trends will appear here.',
-            )
-          else if (points.isEmpty)
-            _EmptyState(
-              icon: Icons.calendar_view_month_rounded,
-              title: 'No sets in this time range',
-              message:
-                  '$exercise has no logged sets in ${_window.spokenLabel.toLowerCase()}.',
-              actionLabel: 'SHOW ALL HISTORY',
-              onAction: () => _selectWindow(_TimeWindow.all),
-            )
-          else ...[
-            _StatsGrid(
-              points: points,
-              metric: _metric,
-              unit: widget.store.unit,
+          padding: const EdgeInsets.fromLTRB(20, 22, 20, 36),
+          children: [
+            _Header(
+              exerciseCount: exercises.length,
+              setCount: widget.store.logs.length,
             ),
             const SizedBox(height: 16),
-            _ChartCard(
-              exercise: exercise,
-              metric: _metric,
-              unit: widget.store.unit,
-              window: _window,
-              points: points,
-              selectedIndex: _scrubbedIndex,
-              selectedPoint: selectedPoint,
-              reveal: _reveal,
-              onScrub: _scrub,
-            ),
-          ],
-          if (exercise != null) ...[
-            const SizedBox(height: 24),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final wide = constraints.maxWidth >= 760;
-                final recent = _RecentSetsCard(
-                  logs: allExerciseLogs.reversed.take(8).toList(),
-                  unit: widget.store.unit,
-                  onEdit: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => LoggedSetsScreen(
-                        store: widget.store,
-                        exercise: exercise,
-                      ),
+            LabPanel(
+              accent: BrandColors.cyan,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => InputsPerformanceScreen(store: widget.store),
+                ),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.science_rounded, color: BrandColors.cyan),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'INPUTS & PERFORMANCE',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: .7,
+                          ),
+                        ),
+                        SizedBox(height: 3),
+                        Text(
+                          'Compare supplements, meals, and recovery with matched workouts.',
+                          style: TextStyle(
+                            color: BrandColors.muted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                );
-                final records = _PrRecordsCard(
-                  records: _prRecords(
-                    allExerciseLogs,
-                  ).reversed.take(8).toList(),
-                  unit: widget.store.unit,
-                );
-                if (!wide) {
-                  return Column(
-                    children: [recent, const SizedBox(height: 16), records],
-                  );
-                }
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: recent),
-                    const SizedBox(width: 16),
-                    Expanded(child: records),
-                  ],
-                );
-              },
+                  Icon(Icons.arrow_forward_rounded, color: BrandColors.muted),
+                ],
+              ),
             ),
-          ],
+            const SizedBox(height: 22),
+            _ControlPanel(
+              exercises: exercises,
+              selectedExercise: exercise,
+              selectedMetric: _metric,
+              selectedWindow: _window,
+              onExerciseChanged: _selectExercise,
+              onMetricChanged: _selectMetric,
+              onWindowChanged: _selectWindow,
+            ),
+            const SizedBox(height: 16),
+            if (exercise == null)
+              const _EmptyState(
+                icon: Icons.query_stats_rounded,
+                title: 'Your progress starts with a set',
+                message:
+                    'Log a completed set in a workout. Real strength and volume trends will appear here.',
+              )
+            else if (points.isEmpty)
+              _EmptyState(
+                icon: Icons.calendar_view_month_rounded,
+                title: 'No sets in this time range',
+                message:
+                    '$exercise has no logged sets in ${_window.spokenLabel.toLowerCase()}.',
+                actionLabel: 'SHOW ALL HISTORY',
+                onAction: () => _selectWindow(_TimeWindow.all),
+              )
+            else ...[
+              _StatsGrid(
+                points: points,
+                metric: _metric,
+                unit: widget.store.unit,
+              ),
+              const SizedBox(height: 16),
+              _ChartCard(
+                exercise: exercise,
+                metric: _metric,
+                unit: widget.store.unit,
+                window: _window,
+                points: points,
+                selectedIndex: _scrubbedIndex,
+                selectedPoint: selectedPoint,
+                reveal: _reveal,
+                onScrub: _scrub,
+              ),
+            ],
+            if (exercise != null) ...[
+              const SizedBox(height: 24),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final wide = constraints.maxWidth >= 760;
+                  final recent = _RecentSetsCard(
+                    logs: allExerciseLogs.reversed.take(8).toList(),
+                    unit: widget.store.unit,
+                    onEdit: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => LoggedSetsScreen(
+                          store: widget.store,
+                          exercise: exercise,
+                        ),
+                      ),
+                    ),
+                  );
+                  final records = _PrRecordsCard(
+                    records: _prRecords(
+                      allExerciseLogs,
+                    ).reversed.take(8).toList(),
+                    unit: widget.store.unit,
+                  );
+                  if (!wide) {
+                    return Column(
+                      children: [recent, const SizedBox(height: 16), records],
+                    );
+                  }
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: recent),
+                      const SizedBox(width: 16),
+                      Expanded(child: records),
+                    ],
+                  );
+                },
+              ),
+            ],
           ],
         ),
       ),

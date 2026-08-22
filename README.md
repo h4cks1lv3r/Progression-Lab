@@ -2,7 +2,7 @@
 
 Progression Lab is an original, local-first strength, bodybuilding, and athletic-training application for Android and iOS.
 
-Current version: **2.0.0+13**
+Current version: **2.1.0+14**
 
 The product combines a 48-week Strength program, a 12-week Athletic Functional Training program, a structured exercise library, Daily Inputs and recovery tracking, deterministic performance analysis, optional on-device Gemini narration, data portability, and branded workout sharing.
 

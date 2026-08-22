@@ -79,7 +79,9 @@ extension MuscleGroupInfo on MuscleGroup {
     MuscleGroup.obliques ||
     MuscleGroup.deepCore ||
     MuscleGroup.spinalStabilizers => 'Abs & Core',
-    MuscleGroup.chest || MuscleGroup.upperChest || MuscleGroup.serratus => 'Chest',
+    MuscleGroup.chest ||
+    MuscleGroup.upperChest ||
+    MuscleGroup.serratus => 'Chest',
     MuscleGroup.lats ||
     MuscleGroup.midBack ||
     MuscleGroup.traps ||

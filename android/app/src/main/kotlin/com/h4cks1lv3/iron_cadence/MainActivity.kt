@@ -32,6 +32,8 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class MainActivity : FlutterActivity() {
+    private var integrationBridge: IntegrationBridge? = null
+
     private val aiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var generativeModel: GenerativeModel? = null
     private var generationJob: Job? = null
@@ -44,6 +46,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        integrationBridge = IntegrationBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         val preferences = getSharedPreferences("iron_cadence", MODE_PRIVATE)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "iron_cadence/storage")
             .setMethodCallHandler { call, result ->
@@ -579,4 +582,25 @@ class MainActivity : FlutterActivity() {
         private const val REQUEST_OPEN_DOCUMENT = 4202
         private const val MAX_IMPORT_BYTES = 100 * 1024 * 1024
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        integrationBridge?.handleIntent(intent)
+    }
+
+    override fun onDestroy() {
+        integrationBridge?.dispose()
+        integrationBridge = null
+        super.onDestroy()
+    }
+
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (integrationBridge?.onActivityResult(requestCode, resultCode, data) == true) {
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
+    }
+
 }

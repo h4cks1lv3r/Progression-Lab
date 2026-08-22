@@ -34,18 +34,15 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
     setState(() => _backups = controller.automaticBackups());
   }
 
-  Future<void> _run(
-    Future<void> Function() action, {
-    String? success,
-  }) async {
+  Future<void> _run(Future<void> Function() action, {String? success}) async {
     if (_busy) return;
     setState(() => _busy = true);
     try {
       await action();
       if (!mounted || success == null) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(success)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(success)));
     } on PlatformException catch (error) {
       if (!mounted) return;
       _error(error.message ?? 'The file operation could not be completed.');
@@ -156,10 +153,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
     final imported = await Navigator.push<DataImportBatch>(
       context,
       MaterialPageRoute(
-        builder: (_) => ImportPreviewScreen(
-          controller: controller,
-          plan: plan,
-        ),
+        builder: (_) => ImportPreviewScreen(controller: controller, plan: plan),
       ),
     );
     if (imported == null || !mounted) return;
@@ -172,32 +166,31 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
     );
   }
 
-  Future<String?> _chooseSourceWeightUnit(
-    WorkoutImportSource source,
-  ) => showDialog<String>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('What unit is the source weight?'),
-      content: Text(
-        '${source.label} does not identify the weight unit in this file. '
-        'Choose the unit used when the data was exported.',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('CANCEL'),
+  Future<String?> _chooseSourceWeightUnit(WorkoutImportSource source) =>
+      showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('What unit is the source weight?'),
+          content: Text(
+            '${source.label} does not identify the weight unit in this file. '
+            'Choose the unit used when the data was exported.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('CANCEL'),
+            ),
+            OutlinedButton(
+              onPressed: () => Navigator.pop(dialogContext, 'kg'),
+              child: const Text('KILOGRAMS'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, 'lb'),
+              child: const Text('POUNDS'),
+            ),
+          ],
         ),
-        OutlinedButton(
-          onPressed: () => Navigator.pop(dialogContext, 'kg'),
-          child: const Text('KILOGRAMS'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(dialogContext, 'lb'),
-          child: const Text('POUNDS'),
-        ),
-      ],
-    ),
-  );
+      );
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -230,14 +223,15 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                     onChanged: _busy
                         ? null
                         : (value) => unawaited(
-                              _run(
-                                () => widget.store
-                                    .setAutomaticBackupsEnabled(value),
-                                success: value
-                                    ? 'Automatic backups enabled.'
-                                    : 'Automatic backups disabled.',
+                            _run(
+                              () => widget.store.setAutomaticBackupsEnabled(
+                                value,
                               ),
+                              success: value
+                                  ? 'Automatic backups enabled.'
+                                  : 'Automatic backups disabled.',
                             ),
+                          ),
                   ),
                   FutureBuilder<List<AutomaticBackupInfo>>(
                     future: _backups,
@@ -263,12 +257,12 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                           onPressed: _busy
                               ? null
                               : () => _run(
-                                    () => widget.store.createAutomaticBackup(
-                                      reason: 'manual',
-                                      required: true,
-                                    ),
-                                    success: 'Automatic backup created.',
+                                  () => widget.store.createAutomaticBackup(
+                                    reason: 'manual',
+                                    required: true,
                                   ),
+                                  success: 'Automatic backup created.',
+                                ),
                           icon: const Icon(Icons.backup_rounded),
                           label: const Text('BACK UP NOW'),
                         ),
@@ -279,13 +273,13 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                           onPressed: _busy
                               ? null
                               : () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => AutomaticBackupsScreen(
-                                        controller: controller,
-                                      ),
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => AutomaticBackupsScreen(
+                                      controller: controller,
                                     ),
-                                  ).then((_) => _refreshBackups()),
+                                  ),
+                                ).then((_) => _refreshBackups()),
                           icon: const Icon(Icons.history_rounded),
                           label: const Text('VIEW BACKUPS'),
                         ),
@@ -306,12 +300,9 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               badge: 'FULL',
               onTap: _busy
                   ? null
-                  : () => _run(
-                        () async {
-                          await controller.saveBackup();
-                        },
-                        success: 'Backup ready in the selected location.',
-                      ),
+                  : () => _run(() async {
+                      await controller.saveBackup();
+                    }, success: 'Backup ready in the selected location.'),
             ),
             _ActionTile(
               icon: Icons.ios_share_rounded,
@@ -322,9 +313,9 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               onTap: _busy
                   ? null
                   : () => _run(
-                        controller.shareBackup,
-                        success: 'Backup ready to share.',
-                      ),
+                      controller.shareBackup,
+                      success: 'Backup ready to share.',
+                    ),
             ),
             _ActionTile(
               icon: Icons.restore_rounded,
@@ -345,12 +336,9 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               badge: 'OPEN',
               onTap: _busy
                   ? null
-                  : () => _run(
-                        () async {
-                          await controller.savePortableCsv();
-                        },
-                        success: 'Portable CSV package exported.',
-                      ),
+                  : () => _run(() async {
+                      await controller.savePortableCsv();
+                    }, success: 'Portable CSV package exported.'),
             ),
             _ActionTile(
               icon: Icons.sync_alt_rounded,
@@ -360,12 +348,9 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               badge: 'MIGRATE',
               onTap: _busy
                   ? null
-                  : () => _run(
-                        () async {
-                          await controller.saveStrongCompatibleCsv();
-                        },
-                        success: 'Strong-compatible CSV exported.',
-                      ),
+                  : () => _run(() async {
+                      await controller.saveStrongCompatibleCsv();
+                    }, success: 'Strong-compatible CSV exported.'),
             ),
             const SizedBox(height: 24),
             BrandSectionLabel(
@@ -388,9 +373,9 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                 ),
               )
             else
-              ...widget.store.importHistory.reversed.take(5).map(
-                    (batch) => _ImportHistoryTile(batch: batch),
-                  ),
+              ...widget.store.importHistory.reversed
+                  .take(5)
+                  .map((batch) => _ImportHistoryTile(batch: batch)),
             const SizedBox(height: 18),
             const LabPanel(
               accent: BrandColors.violet,
@@ -402,10 +387,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                   Expanded(
                     child: Text(
                       'Imports are processed locally. Progression Lab creates a safety backup before restore or import and skips detected duplicates by default.',
-                      style: TextStyle(
-                        color: BrandColors.muted,
-                        height: 1.4,
-                      ),
+                      style: TextStyle(color: BrandColors.muted, height: 1.4),
                     ),
                   ),
                 ],
@@ -536,11 +518,7 @@ class _CsvMappingScreenState extends State<CsvMappingScreen> {
               alternateWeight,
               (value) => alternateWeight = value,
             ),
-            _mapping(
-              'WEIGHT UNIT',
-              weightUnit,
-              (value) => weightUnit = value,
-            ),
+            _mapping('WEIGHT UNIT', weightUnit, (value) => weightUnit = value),
             _mapping('REPETITIONS *', reps, (value) => reps = value),
             _mapping('SET NOTES', notes, (value) => notes = value),
             _mapping(
@@ -567,11 +545,7 @@ class _CsvMappingScreenState extends State<CsvMappingScreen> {
             _mapping('SET TYPE', setType, (value) => setType = value),
             _mapping('RPE', rpe, (value) => rpe = value),
             _mapping('RIR', rir, (value) => rir = value),
-            _mapping(
-              'SUPERSET ID',
-              supersetId,
-              (value) => supersetId = value,
-            ),
+            _mapping('SUPERSET ID', supersetId, (value) => supersetId = value),
             _mapping('SOURCE ID', sourceId, (value) => sourceId = value),
             const SizedBox(height: 18),
             GradientAction(
@@ -580,30 +554,30 @@ class _CsvMappingScreenState extends State<CsvMappingScreen> {
               onPressed: date == null || exercise == null || reps == null
                   ? null
                   : () => Navigator.pop(
-                        context,
-                        CsvImportMapping(
-                          date: date!,
-                          exercise: exercise!,
-                          reps: reps!,
-                          endDate: endDate,
-                          workout: workout,
-                          setOrder: setOrder,
-                          weight: weight,
-                          alternateWeight: alternateWeight,
-                          weightUnit: weightUnit,
-                          notes: notes,
-                          workoutNotes: workoutNotes,
-                          workoutDuration: workoutDuration,
-                          setDuration: setDuration,
-                          distance: distance,
-                          distanceUnit: distanceUnit,
-                          setType: setType,
-                          rpe: rpe,
-                          rir: rir,
-                          supersetId: supersetId,
-                          sourceId: sourceId,
-                        ),
+                      context,
+                      CsvImportMapping(
+                        date: date!,
+                        exercise: exercise!,
+                        reps: reps!,
+                        endDate: endDate,
+                        workout: workout,
+                        setOrder: setOrder,
+                        weight: weight,
+                        alternateWeight: alternateWeight,
+                        weightUnit: weightUnit,
+                        notes: notes,
+                        workoutNotes: workoutNotes,
+                        workoutDuration: workoutDuration,
+                        setDuration: setDuration,
+                        distance: distance,
+                        distanceUnit: distanceUnit,
+                        setType: setType,
+                        rpe: rpe,
+                        rir: rir,
+                        supersetId: supersetId,
+                        sourceId: sourceId,
                       ),
+                    ),
             ),
           ],
         ),
@@ -611,11 +585,7 @@ class _CsvMappingScreenState extends State<CsvMappingScreen> {
     ),
   );
 
-  Widget _mapping(
-    String label,
-    String? value,
-    ValueChanged<String?> changed,
-  ) {
+  Widget _mapping(String label, String? value, ValueChanged<String?> changed) {
     final selected = value ?? _unmapped;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -634,9 +604,8 @@ class _CsvMappingScreenState extends State<CsvMappingScreen> {
               child: Text(header, overflow: TextOverflow.ellipsis),
             ),
         ],
-        onChanged: (next) => setState(
-          () => changed(next == _unmapped ? null : next),
-        ),
+        onChanged: (next) =>
+            setState(() => changed(next == _unmapped ? null : next)),
       ),
     );
   }
@@ -840,8 +809,7 @@ class ExerciseMappingScreen extends StatefulWidget {
   final Map<String, String> initialMappings;
 
   @override
-  State<ExerciseMappingScreen> createState() =>
-      _ExerciseMappingScreenState();
+  State<ExerciseMappingScreen> createState() => _ExerciseMappingScreenState();
 }
 
 class _ExerciseMappingScreenState extends State<ExerciseMappingScreen> {
@@ -892,9 +860,7 @@ class _ExerciseMappingScreenState extends State<ExerciseMappingScreen> {
                   DropdownButtonFormField<String>(
                     initialValue: selections[source],
                     isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'IMPORT AS',
-                    ),
+                    decoration: const InputDecoration(labelText: 'IMPORT AS'),
                     items: [
                       DropdownMenuItem<String>(
                         value: _createCustom,
@@ -903,10 +869,7 @@ class _ExerciseMappingScreenState extends State<ExerciseMappingScreen> {
                       for (final target in widget.targetExercises)
                         DropdownMenuItem<String>(
                           value: target,
-                          child: Text(
-                            target,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          child: Text(target, overflow: TextOverflow.ellipsis),
                         ),
                     ],
                     onChanged: (value) {
@@ -930,8 +893,7 @@ class AutomaticBackupsScreen extends StatefulWidget {
   final DataPortabilityController controller;
 
   @override
-  State<AutomaticBackupsScreen> createState() =>
-      _AutomaticBackupsScreenState();
+  State<AutomaticBackupsScreen> createState() => _AutomaticBackupsScreenState();
 }
 
 class _AutomaticBackupsScreenState extends State<AutomaticBackupsScreen> {
@@ -996,9 +958,15 @@ class _AutomaticBackupsScreenState extends State<AutomaticBackupsScreen> {
                       enabled: !busy,
                       onSelected: (value) => _action(value, item),
                       itemBuilder: (_) => const [
-                        PopupMenuItem(value: 'test', child: Text('TEST BACKUP')),
+                        PopupMenuItem(
+                          value: 'test',
+                          child: Text('TEST BACKUP'),
+                        ),
                         PopupMenuItem(value: 'restore', child: Text('RESTORE')),
-                        PopupMenuItem(value: 'export', child: Text('EXPORT COPY')),
+                        PopupMenuItem(
+                          value: 'export',
+                          child: Text('EXPORT COPY'),
+                        ),
                         PopupMenuItem(value: 'delete', child: Text('DELETE')),
                       ],
                     ),
@@ -1017,7 +985,9 @@ class _AutomaticBackupsScreenState extends State<AutomaticBackupsScreen> {
     try {
       switch (action) {
         case 'test':
-          final document = await widget.controller.validateAutomaticBackup(item);
+          final document = await widget.controller.validateAutomaticBackup(
+            item,
+          );
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1048,9 +1018,9 @@ class _AutomaticBackupsScreenState extends State<AutomaticBackupsScreen> {
           if (confirmed == true) {
             await widget.controller.restoreAutomaticBackup(item);
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Backup restored.')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Backup restored.')));
             }
           }
           break;
@@ -1133,7 +1103,10 @@ class _ActionTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   subtitle,

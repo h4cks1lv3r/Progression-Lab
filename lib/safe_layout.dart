@@ -61,17 +61,11 @@ class LabSafeBottomAction extends StatelessWidget {
       decoration: BoxDecoration(
         border: showDivider
             ? Border(
-                top: BorderSide(
-                  color: Colors.white.withValues(alpha: .08),
-                ),
+                top: BorderSide(color: Colors.white.withValues(alpha: .08)),
               )
             : null,
       ),
-      child: SafeArea(
-        top: false,
-        minimum: padding,
-        child: child,
-      ),
+      child: SafeArea(top: false, minimum: padding, child: child),
     ),
   );
 }

@@ -51,10 +51,7 @@ class TodayInputsCard extends StatelessWidget {
                     SizedBox(height: 3),
                     Text(
                       'Supplements, meals, hydration, and recovery',
-                      style: TextStyle(
-                        color: BrandColors.muted,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: BrandColors.muted, fontSize: 12),
                     ),
                   ],
                 ),
@@ -82,7 +79,9 @@ class TodayInputsCard extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  for (final preset in store.activeSupplementPresets.take(4)) ...[
+                  for (final preset in store.activeSupplementPresets.take(
+                    4,
+                  )) ...[
                     ActionChip(
                       avatar: const Icon(Icons.add_rounded, size: 16),
                       label: Text(preset.name),
@@ -179,7 +178,8 @@ class DailyInputsScreen extends StatelessWidget {
                       BrandSectionLabel(
                         'Supplements',
                         trailing: TextButton.icon(
-                          onPressed: () => showSupplementEntrySheet(context, store),
+                          onPressed: () =>
+                              showSupplementEntrySheet(context, store),
                           icon: const Icon(Icons.add_rounded, size: 17),
                           label: const Text('ADD'),
                         ),
@@ -210,11 +210,8 @@ class DailyInputsScreen extends StatelessWidget {
                       const SizedBox(height: 10),
                       _MealList(
                         events: meals,
-                        onEdit: (event) => showMealEntrySheet(
-                          context,
-                          store,
-                          existing: event,
-                        ),
+                        onEdit: (event) =>
+                            showMealEntrySheet(context, store, existing: event),
                         onDelete: (event) => _confirmDelete(
                           context,
                           label: event.name,
@@ -225,7 +222,8 @@ class DailyInputsScreen extends StatelessWidget {
                       BrandSectionLabel(
                         'Hydration',
                         trailing: TextButton.icon(
-                          onPressed: () => showHydrationEntrySheet(context, store),
+                          onPressed: () =>
+                              showHydrationEntrySheet(context, store),
                           icon: const Icon(Icons.add_rounded, size: 17),
                           label: const Text('ADD'),
                         ),
@@ -249,7 +247,9 @@ class DailyInputsScreen extends StatelessWidget {
                             existing: recovery,
                           ),
                           icon: Icon(
-                            recovery == null ? Icons.add_rounded : Icons.edit_rounded,
+                            recovery == null
+                                ? Icons.add_rounded
+                                : Icons.edit_rounded,
                             size: 17,
                           ),
                           label: Text(recovery == null ? 'ADD' : 'EDIT'),
@@ -308,7 +308,8 @@ class SupplementPresetsScreen extends StatelessWidget {
                     GradientAction(
                       label: 'CREATE PRESET',
                       icon: Icons.add_rounded,
-                      onPressed: () => showSupplementPresetSheet(context, store),
+                      onPressed: () =>
+                          showSupplementPresetSheet(context, store),
                     ),
                     const SizedBox(height: 18),
                     for (final preset in store.activeSupplementPresets) ...[
@@ -353,7 +354,8 @@ class SupplementPresetsScreen extends StatelessWidget {
                                 context,
                                 label: preset.name,
                                 actionLabel: 'ARCHIVE',
-                                onDelete: () => store.archiveSupplementPreset(preset.id),
+                                onDelete: () =>
+                                    store.archiveSupplementPreset(preset.id),
                               ),
                               icon: const Icon(Icons.archive_outlined),
                             ),
@@ -531,7 +533,8 @@ class _SupplementList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (events.isEmpty) return const _EmptyPanel('No supplements logged today.');
+    if (events.isEmpty)
+      return const _EmptyPanel('No supplements logged today.');
     return Column(
       children: [
         for (final event in events) ...[
@@ -611,7 +614,10 @@ class _MealList extends StatelessWidget {
             onTap: () => onEdit(event),
             child: Row(
               children: [
-                const Icon(Icons.restaurant_rounded, color: BrandColors.magenta),
+                const Icon(
+                  Icons.restaurant_rounded,
+                  color: BrandColors.magenta,
+                ),
                 const SizedBox(width: 11),
                 Expanded(
                   child: Column(
@@ -705,10 +711,22 @@ class _RecoveryPanel extends StatelessWidget {
         spacing: 18,
         runSpacing: 16,
         children: [
-          _RecoveryMetric('SLEEP', value.sleepHours == null ? '—' : '${_number(value.sleepHours!)} h'),
-          _RecoveryMetric('QUALITY', value.sleepQuality == null ? '—' : '${value.sleepQuality}/5'),
-          _RecoveryMetric('STRESS', value.stress == null ? '—' : '${value.stress}/5'),
-          _RecoveryMetric('SORENESS', value.soreness == null ? '—' : '${value.soreness}/5'),
+          _RecoveryMetric(
+            'SLEEP',
+            value.sleepHours == null ? '—' : '${_number(value.sleepHours!)} h',
+          ),
+          _RecoveryMetric(
+            'QUALITY',
+            value.sleepQuality == null ? '—' : '${value.sleepQuality}/5',
+          ),
+          _RecoveryMetric(
+            'STRESS',
+            value.stress == null ? '—' : '${value.stress}/5',
+          ),
+          _RecoveryMetric(
+            'SORENESS',
+            value.soreness == null ? '—' : '${value.soreness}/5',
+          ),
           _RecoveryMetric(
             'BODYWEIGHT',
             value.bodyWeight == null
@@ -801,7 +819,9 @@ Future<void> showSupplementEntrySheet(
           TextField(
             controller: brand,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(labelText: 'Brand or product (optional)'),
+            decoration: const InputDecoration(
+              labelText: 'Brand or product (optional)',
+            ),
           ),
           const SizedBox(height: 10),
           Row(
@@ -809,7 +829,9 @@ Future<void> showSupplementEntrySheet(
               Expanded(
                 child: TextField(
                   controller: dose,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: const InputDecoration(labelText: 'Dose'),
                 ),
               ),
@@ -862,7 +884,10 @@ Future<void> showSupplementEntrySheet(
               parsedDose <= 0 ||
               parsedCaffeine == null ||
               parsedCaffeine < 0) {
-            _showInputError(context, 'Enter a valid name, dose, unit, and caffeine amount.');
+            _showInputError(
+              context,
+              'Enter a valid name, dose, unit, and caffeine amount.',
+            );
             return;
           }
           final now = DateTime.now();
@@ -906,7 +931,8 @@ Future<void> showSupplementEntrySheet(
       }
     }
   } on Object {
-    if (context.mounted) _showInputError(context, 'The supplement could not be saved.');
+    if (context.mounted)
+      _showInputError(context, 'The supplement could not be saved.');
   } finally {
     name.dispose();
     brand.dispose();
@@ -947,7 +973,9 @@ Future<void> showSupplementPresetSheet(
         const SizedBox(height: 10),
         TextField(
           controller: brand,
-          decoration: const InputDecoration(labelText: 'Brand or product (optional)'),
+          decoration: const InputDecoration(
+            labelText: 'Brand or product (optional)',
+          ),
         ),
         const SizedBox(height: 10),
         Row(
@@ -955,7 +983,9 @@ Future<void> showSupplementPresetSheet(
             Expanded(
               child: TextField(
                 controller: dose,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: const InputDecoration(labelText: 'Dose'),
               ),
             ),
@@ -972,7 +1002,9 @@ Future<void> showSupplementPresetSheet(
         TextField(
           controller: caffeine,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(labelText: 'Caffeine contained (mg)'),
+          decoration: const InputDecoration(
+            labelText: 'Caffeine contained (mg)',
+          ),
         ),
       ],
       onSave: () {
@@ -986,7 +1018,10 @@ Future<void> showSupplementPresetSheet(
             parsedDose <= 0 ||
             parsedCaffeine == null ||
             parsedCaffeine < 0) {
-          _showInputError(context, 'Enter a valid name, dose, unit, and caffeine amount.');
+          _showInputError(
+            context,
+            'Enter a valid name, dose, unit, and caffeine amount.',
+          );
           return;
         }
         final now = DateTime.now();
@@ -1010,7 +1045,8 @@ Future<void> showSupplementPresetSheet(
   try {
     if (value != null) await store.saveSupplementPreset(value);
   } on Object {
-    if (context.mounted) _showInputError(context, 'The preset could not be saved.');
+    if (context.mounted)
+      _showInputError(context, 'The preset could not be saved.');
   } finally {
     name.dispose();
     brand.dispose();
@@ -1030,7 +1066,9 @@ Future<void> showMealEntrySheet(
     text: existing?.calories == null ? '' : _number(existing!.calories!),
   );
   final protein = TextEditingController(
-    text: existing?.proteinGrams == null ? '' : _number(existing!.proteinGrams!),
+    text: existing?.proteinGrams == null
+        ? ''
+        : _number(existing!.proteinGrams!),
   );
   final carbs = TextEditingController(
     text: existing?.carbohydrateGrams == null
@@ -1044,7 +1082,8 @@ Future<void> showMealEntrySheet(
   var when = existing?.occurredAt ?? DateTime.now();
   var size = existing?.size ?? MealSize.medium;
   var timing = existing?.timing ?? MealTiming.general;
-  var detailed = existing?.calories != null ||
+  var detailed =
+      existing?.calories != null ||
       existing?.proteinGrams != null ||
       existing?.carbohydrateGrams != null ||
       existing?.fatGrams != null;
@@ -1094,17 +1133,25 @@ Future<void> showMealEntrySheet(
           if (detailed) ...[
             Row(
               children: [
-                Expanded(child: _NumberField(controller: calories, label: 'Calories')),
+                Expanded(
+                  child: _NumberField(controller: calories, label: 'Calories'),
+                ),
                 const SizedBox(width: 8),
-                Expanded(child: _NumberField(controller: protein, label: 'Protein g')),
+                Expanded(
+                  child: _NumberField(controller: protein, label: 'Protein g'),
+                ),
               ],
             ),
             const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(child: _NumberField(controller: carbs, label: 'Carbs g')),
+                Expanded(
+                  child: _NumberField(controller: carbs, label: 'Carbs g'),
+                ),
                 const SizedBox(width: 8),
-                Expanded(child: _NumberField(controller: fat, label: 'Fat g')),
+                Expanded(
+                  child: _NumberField(controller: fat, label: 'Fat g'),
+                ),
               ],
             ),
           ],
@@ -1125,14 +1172,20 @@ Future<void> showMealEntrySheet(
             if (!detailed || controller.text.trim().isEmpty) return null;
             return double.tryParse(controller.text.trim());
           }
+
           final parsed = [
             optional(calories),
             optional(protein),
             optional(carbs),
             optional(fat),
           ];
-          if (parsed.whereType<double>().any((value) => !value.isFinite || value < 0)) {
-            _showInputError(context, 'Calories and macros must be zero or greater.');
+          if (parsed.whereType<double>().any(
+            (value) => !value.isFinite || value < 0,
+          )) {
+            _showInputError(
+              context,
+              'Calories and macros must be zero or greater.',
+            );
             return;
           }
           final now = DateTime.now();
@@ -1161,7 +1214,8 @@ Future<void> showMealEntrySheet(
   try {
     if (value != null) await store.saveMealEvent(value);
   } on Object {
-    if (context.mounted) _showInputError(context, 'The meal could not be saved.');
+    if (context.mounted)
+      _showInputError(context, 'The meal could not be saved.');
   } finally {
     name.dispose();
     calories.dispose();
@@ -1172,7 +1226,10 @@ Future<void> showMealEntrySheet(
   }
 }
 
-Future<void> showHydrationEntrySheet(BuildContext context, AppStore store) async {
+Future<void> showHydrationEntrySheet(
+  BuildContext context,
+  AppStore store,
+) async {
   final amount = TextEditingController(text: '500');
   final notes = TextEditingController();
   var electrolytes = false;
@@ -1238,7 +1295,8 @@ Future<void> showHydrationEntrySheet(BuildContext context, AppStore store) async
       );
     }
   } on Object {
-    if (context.mounted) _showInputError(context, 'Hydration could not be saved.');
+    if (context.mounted)
+      _showInputError(context, 'Hydration could not be saved.');
   } finally {
     amount.dispose();
     notes.dispose();
@@ -1274,7 +1332,9 @@ Future<void> showRecoveryCheckInSheet(
               Expanded(
                 child: TextField(
                   controller: sleep,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: const InputDecoration(labelText: 'Sleep hours'),
                 ),
               ),
@@ -1282,8 +1342,12 @@ Future<void> showRecoveryCheckInSheet(
               Expanded(
                 child: TextField(
                   controller: bodyweight,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(labelText: 'Bodyweight (${store.unit})'),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Bodyweight (${store.unit})',
+                  ),
                 ),
               ),
             ],
@@ -1335,7 +1399,8 @@ Future<void> showRecoveryCheckInSheet(
             _showInputError(context, 'Sleep hours must be between 0 and 24.');
             return;
           }
-          if (weightValue != null && (!weightValue.isFinite || weightValue <= 0)) {
+          if (weightValue != null &&
+              (!weightValue.isFinite || weightValue <= 0)) {
             _showInputError(context, 'Bodyweight must be above zero.');
             return;
           }
@@ -1364,7 +1429,8 @@ Future<void> showRecoveryCheckInSheet(
   try {
     if (value != null) await store.saveRecoveryCheckIn(value);
   } on Object {
-    if (context.mounted) _showInputError(context, 'The recovery check-in could not be saved.');
+    if (context.mounted)
+      _showInputError(context, 'The recovery check-in could not be saved.');
   } finally {
     sleep.dispose();
     bodyweight.dispose();
@@ -1506,44 +1572,47 @@ class _EntrySheet extends StatelessWidget {
       ),
       child: SingleChildScrollView(
         child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 42,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(4),
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(4),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 18),
-          ...children,
-          const SizedBox(height: 20),
-          if (secondaryLabel == null)
-            GradientAction(label: saveLabel, onPressed: onSave)
-          else
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: onSecondary,
-                    child: Text(secondaryLabel!),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton(onPressed: onSave, child: Text(saveLabel)),
-                ),
-              ],
+            const SizedBox(height: 18),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900),
             ),
+            const SizedBox(height: 18),
+            ...children,
+            const SizedBox(height: 20),
+            if (secondaryLabel == null)
+              GradientAction(label: saveLabel, onPressed: onSave)
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: onSecondary,
+                      child: Text(secondaryLabel!),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: onSave,
+                      child: Text(saveLabel),
+                    ),
+                  ),
+                ],
+              ),
           ],
         ),
       ),
@@ -1623,7 +1692,10 @@ class _RatingInput extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+              child: Text(
+                label,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
             ),
             Text(
               '$value/5',
@@ -1643,9 +1715,15 @@ class _RatingInput extends StatelessWidget {
         ),
         Row(
           children: [
-            Text(lowLabel, style: const TextStyle(color: BrandColors.muted, fontSize: 10)),
+            Text(
+              lowLabel,
+              style: const TextStyle(color: BrandColors.muted, fontSize: 10),
+            ),
             const Spacer(),
-            Text(highLabel, style: const TextStyle(color: BrandColors.muted, fontSize: 10)),
+            Text(
+              highLabel,
+              style: const TextStyle(color: BrandColors.muted, fontSize: 10),
+            ),
           ],
         ),
       ],
@@ -1661,11 +1739,12 @@ Future<void> _quickLogPreset(
   try {
     await store.logSupplementPreset(preset);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${preset.name} logged.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${preset.name} logged.')));
   } on Object {
-    if (context.mounted) _showInputError(context, 'The supplement could not be logged.');
+    if (context.mounted)
+      _showInputError(context, 'The supplement could not be logged.');
   }
 }
 
@@ -1681,7 +1760,8 @@ Future<void> _quickHydration(
       SnackBar(content: Text('${amount.round()} mL hydration logged.')),
     );
   } on Object {
-    if (context.mounted) _showInputError(context, 'Hydration could not be logged.');
+    if (context.mounted)
+      _showInputError(context, 'Hydration could not be logged.');
   }
 }
 
@@ -1712,7 +1792,8 @@ Future<void> _confirmDelete(
   try {
     await onDelete();
   } on Object {
-    if (context.mounted) _showInputError(context, 'The entry could not be changed.');
+    if (context.mounted)
+      _showInputError(context, 'The entry could not be changed.');
   }
 }
 
@@ -1727,7 +1808,11 @@ String _formatMl(double amount) => amount >= 1000
 String _number(double value) => value.toStringAsFixed(value % 1 == 0 ? 0 : 1);
 
 String _time(DateTime value) {
-  final hour = value.hour == 0 ? 12 : value.hour > 12 ? value.hour - 12 : value.hour;
+  final hour = value.hour == 0
+      ? 12
+      : value.hour > 12
+      ? value.hour - 12
+      : value.hour;
   final minute = value.minute.toString().padLeft(2, '0');
   final suffix = value.hour >= 12 ? 'PM' : 'AM';
   return '$hour:$minute $suffix';

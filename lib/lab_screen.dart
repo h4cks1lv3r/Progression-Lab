@@ -96,7 +96,9 @@ class _LabScreenState extends State<LabScreen> {
     if (!mounted) return;
     setState(() => _status = status);
     if (!status.canGenerate) {
-      _snack('Gemini Nano is not ready on this device. Lab Core remains available.');
+      _snack(
+        'Gemini Nano is not ready on this device. Lab Core remains available.',
+      );
       return;
     }
     final report = _report;
@@ -119,7 +121,8 @@ class _LabScreenState extends State<LabScreen> {
         systemInstruction: _systemInstruction,
         prompt: prompt,
       );
-      if (result.text.isEmpty) throw StateError('Gemini returned an empty answer.');
+      if (result.text.isEmpty)
+        throw StateError('Gemini returned an empty answer.');
       await widget.store.addLabMessage(
         LabMessage(
           id: createRecordId('lab-assistant'),
@@ -233,7 +236,8 @@ class _LabScreenState extends State<LabScreen> {
                               SizedBox(
                                 width: double.infinity,
                                 child: FilledButton.icon(
-                                  onPressed: _generating ||
+                                  onPressed:
+                                      _generating ||
                                           _status?.canGenerate != true
                                       ? null
                                       : () {
@@ -313,7 +317,9 @@ class _LabScreenState extends State<LabScreen> {
   }
 
   void _snack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -343,7 +349,10 @@ class InputsPerformanceScreen extends StatelessWidget {
                     children: [
                       const Text(
                         'Deterministic comparisons connect logged supplements, meals, and recovery with similar workouts. No AI is required.',
-                        style: TextStyle(color: BrandColors.muted, height: 1.45),
+                        style: TextStyle(
+                          color: BrandColors.muted,
+                          height: 1.45,
+                        ),
                       ),
                       const SizedBox(height: 18),
                       for (final evidence in report.evidence) ...[
@@ -385,8 +394,8 @@ class LabEvidenceCard extends StatelessWidget {
               Icon(
                 evidence.hasEnoughData
                     ? evidence.positive
-                        ? Icons.trending_up_rounded
-                        : Icons.trending_down_rounded
+                          ? Icons.trending_up_rounded
+                          : Icons.trending_down_rounded
                     : Icons.hourglass_top_rounded,
                 color: color,
               ),
@@ -505,8 +514,8 @@ class _AiControlPanel extends StatelessWidget {
     final description = !enabled
         ? 'Off. No model calls are made. Lab Core still works.'
         : checking
-            ? 'Checking on-device Gemini Nano availability…'
-            : _statusText(status);
+        ? 'Checking on-device Gemini Nano availability…'
+        : _statusText(status);
     return LabPanel(
       accent: enabled ? BrandColors.cyan : BrandColors.line,
       child: Column(
@@ -520,7 +529,9 @@ class _AiControlPanel extends StatelessWidget {
               'Use AI Analysis',
               style: TextStyle(fontWeight: FontWeight.w900),
             ),
-            subtitle: const Text('Optional · off by default · no cloud fallback'),
+            subtitle: const Text(
+              'Optional · off by default · no cloud fallback',
+            ),
           ),
           const Divider(),
           Row(
@@ -533,7 +544,11 @@ class _AiControlPanel extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               else
-                Icon(_statusIcon(status), color: _statusColor(status), size: 20),
+                Icon(
+                  _statusIcon(status),
+                  color: _statusColor(status),
+                  size: 20,
+                ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -698,38 +713,38 @@ Future<void> _showDataPacket(BuildContext context, LabReport report) async {
       top: false,
       child: DraggableScrollableSheet(
         expand: false,
-      initialChildSize: .82,
-      minChildSize: .5,
-      maxChildSize: .95,
-      builder: (context, controller) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'DATA USED FOR THIS ANALYSIS',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'This is the structured packet sent to Gemini Nano when AI analysis is enabled.',
-              style: TextStyle(color: BrandColors.muted),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: SingleChildScrollView(
-                controller: controller,
-                child: SelectableText(
-                  report.toPromptPacket(),
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    height: 1.35,
+        initialChildSize: .82,
+        minChildSize: .5,
+        maxChildSize: .95,
+        builder: (context, controller) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'DATA USED FOR THIS ANALYSIS',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'This is the structured packet sent to Gemini Nano when AI analysis is enabled.',
+                style: TextStyle(color: BrandColors.muted),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: controller,
+                  child: SelectableText(
+                    report.toPromptPacket(),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      height: 1.35,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
           ),
         ),
       ),
@@ -755,21 +770,22 @@ String _statusText(GeminiNanoStatus? status) {
   };
 }
 
-IconData _statusIcon(GeminiNanoStatus? status) => switch (status?.availability) {
-  GeminiNanoAvailability.available => Icons.check_circle_rounded,
-  GeminiNanoAvailability.downloadable => Icons.download_rounded,
-  GeminiNanoAvailability.downloading => Icons.downloading_rounded,
-  GeminiNanoAvailability.unavailable || GeminiNanoAvailability.unsupported =>
-    Icons.phone_android_rounded,
-  _ => Icons.info_outline_rounded,
-};
+IconData _statusIcon(GeminiNanoStatus? status) =>
+    switch (status?.availability) {
+      GeminiNanoAvailability.available => Icons.check_circle_rounded,
+      GeminiNanoAvailability.downloadable => Icons.download_rounded,
+      GeminiNanoAvailability.downloading => Icons.downloading_rounded,
+      GeminiNanoAvailability.unavailable ||
+      GeminiNanoAvailability.unsupported => Icons.phone_android_rounded,
+      _ => Icons.info_outline_rounded,
+    };
 
 Color _statusColor(GeminiNanoStatus? status) => switch (status?.availability) {
   GeminiNanoAvailability.available => BrandColors.cyan,
-  GeminiNanoAvailability.downloadable || GeminiNanoAvailability.downloading =>
-    BrandColors.violet,
-  GeminiNanoAvailability.unavailable || GeminiNanoAvailability.unsupported =>
-    BrandColors.muted,
+  GeminiNanoAvailability.downloadable ||
+  GeminiNanoAvailability.downloading => BrandColors.violet,
+  GeminiNanoAvailability.unavailable ||
+  GeminiNanoAvailability.unsupported => BrandColors.muted,
   _ => BrandColors.magenta,
 };
 

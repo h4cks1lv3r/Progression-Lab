@@ -8,7 +8,6 @@ import 'store.dart';
 const _cyan = BrandColors.cyan;
 const _violet = BrandColors.violet;
 
-
 extension _FirstOrNull<T> on Iterable<T> {
   T? get firstOrNull {
     final iterator = this.iterator;
@@ -137,7 +136,8 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                   onOpen: _openDetail,
                 ),
               ],
-              if (showDiscovery && widget.store.favoriteExercises.isNotEmpty) ...[
+              if (showDiscovery &&
+                  widget.store.favoriteExercises.isNotEmpty) ...[
                 const SizedBox(height: 24),
                 const _SectionTitle('FAVORITES'),
                 const SizedBox(height: 10),
@@ -165,10 +165,12 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
               ),
               const SizedBox(height: 10),
               if (results.isEmpty)
-                _EmptyResults(onClear: () {
-                  _search.clear();
-                  _clearFilters();
-                })
+                _EmptyResults(
+                  onClear: () {
+                    _search.clear();
+                    _clearFilters();
+                  },
+                )
               else
                 Card(
                   margin: EdgeInsets.zero,
@@ -349,10 +351,8 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
   Future<void> _openEditor({CustomExercise? exercise}) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ExerciseEditorScreen(
-          store: widget.store,
-          exercise: exercise,
-        ),
+        builder: (_) =>
+            ExerciseEditorScreen(store: widget.store, exercise: exercise),
       ),
     );
   }
@@ -360,10 +360,8 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
   Future<void> _openDetail(ExerciseOption option) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ExerciseDetailScreen(
-          store: widget.store,
-          option: option,
-        ),
+        builder: (_) =>
+            ExerciseDetailScreen(store: widget.store, option: option),
       ),
     );
   }
@@ -387,14 +385,16 @@ class ExerciseDetailScreen extends StatelessWidget {
           .where((item) => item.id == option.id)
           .firstOrNull;
       final current = fresh ?? option;
-      final history = store.logs
-          .where(
-            (log) => log.exerciseId == current.id ||
-                ExerciseLibrary.normalize(log.exercise) ==
-                    ExerciseLibrary.normalize(current.name),
-          )
-          .toList()
-        ..sort((a, b) => b.date.compareTo(a.date));
+      final history =
+          store.logs
+              .where(
+                (log) =>
+                    log.exerciseId == current.id ||
+                    ExerciseLibrary.normalize(log.exercise) ==
+                        ExerciseLibrary.normalize(current.name),
+              )
+              .toList()
+            ..sort((a, b) => b.date.compareTo(a.date));
       final best = store.best(current.name, exerciseId: current.id);
       final descriptor = store.exerciseDescriptor(
         id: current.id,
@@ -435,10 +435,7 @@ class ExerciseDetailScreen extends StatelessWidget {
               _MetadataPanel(option: current),
               if (current.notes.trim().isNotEmpty) ...[
                 const SizedBox(height: 18),
-                _InfoPanel(
-                  title: 'SETUP & CUES',
-                  body: current.notes,
-                ),
+                _InfoPanel(title: 'SETUP & CUES', body: current.notes),
               ],
               const SizedBox(height: 18),
               _InfoPanel(
@@ -533,10 +530,10 @@ class ExerciseDetailScreen extends StatelessWidget {
                   },
                   icon: Icon(
                     store.customExercises
-                            .where((item) => item.id == current.id)
-                            .firstOrNull
-                            ?.isArchived ==
-                        true
+                                .where((item) => item.id == current.id)
+                                .firstOrNull
+                                ?.isArchived ==
+                            true
                         ? Icons.unarchive_rounded
                         : Icons.archive_outlined,
                   ),
@@ -566,8 +563,8 @@ class ExerciseDetailScreen extends StatelessWidget {
     ExerciseTrackingType type,
     String unit,
   ) => switch (type) {
-    ExerciseTrackingType.bodyweightReps || ExerciseTrackingType.repsOnly =>
-      '${log.reps} reps',
+    ExerciseTrackingType.bodyweightReps ||
+    ExerciseTrackingType.repsOnly => '${log.reps} reps',
     ExerciseTrackingType.assistedBodyweight =>
       '${log.weight.toStringAsFixed(log.weight % 1 == 0 ? 0 : 1)} $unit assistance × ${log.reps}',
     ExerciseTrackingType.duration => '${log.durationSeconds ?? 0}s',
@@ -580,11 +577,7 @@ class ExerciseDetailScreen extends StatelessWidget {
 }
 
 class ExerciseEditorScreen extends StatefulWidget {
-  const ExerciseEditorScreen({
-    super.key,
-    required this.store,
-    this.exercise,
-  });
+  const ExerciseEditorScreen({super.key, required this.store, this.exercise});
 
   final AppStore store;
   final CustomExercise? exercise;
@@ -722,7 +715,8 @@ class _ExerciseEditorScreenState extends State<ExerciseEditorScreen> {
       unitOverride: _unitOverride,
       defaultRestSeconds: rest != null && rest > 0 ? rest : null,
       isPrimaryCompound: _isCompound,
-      warmupEligible: _isCompound &&
+      warmupEligible:
+          _isCompound &&
           _warmupEligible &&
           _tracking == ExerciseTrackingType.weightReps,
       notes: _notes.text.trim(),
@@ -756,7 +750,8 @@ class _ExerciseEditorScreenState extends State<ExerciseEditorScreen> {
       if (mounted) {
         setState(() {
           _saving = false;
-          _error = 'The exercise was not saved. Your existing data is unchanged.';
+          _error =
+              'The exercise was not saved. Your existing data is unchanged.';
         });
       }
     }
@@ -772,7 +767,9 @@ class _ExerciseEditorScreenState extends State<ExerciseEditorScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text(widget.exercise == null ? 'Create Exercise' : 'Edit Exercise'),
+      title: Text(
+        widget.exercise == null ? 'Create Exercise' : 'Edit Exercise',
+      ),
       leading: IconButton(
         tooltip: 'Back',
         onPressed: _back,
@@ -884,8 +881,7 @@ class _ExerciseEditorScreenState extends State<ExerciseEditorScreen> {
                   unilateral: _unilateral,
                   onEquipment: (value) => setState(() => _equipment = value),
                   onPattern: (value) => setState(() => _pattern = value),
-                  onUnilateral: (value) =>
-                      setState(() => _unilateral = value),
+                  onUnilateral: (value) => setState(() => _unilateral = value),
                 ),
                 _TrackingStep(
                   selected: _tracking,
@@ -907,8 +903,7 @@ class _ExerciseEditorScreenState extends State<ExerciseEditorScreen> {
                     _isCompound = value;
                     if (!value) _warmupEligible = false;
                   }),
-                  onWarmup: (value) =>
-                      setState(() => _warmupEligible = value),
+                  onWarmup: (value) => setState(() => _warmupEligible = value),
                 ),
                 _ReviewStep(
                   name: _name.text.trim(),
@@ -949,7 +944,8 @@ class _IdentityStep extends StatelessWidget {
     children: [
       const _StepIntro(
         title: 'NAME THE MOVEMENT',
-        body: 'Use the name you will recognize mid-session. Aliases make imported and abbreviated names easy to find.',
+        body:
+            'Use the name you will recognize mid-session. Aliases make imported and abbreviated names easy to find.',
       ),
       const SizedBox(height: 20),
       TextField(
@@ -1012,7 +1008,8 @@ class _MuscleStep extends StatelessWidget {
     children: [
       const _StepIntro(
         title: 'MAP THE MUSCLES',
-        body: 'Primary muscle drives volume and Lab analysis. Add secondary muscles for better filtering and substitutions.',
+        body:
+            'Primary muscle drives volume and Lab analysis. Add secondary muscles for better filtering and substitutions.',
       ),
       const SizedBox(height: 20),
       DropdownButtonFormField<MuscleGroup>(
@@ -1066,7 +1063,8 @@ class _SetupStep extends StatelessWidget {
     children: [
       const _StepIntro(
         title: 'DEFINE THE SETUP',
-        body: 'Equipment and movement pattern help the app recommend smart substitutes instead of random same-muscle swaps.',
+        body:
+            'Equipment and movement pattern help the app recommend smart substitutes instead of random same-muscle swaps.',
       ),
       const SizedBox(height: 20),
       DropdownButtonFormField<ExerciseEquipment>(
@@ -1123,7 +1121,8 @@ class _TrackingStep extends StatelessWidget {
     children: [
       const _StepIntro(
         title: 'CHOOSE WHAT GETS LOGGED',
-        body: 'The tracking type controls set fields, PRs, charts, volume, and imports. Bodyweight movements never need a fake weight entry.',
+        body:
+            'The tracking type controls set fields, PRs, charts, volume, and imports. Bodyweight movements never need a fake weight entry.',
       ),
       const SizedBox(height: 18),
       for (final value in ExerciseTrackingType.values)
@@ -1165,14 +1164,18 @@ class _ProgressionStep extends StatelessWidget {
     children: [
       const _StepIntro(
         title: 'SET THE DEFAULTS',
-        body: 'Keep it simple now. You can adjust rest and unit preferences later without changing the movement identity.',
+        body:
+            'Keep it simple now. You can adjust rest and unit preferences later without changing the movement identity.',
       ),
       const SizedBox(height: 20),
       DropdownButtonFormField<String?>(
         initialValue: unitOverride,
         decoration: const InputDecoration(labelText: 'WEIGHT UNIT'),
         items: const [
-          DropdownMenuItem<String?>(value: null, child: Text('Use app default')),
+          DropdownMenuItem<String?>(
+            value: null,
+            child: Text('Use app default'),
+          ),
           DropdownMenuItem<String?>(value: 'lb', child: Text('Pounds (lb)')),
           DropdownMenuItem<String?>(value: 'kg', child: Text('Kilograms (kg)')),
         ],
@@ -1243,7 +1246,8 @@ class _ReviewStep extends StatelessWidget {
     children: [
       const _StepIntro(
         title: 'REVIEW THE SETUP',
-        body: 'Built, not guessed. Confirm the movement before it enters your library.',
+        body:
+            'Built, not guessed. Confirm the movement before it enters your library.',
       ),
       const SizedBox(height: 20),
       Container(
@@ -1313,7 +1317,10 @@ class _ReviewRow extends StatelessWidget {
           child: Text(label, style: const TextStyle(color: Colors.white54)),
         ),
         Expanded(
-          child: Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
+          child: Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
         ),
       ],
     ),
@@ -1358,7 +1365,10 @@ class _TrackingTypeCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(value.label, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  Text(
+                    value.label,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
                   const SizedBox(height: 3),
                   Text(
                     _trackingDescription(value),
@@ -1375,20 +1385,27 @@ class _TrackingTypeCard extends StatelessWidget {
 
   static String _trackingDescription(ExerciseTrackingType value) =>
       switch (value) {
-        ExerciseTrackingType.weightReps => 'Barbells, dumbbells, cables, and machines.',
-        ExerciseTrackingType.bodyweightReps => 'Reps only. No weight field required.',
-        ExerciseTrackingType.weightedBodyweight => 'Added weight plus reps or hold time.',
-        ExerciseTrackingType.assistedBodyweight => 'Assistance plus reps; less assistance is progress.',
+        ExerciseTrackingType.weightReps =>
+          'Barbells, dumbbells, cables, and machines.',
+        ExerciseTrackingType.bodyweightReps =>
+          'Reps only. No weight field required.',
+        ExerciseTrackingType.weightedBodyweight =>
+          'Added weight plus reps or hold time.',
+        ExerciseTrackingType.assistedBodyweight =>
+          'Assistance plus reps; less assistance is progress.',
         ExerciseTrackingType.repsOnly => 'Count repetitions without load.',
         ExerciseTrackingType.weightOnly => 'Track the heaviest completed load.',
         ExerciseTrackingType.duration => 'Holds, mobility, and timed work.',
         ExerciseTrackingType.durationWeight => 'Timed loaded carries or holds.',
-        ExerciseTrackingType.distanceDuration => 'Cardio distance and elapsed time.',
+        ExerciseTrackingType.distanceDuration =>
+          'Cardio distance and elapsed time.',
         ExerciseTrackingType.weightDistance => 'Loaded carries and sled work.',
         ExerciseTrackingType.repsDuration => 'Repetition count and work time.',
         ExerciseTrackingType.repsDistance => 'Repetition count and distance.',
-        ExerciseTrackingType.distanceOnly => 'Distance without a required time.',
-        ExerciseTrackingType.caloriesDuration => 'Machine calories and elapsed time.',
+        ExerciseTrackingType.distanceOnly =>
+          'Distance without a required time.',
+        ExerciseTrackingType.caloriesDuration =>
+          'Machine calories and elapsed time.',
       };
 }
 
@@ -1410,7 +1427,10 @@ class _ExerciseTile extends StatelessWidget {
       backgroundColor: _cyan.withValues(alpha: .1),
       child: Icon(_muscleIcon(option.primaryMuscle), color: _cyan, size: 20),
     ),
-    title: Text(option.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+    title: Text(
+      option.name,
+      style: const TextStyle(fontWeight: FontWeight.w800),
+    ),
     subtitle: Text(
       '${option.primaryMuscle.label} · ${option.equipment.label}\n${option.trackingType.label}',
       maxLines: 2,
@@ -1465,7 +1485,10 @@ class _HorizontalExerciseRail extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       item.primaryMuscle.label,
-                      style: const TextStyle(color: Colors.white54, fontSize: 11),
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                      ),
                     ),
                   ],
                 ),
@@ -1487,10 +1510,7 @@ class _ExerciseHero extends StatelessWidget {
     padding: const EdgeInsets.all(20),
     decoration: BoxDecoration(
       gradient: LinearGradient(
-        colors: [
-          _violet.withValues(alpha: .2),
-          _cyan.withValues(alpha: .08),
-        ],
+        colors: [_violet.withValues(alpha: .2), _cyan.withValues(alpha: .08)],
       ),
       borderRadius: BorderRadius.circular(24),
       border: Border.all(color: _violet.withValues(alpha: .34)),
@@ -1504,7 +1524,11 @@ class _ExerciseHero extends StatelessWidget {
             color: _cyan.withValues(alpha: .12),
             borderRadius: BorderRadius.circular(18),
           ),
-          child: Icon(_muscleIcon(option.primaryMuscle), color: _cyan, size: 30),
+          child: Icon(
+            _muscleIcon(option.primaryMuscle),
+            color: _cyan,
+            size: 30,
+          ),
         ),
         const SizedBox(width: 15),
         Expanded(
@@ -1523,7 +1547,10 @@ class _ExerciseHero extends StatelessWidget {
               const SizedBox(height: 5),
               Text(
                 option.name,
-                style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
+                style: const TextStyle(
+                  fontSize: 23,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ],
           ),
@@ -1552,10 +1579,8 @@ class _MetadataPanel extends StatelessWidget {
           _MetaChip(option.equipment.label, _violet),
           _MetaChip(option.movementPattern.label, Colors.white54),
           _MetaChip(option.trackingType.label, _cyan),
-          if (option.isPrimaryCompound)
-            const _MetaChip('Compound', _violet),
-          if (option.warmupEligible)
-            const _MetaChip('Auto Warm-Up', _cyan),
+          if (option.isPrimaryCompound) const _MetaChip('Compound', _violet),
+          if (option.warmupEligible) const _MetaChip('Auto Warm-Up', _cyan),
         ],
       ),
     ),
@@ -1603,7 +1628,10 @@ class _InfoPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(body, style: const TextStyle(color: Colors.white70, height: 1.45)),
+          Text(
+            body,
+            style: const TextStyle(color: Colors.white70, height: 1.45),
+          ),
         ],
       ),
     ),
@@ -1645,7 +1673,10 @@ class _StepIntro extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+      Text(
+        title,
+        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+      ),
       const SizedBox(height: 7),
       Text(body, style: const TextStyle(color: Colors.white60, height: 1.45)),
     ],
@@ -1666,7 +1697,10 @@ class _SheetHeading extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900)),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900),
+            ),
             const SizedBox(height: 3),
             Text(subtitle, style: const TextStyle(color: Colors.white54)),
           ],
@@ -1745,7 +1779,8 @@ class _ActiveFilters extends StatelessWidget {
             children: [
               if (favoritesOnly) const _MetaChip('Favorites', _violet),
               if (customOnly) const _MetaChip('Custom', _cyan),
-              if (archivedOnly) const _MetaChip('Archived', Colors.orangeAccent),
+              if (archivedOnly)
+                const _MetaChip('Archived', Colors.orangeAccent),
               for (final value in muscles.take(2)) ...[
                 const SizedBox(width: 6),
                 _MetaChip(value.label, _cyan),
@@ -1779,7 +1814,10 @@ class _EmptyResults extends StatelessWidget {
         children: [
           const Icon(Icons.search_off_rounded, color: Colors.white38, size: 38),
           const SizedBox(height: 10),
-          const Text('No exercise matches that setup.', style: TextStyle(fontWeight: FontWeight.w800)),
+          const Text(
+            'No exercise matches that setup.',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
           const SizedBox(height: 5),
           const Text(
             'Clear a filter or create a movement that matches your equipment.',

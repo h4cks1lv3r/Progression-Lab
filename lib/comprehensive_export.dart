@@ -97,9 +97,7 @@ abstract final class ComprehensivePortableExport {
     return rows;
   }
 
-  static List<List<Object?>> _supplementPresetRows(
-    Map<String, dynamic> state,
-  ) {
+  static List<List<Object?>> _supplementPresetRows(Map<String, dynamic> state) {
     final rows = <List<Object?>>[
       <Object?>[
         'preset_id',
@@ -129,9 +127,7 @@ abstract final class ComprehensivePortableExport {
     return rows;
   }
 
-  static List<List<Object?>> _supplementEventRows(
-    Map<String, dynamic> state,
-  ) {
+  static List<List<Object?>> _supplementEventRows(Map<String, dynamic> state) {
     final rows = <List<Object?>>[
       <Object?>[
         'event_id',
@@ -288,9 +284,7 @@ abstract final class ComprehensivePortableExport {
     return rows;
   }
 
-  static List<List<Object?>> _workoutResponseRows(
-    Map<String, dynamic> state,
-  ) {
+  static List<List<Object?>> _workoutResponseRows(Map<String, dynamic> state) {
     final rows = <List<Object?>>[
       <Object?>[
         'response_id',
@@ -326,15 +320,14 @@ abstract final class ComprehensivePortableExport {
     return rows;
   }
 
-  static List<List<Object?>> _labPreferenceRows(
-    Map<String, dynamic> state,
-  ) => <List<Object?>>[
-    <Object?>['ai_analysis_enabled', 'enabled_data_domains'],
-    <Object?>[
-      state['aiAnalysisEnabled'] == true,
-      _joinedList(state['labDataDomains']),
-    ],
-  ];
+  static List<List<Object?>> _labPreferenceRows(Map<String, dynamic> state) =>
+      <List<Object?>>[
+        <Object?>['ai_analysis_enabled', 'enabled_data_domains'],
+        <Object?>[
+          state['aiAnalysisEnabled'] == true,
+          _joinedList(state['labDataDomains']),
+        ],
+      ];
 
   static String _joinedList(Object? value) =>
       value is List ? value.map((item) => '$item').join('|') : '';

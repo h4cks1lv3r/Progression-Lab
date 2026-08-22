@@ -120,7 +120,8 @@ class _AppTourOverlayState extends State<AppTourOverlay>
           duration: duration,
           curve: Curves.easeInOutCubic,
           builder: (context, progress, _) {
-            final rect = Rect.lerp(_fromRect, _targetRect, progress) ?? Rect.zero;
+            final rect =
+                Rect.lerp(_fromRect, _targetRect, progress) ?? Rect.zero;
             return AnimatedBuilder(
               animation: _pulse,
               builder: (context, _) => LayoutBuilder(
@@ -181,9 +182,10 @@ class _AppTourOverlayState extends State<AppTourOverlay>
     const horizontalMargin = 16.0;
     const cardHeight = 260.0;
     final width = math.min(382.0, size.width - horizontalMargin * 2);
-    final left = ((target.center.dx - width / 2)
-            .clamp(horizontalMargin, size.width - width - horizontalMargin))
-        .toDouble();
+    final left = ((target.center.dx - width / 2).clamp(
+      horizontalMargin,
+      size.width - width - horizontalMargin,
+    )).toDouble();
     final safeTop = MediaQuery.paddingOf(context).top + 12;
     final safeBottom = MediaQuery.paddingOf(context).bottom + 12;
     final below = target.bottom + 20;
@@ -260,9 +262,7 @@ class _TourFactCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: BrandColors.panelHigh,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: BrandColors.violet.withValues(alpha: .5),
-        ),
+        border: Border.all(color: BrandColors.violet.withValues(alpha: .5)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: .5),
@@ -286,10 +286,7 @@ class _TourFactCard extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              TextButton(
-                onPressed: onSkip,
-                child: const Text('SKIP TOUR'),
-              ),
+              TextButton(onPressed: onSkip, child: const Text('SKIP TOUR')),
             ],
           ),
           Text(
@@ -305,10 +302,7 @@ class _TourFactCard extends StatelessWidget {
             child: SingleChildScrollView(
               child: Text(
                 step.body,
-                style: const TextStyle(
-                  color: BrandColors.muted,
-                  height: 1.42,
-                ),
+                style: const TextStyle(color: BrandColors.muted, height: 1.42),
               ),
             ),
           ),
@@ -360,9 +354,7 @@ class _TourScrimPainter extends CustomPainter {
     }
     final radius = 20.0 + pulse * 2;
     final targetPath = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(target, Radius.circular(radius)),
-      );
+      ..addRRect(RRect.fromRectAndRadius(target, Radius.circular(radius)));
     final scrim = Path.combine(PathOperation.difference, fullPath, targetPath);
     canvas.drawPath(
       scrim,
@@ -373,11 +365,7 @@ class _TourScrimPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.2 + pulse * 1.8
-        ..color = Color.lerp(
-          BrandColors.cyan,
-          BrandColors.violet,
-          pulse,
-        )!
+        ..color = Color.lerp(BrandColors.cyan, BrandColors.violet, pulse)!
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, 5 + pulse * 4),
     );
   }

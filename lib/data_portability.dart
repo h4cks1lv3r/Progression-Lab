@@ -61,14 +61,11 @@ class DataPortabilityController {
     mimeType: 'application/zip',
   );
 
-  Future<String?> saveStrongCompatibleCsv() =>
-      DataPortabilityBridge.saveFile(
-        bytes: ProgressionCsvExport.encodeStrongCompatibleCsv(
-          store.exportState(),
-        ),
-        fileName: 'Progression-Lab-Strong-Compatible-${_dateStamp()}.csv',
-        mimeType: 'text/csv',
-      );
+  Future<String?> saveStrongCompatibleCsv() => DataPortabilityBridge.saveFile(
+    bytes: ProgressionCsvExport.encodeStrongCompatibleCsv(store.exportState()),
+    fileName: 'Progression-Lab-Strong-Compatible-${_dateStamp()}.csv',
+    mimeType: 'text/csv',
+  );
 
   Future<DataImportCandidate?> pickImportFile() async {
     final file = await DataPortabilityBridge.pickFile();
@@ -114,10 +111,7 @@ class DataPortabilityController {
     bool skipDuplicates = true,
     Map<String, String> exerciseMappings = const {},
   }) async {
-    await store.createAutomaticBackup(
-      reason: 'before-import',
-      required: true,
-    );
+    await store.createAutomaticBackup(reason: 'before-import', required: true);
     return store.applyImport(
       plan,
       skipDuplicates: skipDuplicates,
@@ -126,10 +120,7 @@ class DataPortabilityController {
   }
 
   Future<void> restoreDocument(PortableBackupDocument document) async {
-    await store.createAutomaticBackup(
-      reason: 'before-restore',
-      required: true,
-    );
+    await store.createAutomaticBackup(reason: 'before-restore', required: true);
     await store.restoreState(document.state);
     await store.createAutomaticBackup(reason: 'after-restore');
   }

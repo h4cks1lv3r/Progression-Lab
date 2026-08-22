@@ -1,493 +1,450 @@
 import 'exercise_models.dart';
 
 abstract final class BuiltInExercises {
-  static const barbellBenchPress =
-      BuiltInExercise(
-        id: 'barbell_bench_press',
-        name: 'Barbell Bench Press',
-        primaryMuscle: MuscleGroup.chest,
-        equipment: ExerciseEquipment.barbell,
-        movementPattern: MovementPattern.horizontalPush,
-        aliases: const ['Bench Press', 'Flat Bench'],
-        secondaryMuscles: const [MuscleGroup.triceps, MuscleGroup.frontDelts],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const closeGripBenchPress =
-      BuiltInExercise(
-        id: 'close_grip_bench_press',
-        name: 'Close-Grip Bench Press',
-        primaryMuscle: MuscleGroup.triceps,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.horizontalPush,
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const inclineBarbellBench =
-      BuiltInExercise(
-        id: 'incline_barbell_bench',
-        name: 'Incline Barbell Bench',
-        primaryMuscle: MuscleGroup.upperChest,
-        equipment: ExerciseEquipment.barbell,
-        movementPattern: MovementPattern.horizontalPush,
-        secondaryMuscles: const [MuscleGroup.triceps, MuscleGroup.frontDelts],
-      );
-  static const reverseGripBenchPress =
-      BuiltInExercise(
-        id: 'reverse_grip_bench_press',
-        name: 'Reverse-Grip Bench Press',
-        primaryMuscle: MuscleGroup.upperChest,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.horizontalPush,
-        secondaryMuscles: const [MuscleGroup.triceps, MuscleGroup.frontDelts],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const dumbbellBenchPress =
-      BuiltInExercise(
-        id: 'dumbbell_bench_press',
-        name: 'Dumbbell Bench Press',
-        primaryMuscle: MuscleGroup.chest,
-        equipment: ExerciseEquipment.dumbbell,
-        movementPattern: MovementPattern.horizontalPush,
-        aliases: const ['DB Bench Press'],
-        secondaryMuscles: const [MuscleGroup.triceps, MuscleGroup.frontDelts],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const inclineDumbbellPress =
-      BuiltInExercise(
-        id: 'incline_dumbbell_press',
-        name: 'Incline Dumbbell Press',
-        primaryMuscle: MuscleGroup.upperChest,
-        equipment: ExerciseEquipment.dumbbell,
-        movementPattern: MovementPattern.horizontalPush,
-        aliases: const ['Incline DB Press'],
-        secondaryMuscles: const [MuscleGroup.triceps, MuscleGroup.frontDelts],
-      );
-  static const dip =
-      BuiltInExercise(
-        id: 'dip',
-        name: 'Dip',
-        primaryMuscle: MuscleGroup.chest,
-        equipment: ExerciseEquipment.dipStation,
-        movementPattern: MovementPattern.horizontalPush,
-        secondaryMuscles: const [MuscleGroup.triceps, MuscleGroup.frontDelts],
-      );
-  static const standingMilitaryPress =
-      BuiltInExercise(
-        id: 'standing_military_press',
-        name: 'Standing Military Press',
-        primaryMuscle: MuscleGroup.frontDelts,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.verticalPush,
-        aliases: const ['OHP', 'Standing Barbell Press'],
-        secondaryMuscles: const [MuscleGroup.triceps],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const seatedMilitaryPress =
-      BuiltInExercise(
-        id: 'seated_military_press',
-        name: 'Seated Military Press',
-        primaryMuscle: MuscleGroup.frontDelts,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.verticalPush,
-        secondaryMuscles: const [MuscleGroup.triceps],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const pushPress =
-      BuiltInExercise(
-        id: 'push_press',
-        name: 'Push Press',
-        primaryMuscle: MuscleGroup.frontDelts,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.verticalPush,
-        secondaryMuscles: const [MuscleGroup.triceps],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const dumbbellShoulderPress =
-      BuiltInExercise(
-        id: 'dumbbell_shoulder_press',
-        name: 'Dumbbell Shoulder Press',
-        primaryMuscle: MuscleGroup.frontDelts,
-        equipment: ExerciseEquipment.dumbbell,
-        movementPattern: MovementPattern.verticalPush,
-        secondaryMuscles: const [MuscleGroup.triceps],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const dumbbellSideRaise =
-      BuiltInExercise(
-        id: 'dumbbell_side_raise',
-        name: 'Dumbbell Side Raise',
-        primaryMuscle: MuscleGroup.sideDelts,
-        equipment: ExerciseEquipment.dumbbell,
-        movementPattern: MovementPattern.shoulderRaise,
-        aliases: const ['Dumbbell Lateral Raise'],
-        secondaryMuscles: const [MuscleGroup.triceps],
-      );
-  static const dumbbellRearDeltFly =
-      BuiltInExercise(
-        id: 'dumbbell_rear_delt_fly',
-        name: 'Dumbbell Rear Delt Fly',
-        primaryMuscle: MuscleGroup.rearDelts,
-        equipment: ExerciseEquipment.dumbbell,
-        movementPattern: MovementPattern.horizontalPush,
-        secondaryMuscles: const [MuscleGroup.triceps],
-      );
-  static const cableLateralRaise =
-      BuiltInExercise(
-        id: 'cable_lateral_raise',
-        name: 'Cable Lateral Raise',
-        primaryMuscle: MuscleGroup.sideDelts,
-        equipment: ExerciseEquipment.cable,
-        movementPattern: MovementPattern.shoulderRaise,
-        secondaryMuscles: const [MuscleGroup.triceps],
-      );
-  static const barbellDeadlift =
-      BuiltInExercise(
-        id: 'barbell_deadlift',
-        name: 'Barbell Deadlift',
-        primaryMuscle: MuscleGroup.spinalErectors,
-        equipment: ExerciseEquipment.barbell,
-        movementPattern: MovementPattern.hinge,
-        aliases: const ['Conventional Deadlift'],
-        secondaryMuscles: const [MuscleGroup.biceps, MuscleGroup.rearDelts],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const trapBarDeadlift =
-      BuiltInExercise(
-        id: 'trap_bar_deadlift',
-        name: 'Trap-Bar Deadlift',
-        primaryMuscle: MuscleGroup.fullBody,
-        equipment: ExerciseEquipment.trapBar,
-        movementPattern: MovementPattern.hinge,
-        aliases: const ['Hex Bar Deadlift'],
-        secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const sumoDeadlift =
-      BuiltInExercise(
-        id: 'sumo_deadlift',
-        name: 'Sumo Deadlift',
-        primaryMuscle: MuscleGroup.glutes,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.hinge,
-        secondaryMuscles: const [MuscleGroup.brachialis],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const pullUp =
-      BuiltInExercise(
-        id: 'pull_up',
-        name: 'Pull-up',
-        primaryMuscle: MuscleGroup.lats,
-        equipment: ExerciseEquipment.pullUpBar,
-        movementPattern: MovementPattern.verticalPull,
-        trackingType: ExerciseTrackingType.bodyweightReps,
-        aliases: const ['Pull-Up', 'Pullup'],
-        secondaryMuscles: const [MuscleGroup.biceps, MuscleGroup.rearDelts],
-        isPrimaryCompound: true,
-      );
-  static const chinUp =
-      BuiltInExercise(
-        id: 'chin_up',
-        name: 'Chin-up',
-        primaryMuscle: MuscleGroup.lats,
-        equipment: ExerciseEquipment.pullUpBar,
-        movementPattern: MovementPattern.verticalPull,
-        trackingType: ExerciseTrackingType.bodyweightReps,
-        aliases: const ['Chin-Up', 'Chinup'],
-        secondaryMuscles: const [MuscleGroup.biceps, MuscleGroup.rearDelts],
-        isPrimaryCompound: true,
-      );
-  static const latPulldown =
-      BuiltInExercise(
-        id: 'lat_pulldown',
-        name: 'Lat Pulldown',
-        primaryMuscle: MuscleGroup.lats,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.verticalPull,
-        secondaryMuscles: const [MuscleGroup.biceps, MuscleGroup.rearDelts],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const oneArmDumbbellRow =
-      BuiltInExercise(
-        id: 'one_arm_dumbbell_row',
-        name: 'One-Arm Dumbbell Row',
-        primaryMuscle: MuscleGroup.midBack,
-        equipment: ExerciseEquipment.dumbbell,
-        movementPattern: MovementPattern.horizontalPull,
-        secondaryMuscles: const [MuscleGroup.biceps, MuscleGroup.rearDelts],
-        unilateralMode: UnilateralMode.perSide,
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const seatedCableRow =
-      BuiltInExercise(
-        id: 'seated_cable_row',
-        name: 'Seated Cable Row',
-        primaryMuscle: MuscleGroup.midBack,
-        equipment: ExerciseEquipment.cable,
-        movementPattern: MovementPattern.horizontalPull,
-        secondaryMuscles: const [MuscleGroup.biceps, MuscleGroup.rearDelts],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const barbellRow =
-      BuiltInExercise(
-        id: 'barbell_row',
-        name: 'Barbell Row',
-        primaryMuscle: MuscleGroup.midBack,
-        equipment: ExerciseEquipment.barbell,
-        movementPattern: MovementPattern.horizontalPull,
-        secondaryMuscles: const [MuscleGroup.biceps, MuscleGroup.rearDelts],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const tBarRow =
-      BuiltInExercise(
-        id: 't_bar_row',
-        name: 'T-Bar Row',
-        primaryMuscle: MuscleGroup.midBack,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.horizontalPull,
-        secondaryMuscles: const [MuscleGroup.biceps, MuscleGroup.rearDelts],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const chestSupportedRow =
-      BuiltInExercise(
-        id: 'chest_supported_row',
-        name: 'Chest-Supported Row',
-        primaryMuscle: MuscleGroup.midBack,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.horizontalPull,
-        secondaryMuscles: const [MuscleGroup.biceps, MuscleGroup.rearDelts],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const barbellBackSquat =
-      BuiltInExercise(
-        id: 'barbell_back_squat',
-        name: 'Barbell Back Squat',
-        primaryMuscle: MuscleGroup.quads,
-        equipment: ExerciseEquipment.barbell,
-        movementPattern: MovementPattern.squat,
-        aliases: const ['Back Squat'],
-        secondaryMuscles: const [MuscleGroup.glutes],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const barbellFrontSquat =
-      BuiltInExercise(
-        id: 'barbell_front_squat',
-        name: 'Barbell Front Squat',
-        primaryMuscle: MuscleGroup.quads,
-        equipment: ExerciseEquipment.barbell,
-        movementPattern: MovementPattern.squat,
-        secondaryMuscles: const [MuscleGroup.glutes],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const legPress =
-      BuiltInExercise(
-        id: 'leg_press',
-        name: 'Leg Press',
-        primaryMuscle: MuscleGroup.quads,
-        equipment: ExerciseEquipment.legPressMachine,
-        movementPattern: MovementPattern.horizontalPush,
-        secondaryMuscles: const [MuscleGroup.glutes],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const walkingDumbbellLunge =
-      BuiltInExercise(
-        id: 'walking_dumbbell_lunge',
-        name: 'Walking Dumbbell Lunge',
-        primaryMuscle: MuscleGroup.quads,
-        equipment: ExerciseEquipment.dumbbell,
-        movementPattern: MovementPattern.lunge,
-        secondaryMuscles: const [MuscleGroup.glutes],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const bulgarianSplitSquat =
-      BuiltInExercise(
-        id: 'bulgarian_split_squat',
-        name: 'Bulgarian Split Squat',
-        primaryMuscle: MuscleGroup.quads,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.lunge,
-        secondaryMuscles: const [MuscleGroup.glutes],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const hackSquat =
-      BuiltInExercise(
-        id: 'hack_squat',
-        name: 'Hack Squat',
-        primaryMuscle: MuscleGroup.quads,
-        equipment: ExerciseEquipment.legPressMachine,
-        movementPattern: MovementPattern.squat,
-        secondaryMuscles: const [MuscleGroup.glutes],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const gobletSquat =
-      BuiltInExercise(
-        id: 'goblet_squat',
-        name: 'Goblet Squat',
-        primaryMuscle: MuscleGroup.quads,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.squat,
-        secondaryMuscles: const [MuscleGroup.glutes],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const romanianDeadlift =
-      BuiltInExercise(
-        id: 'romanian_deadlift',
-        name: 'Romanian Deadlift',
-        primaryMuscle: MuscleGroup.hamstrings,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.hinge,
-        aliases: const ['RDL'],
-        secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.spinalErectors],
-        isPrimaryCompound: true,
-        warmupEligible: true,
-      );
-  static const legCurl =
-      BuiltInExercise(
-        id: 'leg_curl',
-        name: 'Leg Curl',
-        primaryMuscle: MuscleGroup.hamstrings,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.kneeFlexion,
-        aliases: const ['Lying Leg Curl'],
-        secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.spinalErectors],
-      );
-  static const seatedLegCurl =
-      BuiltInExercise(
-        id: 'seated_leg_curl',
-        name: 'Seated Leg Curl',
-        primaryMuscle: MuscleGroup.hamstrings,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.kneeFlexion,
-        secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.spinalErectors],
-      );
-  static const seatedCalfRaise =
-      BuiltInExercise(
-        id: 'seated_calf_raise',
-        name: 'Seated Calf Raise',
-        primaryMuscle: MuscleGroup.calves,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.calfRaise,
-        trackingType: ExerciseTrackingType.bodyweightReps,
-      );
-  static const standingCalfRaise =
-      BuiltInExercise(
-        id: 'standing_calf_raise',
-        name: 'Standing Calf Raise',
-        primaryMuscle: MuscleGroup.calves,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.calfRaise,
-        trackingType: ExerciseTrackingType.bodyweightReps,
-      );
-  static const legPressCalfRaise =
-      BuiltInExercise(
-        id: 'leg_press_calf_raise',
-        name: 'Leg Press Calf Raise',
-        primaryMuscle: MuscleGroup.calves,
-        equipment: ExerciseEquipment.legPressMachine,
-        movementPattern: MovementPattern.horizontalPush,
-        trackingType: ExerciseTrackingType.bodyweightReps,
-        isPrimaryCompound: true,
-      );
-  static const singleLegCalfRaise =
-      BuiltInExercise(
-        id: 'single_leg_calf_raise',
-        name: 'Single-Leg Calf Raise',
-        primaryMuscle: MuscleGroup.calves,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.calfRaise,
-        trackingType: ExerciseTrackingType.bodyweightReps,
-        unilateralMode: UnilateralMode.perSide,
-      );
-  static const tricepsPressdown =
-      BuiltInExercise(
-        id: 'triceps_pressdown',
-        name: 'Triceps Pressdown',
-        primaryMuscle: MuscleGroup.triceps,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.horizontalPush,
-      );
-  static const ezBarSkullcrusher =
-      BuiltInExercise(
-        id: 'ez_bar_skullcrusher',
-        name: 'EZ-Bar Skullcrusher',
-        primaryMuscle: MuscleGroup.triceps,
-        equipment: ExerciseEquipment.ezBar,
-        movementPattern: MovementPattern.elbowExtension,
-      );
-  static const tricepsOverheadPress =
-      BuiltInExercise(
-        id: 'triceps_overhead_press',
-        name: 'Triceps Overhead Press',
-        primaryMuscle: MuscleGroup.triceps,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.verticalPush,
-      );
-  static const dumbbellSkullcrusher =
-      BuiltInExercise(
-        id: 'dumbbell_skullcrusher',
-        name: 'Dumbbell Skullcrusher',
-        primaryMuscle: MuscleGroup.triceps,
-        equipment: ExerciseEquipment.dumbbell,
-        movementPattern: MovementPattern.elbowExtension,
-      );
-  static const barbellCurl =
-      BuiltInExercise(
-        id: 'barbell_curl',
-        name: 'Barbell Curl',
-        primaryMuscle: MuscleGroup.biceps,
-        equipment: ExerciseEquipment.barbell,
-        movementPattern: MovementPattern.elbowFlexion,
-        secondaryMuscles: const [MuscleGroup.brachialis],
-      );
-  static const cableCurl =
-      BuiltInExercise(
-        id: 'cable_curl',
-        name: 'Cable Curl',
-        primaryMuscle: MuscleGroup.biceps,
-        equipment: ExerciseEquipment.cable,
-        movementPattern: MovementPattern.elbowFlexion,
-        secondaryMuscles: const [MuscleGroup.brachialis],
-      );
-  static const alternatingDumbbellCurl =
-      BuiltInExercise(
-        id: 'alternating_dumbbell_curl',
-        name: 'Alternating Dumbbell Curl',
-        primaryMuscle: MuscleGroup.biceps,
-        equipment: ExerciseEquipment.dumbbell,
-        movementPattern: MovementPattern.elbowFlexion,
-        secondaryMuscles: const [MuscleGroup.brachialis],
-        unilateralMode: UnilateralMode.alternating,
-      );
-  static const hammerCurl =
-      BuiltInExercise(
-        id: 'hammer_curl',
-        name: 'Hammer Curl',
-        primaryMuscle: MuscleGroup.brachialis,
-        equipment: ExerciseEquipment.other,
-        movementPattern: MovementPattern.elbowFlexion,
-      );
+  static const barbellBenchPress = BuiltInExercise(
+    id: 'barbell_bench_press',
+    name: 'Barbell Bench Press',
+    primaryMuscle: MuscleGroup.chest,
+    equipment: ExerciseEquipment.barbell,
+    movementPattern: MovementPattern.horizontalPush,
+    aliases: const ['Bench Press', 'Flat Bench'],
+    secondaryMuscles: const [MuscleGroup.triceps, MuscleGroup.frontDelts],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const closeGripBenchPress = BuiltInExercise(
+    id: 'close_grip_bench_press',
+    name: 'Close-Grip Bench Press',
+    primaryMuscle: MuscleGroup.triceps,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.horizontalPush,
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const inclineBarbellBench = BuiltInExercise(
+    id: 'incline_barbell_bench',
+    name: 'Incline Barbell Bench',
+    primaryMuscle: MuscleGroup.upperChest,
+    equipment: ExerciseEquipment.barbell,
+    movementPattern: MovementPattern.horizontalPush,
+    secondaryMuscles: const [MuscleGroup.triceps, MuscleGroup.frontDelts],
+  );
+  static const reverseGripBenchPress = BuiltInExercise(
+    id: 'reverse_grip_bench_press',
+    name: 'Reverse-Grip Bench Press',
+    primaryMuscle: MuscleGroup.upperChest,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.horizontalPush,
+    secondaryMuscles: const [MuscleGroup.triceps, MuscleGroup.frontDelts],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const dumbbellBenchPress = BuiltInExercise(
+    id: 'dumbbell_bench_press',
+    name: 'Dumbbell Bench Press',
+    primaryMuscle: MuscleGroup.chest,
+    equipment: ExerciseEquipment.dumbbell,
+    movementPattern: MovementPattern.horizontalPush,
+    aliases: const ['DB Bench Press'],
+    secondaryMuscles: const [MuscleGroup.triceps, MuscleGroup.frontDelts],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const inclineDumbbellPress = BuiltInExercise(
+    id: 'incline_dumbbell_press',
+    name: 'Incline Dumbbell Press',
+    primaryMuscle: MuscleGroup.upperChest,
+    equipment: ExerciseEquipment.dumbbell,
+    movementPattern: MovementPattern.horizontalPush,
+    aliases: const ['Incline DB Press'],
+    secondaryMuscles: const [MuscleGroup.triceps, MuscleGroup.frontDelts],
+  );
+  static const dip = BuiltInExercise(
+    id: 'dip',
+    name: 'Dip',
+    primaryMuscle: MuscleGroup.chest,
+    equipment: ExerciseEquipment.dipStation,
+    movementPattern: MovementPattern.horizontalPush,
+    secondaryMuscles: const [MuscleGroup.triceps, MuscleGroup.frontDelts],
+  );
+  static const standingMilitaryPress = BuiltInExercise(
+    id: 'standing_military_press',
+    name: 'Standing Military Press',
+    primaryMuscle: MuscleGroup.frontDelts,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.verticalPush,
+    aliases: const ['OHP', 'Standing Barbell Press'],
+    secondaryMuscles: const [MuscleGroup.triceps],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const seatedMilitaryPress = BuiltInExercise(
+    id: 'seated_military_press',
+    name: 'Seated Military Press',
+    primaryMuscle: MuscleGroup.frontDelts,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.verticalPush,
+    secondaryMuscles: const [MuscleGroup.triceps],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const pushPress = BuiltInExercise(
+    id: 'push_press',
+    name: 'Push Press',
+    primaryMuscle: MuscleGroup.frontDelts,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.verticalPush,
+    secondaryMuscles: const [MuscleGroup.triceps],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const dumbbellShoulderPress = BuiltInExercise(
+    id: 'dumbbell_shoulder_press',
+    name: 'Dumbbell Shoulder Press',
+    primaryMuscle: MuscleGroup.frontDelts,
+    equipment: ExerciseEquipment.dumbbell,
+    movementPattern: MovementPattern.verticalPush,
+    secondaryMuscles: const [MuscleGroup.triceps],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const dumbbellSideRaise = BuiltInExercise(
+    id: 'dumbbell_side_raise',
+    name: 'Dumbbell Side Raise',
+    primaryMuscle: MuscleGroup.sideDelts,
+    equipment: ExerciseEquipment.dumbbell,
+    movementPattern: MovementPattern.shoulderRaise,
+    aliases: const ['Dumbbell Lateral Raise'],
+    secondaryMuscles: const [MuscleGroup.triceps],
+  );
+  static const dumbbellRearDeltFly = BuiltInExercise(
+    id: 'dumbbell_rear_delt_fly',
+    name: 'Dumbbell Rear Delt Fly',
+    primaryMuscle: MuscleGroup.rearDelts,
+    equipment: ExerciseEquipment.dumbbell,
+    movementPattern: MovementPattern.horizontalPush,
+    secondaryMuscles: const [MuscleGroup.triceps],
+  );
+  static const cableLateralRaise = BuiltInExercise(
+    id: 'cable_lateral_raise',
+    name: 'Cable Lateral Raise',
+    primaryMuscle: MuscleGroup.sideDelts,
+    equipment: ExerciseEquipment.cable,
+    movementPattern: MovementPattern.shoulderRaise,
+    secondaryMuscles: const [MuscleGroup.triceps],
+  );
+  static const barbellDeadlift = BuiltInExercise(
+    id: 'barbell_deadlift',
+    name: 'Barbell Deadlift',
+    primaryMuscle: MuscleGroup.spinalErectors,
+    equipment: ExerciseEquipment.barbell,
+    movementPattern: MovementPattern.hinge,
+    aliases: const ['Conventional Deadlift'],
+    secondaryMuscles: const [MuscleGroup.biceps, MuscleGroup.rearDelts],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const trapBarDeadlift = BuiltInExercise(
+    id: 'trap_bar_deadlift',
+    name: 'Trap-Bar Deadlift',
+    primaryMuscle: MuscleGroup.fullBody,
+    equipment: ExerciseEquipment.trapBar,
+    movementPattern: MovementPattern.hinge,
+    aliases: const ['Hex Bar Deadlift'],
+    secondaryMuscles: const [
+      MuscleGroup.glutes,
+      MuscleGroup.quads,
+      MuscleGroup.spinalErectors,
+    ],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const sumoDeadlift = BuiltInExercise(
+    id: 'sumo_deadlift',
+    name: 'Sumo Deadlift',
+    primaryMuscle: MuscleGroup.glutes,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.hinge,
+    secondaryMuscles: const [MuscleGroup.brachialis],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const pullUp = BuiltInExercise(
+    id: 'pull_up',
+    name: 'Pull-up',
+    primaryMuscle: MuscleGroup.lats,
+    equipment: ExerciseEquipment.pullUpBar,
+    movementPattern: MovementPattern.verticalPull,
+    trackingType: ExerciseTrackingType.bodyweightReps,
+    aliases: const ['Pull-Up', 'Pullup'],
+    secondaryMuscles: const [MuscleGroup.biceps, MuscleGroup.rearDelts],
+    isPrimaryCompound: true,
+  );
+  static const chinUp = BuiltInExercise(
+    id: 'chin_up',
+    name: 'Chin-up',
+    primaryMuscle: MuscleGroup.lats,
+    equipment: ExerciseEquipment.pullUpBar,
+    movementPattern: MovementPattern.verticalPull,
+    trackingType: ExerciseTrackingType.bodyweightReps,
+    aliases: const ['Chin-Up', 'Chinup'],
+    secondaryMuscles: const [MuscleGroup.biceps, MuscleGroup.rearDelts],
+    isPrimaryCompound: true,
+  );
+  static const latPulldown = BuiltInExercise(
+    id: 'lat_pulldown',
+    name: 'Lat Pulldown',
+    primaryMuscle: MuscleGroup.lats,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.verticalPull,
+    secondaryMuscles: const [MuscleGroup.biceps, MuscleGroup.rearDelts],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const oneArmDumbbellRow = BuiltInExercise(
+    id: 'one_arm_dumbbell_row',
+    name: 'One-Arm Dumbbell Row',
+    primaryMuscle: MuscleGroup.midBack,
+    equipment: ExerciseEquipment.dumbbell,
+    movementPattern: MovementPattern.horizontalPull,
+    secondaryMuscles: const [MuscleGroup.biceps, MuscleGroup.rearDelts],
+    unilateralMode: UnilateralMode.perSide,
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const seatedCableRow = BuiltInExercise(
+    id: 'seated_cable_row',
+    name: 'Seated Cable Row',
+    primaryMuscle: MuscleGroup.midBack,
+    equipment: ExerciseEquipment.cable,
+    movementPattern: MovementPattern.horizontalPull,
+    secondaryMuscles: const [MuscleGroup.biceps, MuscleGroup.rearDelts],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const barbellRow = BuiltInExercise(
+    id: 'barbell_row',
+    name: 'Barbell Row',
+    primaryMuscle: MuscleGroup.midBack,
+    equipment: ExerciseEquipment.barbell,
+    movementPattern: MovementPattern.horizontalPull,
+    secondaryMuscles: const [MuscleGroup.biceps, MuscleGroup.rearDelts],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const tBarRow = BuiltInExercise(
+    id: 't_bar_row',
+    name: 'T-Bar Row',
+    primaryMuscle: MuscleGroup.midBack,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.horizontalPull,
+    secondaryMuscles: const [MuscleGroup.biceps, MuscleGroup.rearDelts],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const chestSupportedRow = BuiltInExercise(
+    id: 'chest_supported_row',
+    name: 'Chest-Supported Row',
+    primaryMuscle: MuscleGroup.midBack,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.horizontalPull,
+    secondaryMuscles: const [MuscleGroup.biceps, MuscleGroup.rearDelts],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const barbellBackSquat = BuiltInExercise(
+    id: 'barbell_back_squat',
+    name: 'Barbell Back Squat',
+    primaryMuscle: MuscleGroup.quads,
+    equipment: ExerciseEquipment.barbell,
+    movementPattern: MovementPattern.squat,
+    aliases: const ['Back Squat'],
+    secondaryMuscles: const [MuscleGroup.glutes],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const barbellFrontSquat = BuiltInExercise(
+    id: 'barbell_front_squat',
+    name: 'Barbell Front Squat',
+    primaryMuscle: MuscleGroup.quads,
+    equipment: ExerciseEquipment.barbell,
+    movementPattern: MovementPattern.squat,
+    secondaryMuscles: const [MuscleGroup.glutes],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const legPress = BuiltInExercise(
+    id: 'leg_press',
+    name: 'Leg Press',
+    primaryMuscle: MuscleGroup.quads,
+    equipment: ExerciseEquipment.legPressMachine,
+    movementPattern: MovementPattern.horizontalPush,
+    secondaryMuscles: const [MuscleGroup.glutes],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const walkingDumbbellLunge = BuiltInExercise(
+    id: 'walking_dumbbell_lunge',
+    name: 'Walking Dumbbell Lunge',
+    primaryMuscle: MuscleGroup.quads,
+    equipment: ExerciseEquipment.dumbbell,
+    movementPattern: MovementPattern.lunge,
+    secondaryMuscles: const [MuscleGroup.glutes],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const bulgarianSplitSquat = BuiltInExercise(
+    id: 'bulgarian_split_squat',
+    name: 'Bulgarian Split Squat',
+    primaryMuscle: MuscleGroup.quads,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.lunge,
+    secondaryMuscles: const [MuscleGroup.glutes],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const hackSquat = BuiltInExercise(
+    id: 'hack_squat',
+    name: 'Hack Squat',
+    primaryMuscle: MuscleGroup.quads,
+    equipment: ExerciseEquipment.legPressMachine,
+    movementPattern: MovementPattern.squat,
+    secondaryMuscles: const [MuscleGroup.glutes],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const gobletSquat = BuiltInExercise(
+    id: 'goblet_squat',
+    name: 'Goblet Squat',
+    primaryMuscle: MuscleGroup.quads,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.squat,
+    secondaryMuscles: const [MuscleGroup.glutes],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const romanianDeadlift = BuiltInExercise(
+    id: 'romanian_deadlift',
+    name: 'Romanian Deadlift',
+    primaryMuscle: MuscleGroup.hamstrings,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.hinge,
+    aliases: const ['RDL'],
+    secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.spinalErectors],
+    isPrimaryCompound: true,
+    warmupEligible: true,
+  );
+  static const legCurl = BuiltInExercise(
+    id: 'leg_curl',
+    name: 'Leg Curl',
+    primaryMuscle: MuscleGroup.hamstrings,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.kneeFlexion,
+    aliases: const ['Lying Leg Curl'],
+    secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.spinalErectors],
+  );
+  static const seatedLegCurl = BuiltInExercise(
+    id: 'seated_leg_curl',
+    name: 'Seated Leg Curl',
+    primaryMuscle: MuscleGroup.hamstrings,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.kneeFlexion,
+    secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.spinalErectors],
+  );
+  static const seatedCalfRaise = BuiltInExercise(
+    id: 'seated_calf_raise',
+    name: 'Seated Calf Raise',
+    primaryMuscle: MuscleGroup.calves,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.calfRaise,
+    trackingType: ExerciseTrackingType.bodyweightReps,
+  );
+  static const standingCalfRaise = BuiltInExercise(
+    id: 'standing_calf_raise',
+    name: 'Standing Calf Raise',
+    primaryMuscle: MuscleGroup.calves,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.calfRaise,
+    trackingType: ExerciseTrackingType.bodyweightReps,
+  );
+  static const legPressCalfRaise = BuiltInExercise(
+    id: 'leg_press_calf_raise',
+    name: 'Leg Press Calf Raise',
+    primaryMuscle: MuscleGroup.calves,
+    equipment: ExerciseEquipment.legPressMachine,
+    movementPattern: MovementPattern.horizontalPush,
+    trackingType: ExerciseTrackingType.bodyweightReps,
+    isPrimaryCompound: true,
+  );
+  static const singleLegCalfRaise = BuiltInExercise(
+    id: 'single_leg_calf_raise',
+    name: 'Single-Leg Calf Raise',
+    primaryMuscle: MuscleGroup.calves,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.calfRaise,
+    trackingType: ExerciseTrackingType.bodyweightReps,
+    unilateralMode: UnilateralMode.perSide,
+  );
+  static const tricepsPressdown = BuiltInExercise(
+    id: 'triceps_pressdown',
+    name: 'Triceps Pressdown',
+    primaryMuscle: MuscleGroup.triceps,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.horizontalPush,
+  );
+  static const ezBarSkullcrusher = BuiltInExercise(
+    id: 'ez_bar_skullcrusher',
+    name: 'EZ-Bar Skullcrusher',
+    primaryMuscle: MuscleGroup.triceps,
+    equipment: ExerciseEquipment.ezBar,
+    movementPattern: MovementPattern.elbowExtension,
+  );
+  static const tricepsOverheadPress = BuiltInExercise(
+    id: 'triceps_overhead_press',
+    name: 'Triceps Overhead Press',
+    primaryMuscle: MuscleGroup.triceps,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.verticalPush,
+  );
+  static const dumbbellSkullcrusher = BuiltInExercise(
+    id: 'dumbbell_skullcrusher',
+    name: 'Dumbbell Skullcrusher',
+    primaryMuscle: MuscleGroup.triceps,
+    equipment: ExerciseEquipment.dumbbell,
+    movementPattern: MovementPattern.elbowExtension,
+  );
+  static const barbellCurl = BuiltInExercise(
+    id: 'barbell_curl',
+    name: 'Barbell Curl',
+    primaryMuscle: MuscleGroup.biceps,
+    equipment: ExerciseEquipment.barbell,
+    movementPattern: MovementPattern.elbowFlexion,
+    secondaryMuscles: const [MuscleGroup.brachialis],
+  );
+  static const cableCurl = BuiltInExercise(
+    id: 'cable_curl',
+    name: 'Cable Curl',
+    primaryMuscle: MuscleGroup.biceps,
+    equipment: ExerciseEquipment.cable,
+    movementPattern: MovementPattern.elbowFlexion,
+    secondaryMuscles: const [MuscleGroup.brachialis],
+  );
+  static const alternatingDumbbellCurl = BuiltInExercise(
+    id: 'alternating_dumbbell_curl',
+    name: 'Alternating Dumbbell Curl',
+    primaryMuscle: MuscleGroup.biceps,
+    equipment: ExerciseEquipment.dumbbell,
+    movementPattern: MovementPattern.elbowFlexion,
+    secondaryMuscles: const [MuscleGroup.brachialis],
+    unilateralMode: UnilateralMode.alternating,
+  );
+  static const hammerCurl = BuiltInExercise(
+    id: 'hammer_curl',
+    name: 'Hammer Curl',
+    primaryMuscle: MuscleGroup.brachialis,
+    equipment: ExerciseEquipment.other,
+    movementPattern: MovementPattern.elbowFlexion,
+  );
 
   static const extraValues = <BuiltInExercise>[
     BuiltInExercise(
@@ -561,7 +518,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.kettlebell,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
     ),
     BuiltInExercise(
       id: 'ankle_dorsiflexion_mobilization',
@@ -824,7 +785,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.barbell,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
       isPrimaryCompound: true,
       warmupEligible: true,
     ),
@@ -852,7 +817,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
     ),
     BuiltInExercise(
       id: 'battle_rope_waves',
@@ -860,7 +829,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
     ),
     BuiltInExercise(
       id: 'bayesian_cable_curl',
@@ -886,7 +859,11 @@ abstract final class BuiltInExercises {
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.carry,
       trackingType: ExerciseTrackingType.weightDistance,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
     ),
     BuiltInExercise(
       id: 'behind_the_back_barbell_shrug',
@@ -1023,7 +1000,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
     ),
     BuiltInExercise(
       id: 'box_squat',
@@ -1049,7 +1030,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
     ),
     BuiltInExercise(
       id: 'bulgarian_split_squat_glute_bias',
@@ -1271,9 +1256,14 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.rectusAbdominis,
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.spinalFlexion,
-      aliases: const ['Captain’s Chair Leg Raise', 'Captains Chair Leg Lift', 'Roman Chair Leg Raise'],
+      aliases: const [
+        'Captain’s Chair Leg Raise',
+        'Captains Chair Leg Lift',
+        'Roman Chair Leg Raise',
+      ],
       secondaryMuscles: const [MuscleGroup.hipFlexors, MuscleGroup.obliques],
-      notes: 'Straight-leg captain’s-chair raise. Log repetitions; external load is optional only in the weighted variant.',
+      notes:
+          'Straight-leg captain’s-chair raise. Log repetitions; external load is optional only in the weighted variant.',
     ),
     BuiltInExercise(
       id: 'captains_chair_straight_leg_raise',
@@ -1324,7 +1314,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
       isPrimaryCompound: true,
       warmupEligible: true,
     ),
@@ -1334,7 +1328,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
       isPrimaryCompound: true,
       warmupEligible: true,
     ),
@@ -1612,7 +1610,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.horizontalPush,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
     ),
     BuiltInExercise(
       id: 'diamond_push_up',
@@ -1861,7 +1863,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.dumbbell,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
       isPrimaryCompound: true,
       warmupEligible: true,
     ),
@@ -2058,7 +2064,11 @@ abstract final class BuiltInExercises {
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.carry,
       trackingType: ExerciseTrackingType.weightDistance,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
     ),
     BuiltInExercise(
       id: 'glute_bridge',
@@ -2136,7 +2146,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
       isPrimaryCompound: true,
       warmupEligible: true,
     ),
@@ -2197,7 +2211,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
     ),
     BuiltInExercise(
       id: 'high_bar_back_squat',
@@ -2407,7 +2425,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.lunge,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
       isPrimaryCompound: true,
       warmupEligible: true,
     ),
@@ -2426,7 +2448,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.kettlebell,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
       isPrimaryCompound: true,
       warmupEligible: true,
     ),
@@ -2446,7 +2472,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.kettlebell,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
       isPrimaryCompound: true,
       warmupEligible: true,
     ),
@@ -2456,7 +2486,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.kettlebell,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
     ),
     BuiltInExercise(
       id: 'kneeling_cable_pullover',
@@ -2766,7 +2800,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
     ),
     BuiltInExercise(
       id: 'marching_plank',
@@ -2944,7 +2982,11 @@ abstract final class BuiltInExercises {
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.carry,
       trackingType: ExerciseTrackingType.weightDistance,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
     ),
     BuiltInExercise(
       id: 'overhead_rope_extension',
@@ -3108,7 +3150,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
       isPrimaryCompound: true,
       warmupEligible: true,
     ),
@@ -3118,7 +3164,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
       isPrimaryCompound: true,
       warmupEligible: true,
     ),
@@ -3160,7 +3210,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.sled,
       movementPattern: MovementPattern.horizontalPull,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
       isPrimaryCompound: true,
       warmupEligible: true,
     ),
@@ -3355,7 +3409,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.verticalPull,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
     ),
     BuiltInExercise(
       id: 'rope_hammer_curl',
@@ -3434,7 +3492,11 @@ abstract final class BuiltInExercises {
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.carry,
       trackingType: ExerciseTrackingType.weightDistance,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
     ),
     BuiltInExercise(
       id: 'sandbag_clean',
@@ -3442,7 +3504,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
       isPrimaryCompound: true,
       warmupEligible: true,
     ),
@@ -3793,7 +3859,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.sled,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
     ),
     BuiltInExercise(
       id: 'sled_push',
@@ -3801,7 +3871,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.sled,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
     ),
     BuiltInExercise(
       id: 'sliding_leg_curl',
@@ -3918,7 +3992,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
       isPrimaryCompound: true,
       warmupEligible: true,
     ),
@@ -3928,7 +4006,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
       isPrimaryCompound: true,
       warmupEligible: true,
     ),
@@ -4192,7 +4274,11 @@ abstract final class BuiltInExercises {
       equipment: ExerciseEquipment.trapBar,
       movementPattern: MovementPattern.carry,
       trackingType: ExerciseTrackingType.weightDistance,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
     ),
     BuiltInExercise(
       id: 'trap_bar_shrug',
@@ -4233,7 +4319,11 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.fullBody,
       equipment: ExerciseEquipment.other,
       movementPattern: MovementPattern.conditioning,
-      secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.quads, MuscleGroup.spinalErectors],
+      secondaryMuscles: const [
+        MuscleGroup.glutes,
+        MuscleGroup.quads,
+        MuscleGroup.spinalErectors,
+      ],
     ),
     BuiltInExercise(
       id: 'underhand_lat_pulldown',

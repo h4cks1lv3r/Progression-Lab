@@ -233,18 +233,29 @@ abstract final class AthleticProgram {
       _ => 'Consolidate & reassess',
     };
     final goal = switch ((cycleIndex, weekInCycle)) {
-      (0, 1) => 'Move slowly enough to own every position and establish clean baselines.',
-      (0, 2) => 'Add one controlled exposure while keeping left and right sides even.',
-      (0, 3) => 'Use more intent without sacrificing foot pressure, trunk control, or landing quality.',
-      (0, 4) => 'Reduce fatigue, sharpen technique, and repeat the field measures.',
-      (1, 1) => 'Introduce elastic and rotational actions at a submaximal speed.',
-      (1, 2) => 'Add contacts and loaded diagonal work while keeping the same mechanics.',
-      (1, 3) => 'Increase velocity and range only when the landings and trunk remain quiet.',
+      (0, 1) =>
+        'Move slowly enough to own every position and establish clean baselines.',
+      (0, 2) =>
+        'Add one controlled exposure while keeping left and right sides even.',
+      (0, 3) =>
+        'Use more intent without sacrificing foot pressure, trunk control, or landing quality.',
+      (0, 4) =>
+        'Reduce fatigue, sharpen technique, and repeat the field measures.',
+      (1, 1) =>
+        'Introduce elastic and rotational actions at a submaximal speed.',
+      (1, 2) =>
+        'Add contacts and loaded diagonal work while keeping the same mechanics.',
+      (1, 3) =>
+        'Increase velocity and range only when the landings and trunk remain quiet.',
       (1, 4) => 'Cut volume, retain speed, and compare control against week 4.',
-      (2, 1) => 'Express acceleration and redirection with planned, predictable tasks.',
-      (2, 2) => 'Add repeat efforts and slightly more reactive decision-making.',
-      (2, 3) => 'Use the highest safe intent of the program with complete recovery between quality efforts.',
-      _ => 'Taper, reassess, and finish with movement quality—not exhaustion—as the standard.',
+      (2, 1) =>
+        'Express acceleration and redirection with planned, predictable tasks.',
+      (2, 2) =>
+        'Add repeat efforts and slightly more reactive decision-making.',
+      (2, 3) =>
+        'Use the highest safe intent of the program with complete recovery between quality efforts.',
+      _ =>
+        'Taper, reassess, and finish with movement quality—not exhaustion—as the standard.',
     };
     final templates = switch (cycleIndex) {
       0 => _foundationSessions,
@@ -882,7 +893,8 @@ abstract final class AthleticProgram {
           ],
           equipment: 'Bench and optional dumbbells',
           regression: 'Use a standard split squat.',
-          progression: 'Add contralateral load or a small front-foot elevation.',
+          progression:
+              'Add contralateral load or a small front-foot elevation.',
         ),
         _DrillTemplate(
           name: 'Single-Leg RDL to Row',
@@ -1795,7 +1807,8 @@ abstract final class AthleticProgram {
           ],
           equipment: 'Markers and measured 10 m lane',
           regression: 'Use a shorter approach and submaximal speed.',
-          progression: 'Increase approach speed while retaining the same turn mechanics.',
+          progression:
+              'Increase approach speed while retaining the same turn mechanics.',
         ),
         _DrillTemplate(
           name: 'Repeat Sprint Cluster',
@@ -1814,7 +1827,8 @@ abstract final class AthleticProgram {
           ],
           equipment: '10–15 m lane and optional stopwatch',
           regression: 'Use bike sprints or longer recovery.',
-          progression: 'Add one repetition only when quality remains consistent.',
+          progression:
+              'Add one repetition only when quality remains consistent.',
         ),
         _DrillTemplate(
           name: 'Downshift Walk + Breathing Reset',

@@ -5,7 +5,13 @@ import 'external_workout_formats.dart';
 
 enum HealthPlatformKind { healthConnect, appleHealth, unavailable }
 
-enum HealthAuthorizationState { unknown, unavailable, notDetermined, denied, authorized }
+enum HealthAuthorizationState {
+  unknown,
+  unavailable,
+  notDetermined,
+  denied,
+  authorized,
+}
 
 class HealthPlatformStatus {
   const HealthPlatformStatus({
@@ -68,12 +74,12 @@ class HealthBodyMetric {
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'type': type,
-        'value': value,
-        'unit': unit,
-        'recordedAt': recordedAt.toUtc().toIso8601String(),
-        if (source.isNotEmpty) 'source': source,
-      };
+    'type': type,
+    'value': value,
+    'unit': unit,
+    'recordedAt': recordedAt.toUtc().toIso8601String(),
+    if (source.isNotEmpty) 'source': source,
+  };
 }
 
 class HealthWorkoutWriteRequest {
@@ -100,17 +106,17 @@ class HealthWorkoutWriteRequest {
   final double? rateOfPerceivedExertion;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'externalId': externalId,
-        'title': title,
-        'sport': sport,
-        'startedAt': startedAt.toUtc().toIso8601String(),
-        'endedAt': endedAt.toUtc().toIso8601String(),
-        if (calories != null) 'calories': calories,
-        if (distanceMeters != null) 'distanceMeters': distanceMeters,
-        if (notes.isNotEmpty) 'notes': notes,
-        if (rateOfPerceivedExertion != null)
-          'rateOfPerceivedExertion': rateOfPerceivedExertion,
-      };
+    'externalId': externalId,
+    'title': title,
+    'sport': sport,
+    'startedAt': startedAt.toUtc().toIso8601String(),
+    'endedAt': endedAt.toUtc().toIso8601String(),
+    if (calories != null) 'calories': calories,
+    if (distanceMeters != null) 'distanceMeters': distanceMeters,
+    if (notes.isNotEmpty) 'notes': notes,
+    if (rateOfPerceivedExertion != null)
+      'rateOfPerceivedExertion': rateOfPerceivedExertion,
+  };
 }
 
 /// One API for Health Connect on Android and HealthKit/Apple Health on iOS.
@@ -120,7 +126,7 @@ class HealthWorkoutWriteRequest {
 /// local database remains authoritative for set-by-set strength history.
 class HealthSyncService extends ChangeNotifier {
   HealthSyncService({MethodChannel? channel})
-      : _channel = channel ?? const MethodChannel('progression_lab/health');
+    : _channel = channel ?? const MethodChannel('progression_lab/health');
 
   final MethodChannel _channel;
   HealthPlatformStatus _status = const HealthPlatformStatus(
@@ -138,7 +144,9 @@ class HealthSyncService extends ChangeNotifier {
   Future<HealthPlatformStatus> refreshStatus() async {
     try {
       final result = await _channel.invokeMapMethod<Object?, Object?>('status');
-      _status = HealthPlatformStatus.fromJson(result ?? const <Object?, Object?>{});
+      _status = HealthPlatformStatus.fromJson(
+        result ?? const <Object?, Object?>{},
+      );
       _lastError = null;
     } on PlatformException catch (error) {
       _lastError = error.message ?? error.code;
@@ -157,7 +165,8 @@ class HealthSyncService extends ChangeNotifier {
 
   Future<bool> requestAuthorization() async {
     return _guard(() async {
-      final granted = await _channel.invokeMethod<bool>(
+      final granted =
+          await _channel.invokeMethod<bool>(
             'requestAuthorization',
             <String, Object>{
               'read': <String>[
@@ -183,13 +192,12 @@ class HealthSyncService extends ChangeNotifier {
     required DateTime end,
   }) async {
     return _guard(() async {
-      final result = await _channel.invokeListMethod<Object?>(
-            'readWorkouts',
-            <String, String>{
-              'start': start.toUtc().toIso8601String(),
-              'end': end.toUtc().toIso8601String(),
-            },
-          ) ??
+      final result =
+          await _channel
+              .invokeListMethod<Object?>('readWorkouts', <String, String>{
+                'start': start.toUtc().toIso8601String(),
+                'end': end.toUtc().toIso8601String(),
+              }) ??
           const <Object?>[];
       return result
           .whereType<Map>()
@@ -203,34 +211,45 @@ class HealthSyncService extends ChangeNotifier {
     required DateTime end,
   }) async {
     return _guard(() async {
-      final result = await _channel.invokeListMethod<Object?>(
-            'readBodyMetrics',
-            <String, String>{
-              'start': start.toUtc().toIso8601String(),
-              'end': end.toUtc().toIso8601String(),
-            },
-          ) ??
+      final result =
+          await _channel
+              .invokeListMethod<Object?>('readBodyMetrics', <String, String>{
+                'start': start.toUtc().toIso8601String(),
+                'end': end.toUtc().toIso8601String(),
+              }) ??
           const <Object?>[];
       return result
           .whereType<Map>()
-          .map((raw) => HealthBodyMetric.fromJson(Map<Object?, Object?>.from(raw)))
+          .map(
+            (raw) => HealthBodyMetric.fromJson(Map<Object?, Object?>.from(raw)),
+          )
           .toList(growable: false);
     });
   }
 
   Future<bool> writeWorkout(HealthWorkoutWriteRequest request) async {
     return _guard(() async {
-      return await _channel.invokeMethod<bool>('writeWorkout', request.toJson()) ??
+      return await _channel.invokeMethod<bool>(
+            'writeWorkout',
+            request.toJson(),
+          ) ??
           false;
     });
   }
 
   Future<bool> writeBodyWeight(HealthBodyMetric metric) async {
     if (metric.type != 'bodyWeight') {
-      throw ArgumentError.value(metric.type, 'metric.type', 'Must be bodyWeight');
+      throw ArgumentError.value(
+        metric.type,
+        'metric.type',
+        'Must be bodyWeight',
+      );
     }
     return _guard(() async {
-      return await _channel.invokeMethod<bool>('writeBodyWeight', metric.toJson()) ??
+      return await _channel.invokeMethod<bool>(
+            'writeBodyWeight',
+            metric.toJson(),
+          ) ??
           false;
     });
   }
@@ -263,7 +282,9 @@ class HealthSyncService extends ChangeNotifier {
           ? ExternalWorkoutSource.appleHealth
           : ExternalWorkoutSource.healthConnect,
       format: ExternalWorkoutFormat.fit,
-      title: value['title'] is String ? value['title']! as String : 'Health Workout',
+      title: value['title'] is String
+          ? value['title']! as String
+          : 'Health Workout',
       sport: value['sport'] is String ? value['sport']! as String : 'other',
       startedAt: startedAt,
       endedAt: endedAt,
