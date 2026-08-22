@@ -46,13 +46,24 @@ def robust_main_menu() -> None:
     if "Connections & Experiments" in text:
         return
 
-    marker_index = text.find("Data & Backup")
+    route_label = next(
+        (
+            candidate
+            for candidate in ("Data & Backup", "Backup & data")
+            if candidate in text
+        ),
+        None,
+    )
     route_index = text.find("DataManagementScreen")
-    if marker_index < 0 or route_index < 0:
-        raise RuntimeError("Data & Backup route was not found in main.dart")
+    if route_label is None or route_index < 0:
+        raise RuntimeError("The backup/data route was not found in main.dart")
+    marker_index = text.find(route_label)
 
     line_starts = [0]
-    line_starts.extend(match.end() for match in re.finditer("\n", text[: min(marker_index, route_index)]))
+    line_starts.extend(
+        match.end()
+        for match in re.finditer("\n", text[: min(marker_index, route_index)])
+    )
     chosen: tuple[int, int, str] | None = None
     for start in reversed(line_starts):
         line_end = text.find("\n", start)
@@ -65,13 +76,13 @@ def robust_main_menu() -> None:
         if block is None:
             continue
         end, value = block
-        if "Data & Backup" in value and "DataManagementScreen" in value:
+        if route_label in value and "DataManagementScreen" in value:
             chosen = (start, end, value)
             break
     if chosen is None:
-        raise RuntimeError("Could not isolate the complete Data & Backup tile")
+        raise RuntimeError("Could not isolate the complete backup/data tile")
     start, end, block = chosen
-    clone = block.replace("Data & Backup", "Connections & Experiments", 1)
+    clone = block.replace(route_label, "Connections & Experiments", 1)
     clone = clone.replace("DataManagementScreen", "IntegrationsHubScreen")
     clone = re.sub(r"Icons\.[A-Za-z0-9_]+", "Icons.hub_rounded", clone, count=1)
 
@@ -81,7 +92,10 @@ def robust_main_menu() -> None:
         lower = value.lower()
         if "connections & experiments" in lower:
             continue
-        if any(word in lower for word in ("backup", "restore", "import", "export", "data")):
+        if any(
+            word in lower
+            for word in ("backup", "restore", "import", "export", "data")
+        ):
             clone = (
                 clone[: match.start()]
                 + "'Health, wearables, cloud sync, sharing, and Lab experiments.'"
@@ -174,7 +188,9 @@ def main() -> None:
 
     # v3 contains additive source transformations. Suppress its top-level v2
     # import because the baseline above has already been applied safely.
-    sys.modules["finalize_integrations_v2"] = types.ModuleType("finalize_integrations_v2")
+    sys.modules["finalize_integrations_v2"] = types.ModuleType(
+        "finalize_integrations_v2"
+    )
     import finalize_integrations_v3  # noqa: F401
 
 
