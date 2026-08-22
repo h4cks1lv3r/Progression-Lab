@@ -10,6 +10,21 @@ def repair_integrations_health_ui() -> None:
     path = Path("lib/integrations_hub.dart")
     text = path.read_text()
 
+    completed_markers = <str>[
+        "import 'daily_inputs.dart';",
+        "final List<HealthBodyMetric> healthBodyMetrics",
+        "final rawHealthMetrics = map['healthBodyMetrics'];",
+        "'healthBodyMetrics': healthBodyMetrics",
+        "Future<void> addHealthBodyMetrics(",
+        "final localWeights =",
+        "IMPORT RECENT BODY METRICS",
+        "WRITE LATEST LOCAL BODYWEIGHT",
+        "ADD & WRITE BODY-FAT READING",
+        "Future<void> _writeBodyFatReading()",
+    ]
+    if all(marker in text for marker in completed_markers):
+        return
+
     if "import 'daily_inputs.dart';" not in text:
         text = text.replace(
             "import 'cloud_sync.dart';\n",
