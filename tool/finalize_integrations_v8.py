@@ -83,9 +83,7 @@ def repair_advanced_share_flow() -> None:
     text = text.replace("Brand.accent", "BrandColors.violet")
 
     if "class WorkoutSharePreviewScreen extends StatefulWidget" not in text:
-        text = text.rstrip() + """
-
-
+        helpers = """
 class WorkoutSharePreviewScreen extends StatefulWidget {
   const WorkoutSharePreviewScreen({super.key, required this.data});
 
@@ -291,7 +289,8 @@ String formatShareDuration(Duration value) {
   final remainder = minutes % 60;
   return remainder == 0 ? '$hours HR' : '$hours HR $remainder MIN';
 }
-""".lstrip("\n")
+""".strip()
+        text = text.rstrip() + "\n\n" + helpers + "\n"
     path.write_text(text)
 
 
