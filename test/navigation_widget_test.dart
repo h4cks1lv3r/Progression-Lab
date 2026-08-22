@@ -39,18 +39,21 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
   }
 
-  test('cadence changes preserve the active cycle and exact next workout', () async {
-    final store = AppStore()
-      ..days = 4
-      ..week = 19
-      ..workoutIndex = 1;
+  test(
+    'cadence changes preserve the active cycle and exact next workout',
+    () async {
+      final store = AppStore()
+        ..days = 4
+        ..week = 19
+        ..workoutIndex = 1;
 
-    await store.setDays(5, nextWorkoutIndex: 4);
+      await store.setDays(5, nextWorkoutIndex: 4);
 
-    expect(store.days, 5);
-    expect(store.week, 19);
-    expect(store.workoutIndex, 4);
-  });
+      expect(store.days, 5);
+      expect(store.week, 19);
+      expect(store.workoutIndex, 4);
+    },
+  );
 
   testWidgets('strength and Athletic programs expose selectable starts', (
     tester,
@@ -74,7 +77,10 @@ void main() {
     await tester.tap(find.text('CHANGE STARTING POINT'));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('program-position-scroll')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('program-position-scroll')),
+      findsOneWidget,
+    );
     expect(find.text('MOVE CURRENT POSITION'), findsOneWidget);
     expect(find.text('START A NEW PROGRAM RUN'), findsOneWidget);
     Navigator.of(
@@ -95,7 +101,10 @@ void main() {
     await tester.tap(find.text('CHANGE STARTING POINT'));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('athletic-position-scroll')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('athletic-position-scroll')),
+      findsOneWidget,
+    );
     expect(find.text('MOVE CURRENT RUN'), findsOneWidget);
     expect(find.text('START A NEW ATHLETIC RUN'), findsOneWidget);
   });
@@ -232,7 +241,10 @@ void main() {
       ..onboardingVersionSeen = 1;
 
     await tester.pumpWidget(
-      MaterialApp(theme: ProgressionBrand.theme(), home: Shell(store: store)),
+      MaterialApp(
+        theme: ProgressionBrand.theme(),
+        home: Shell(store: store),
+      ),
     );
     await tester.pumpAndSettle();
 

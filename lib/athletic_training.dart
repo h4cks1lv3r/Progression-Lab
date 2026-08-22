@@ -76,9 +76,9 @@ Future<void> showAthleticPositionSheet(
           } on StateError catch (error) {
             if (!sheetContext.mounted) return;
             setSheetState(() => saving = false);
-            ScaffoldMessenger.of(sheetContext).showSnackBar(
-              SnackBar(content: Text(error.message.toString())),
-            );
+            ScaffoldMessenger.of(
+              sheetContext,
+            ).showSnackBar(SnackBar(content: Text(error.message.toString())));
           } on Object {
             if (!sheetContext.mounted) return;
             setSheetState(() => saving = false);
@@ -444,9 +444,7 @@ class _AthleticPositionSessionOption extends StatelessWidget {
             backgroundColor: selected
                 ? BrandColors.cyan
                 : BrandColors.panelSoft,
-            foregroundColor: selected
-                ? BrandColors.ink
-                : BrandColors.muted,
+            foregroundColor: selected ? BrandColors.ink : BrandColors.muted,
             child: Text(
               '${index + 1}',
               style: const TextStyle(fontWeight: FontWeight.w900),
@@ -579,125 +577,126 @@ class AthleticTrainingPage extends StatelessWidget {
       return BrandBackdrop(
         child: SafeArea(
           child: CustomScrollView(
-          key: const PageStorageKey('athletic-training-page'),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 980),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-                    child: _AthleticHeader(
-                      store: store,
-                      week: week,
-                      run: store.athleticProgramRun,
+            key: const PageStorageKey('athletic-training-page'),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 980),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                      child: _AthleticHeader(
+                        store: store,
+                        week: week,
+                        run: store.athleticProgramRun,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 980),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _ProgramProgressPanel(
-                          store: store,
-                          week: week,
-                          cycle: cycle,
-                        ),
-                        const SizedBox(height: 18),
-                        if (store.athleticProgramComplete)
-                          _ProgramCompletePanel(store: store)
-                        else
-                          _NextAthleticSessionPanel(
+              SliverToBoxAdapter(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 980),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _ProgramProgressPanel(
                             store: store,
                             week: week,
-                            session: session,
+                            cycle: cycle,
                           ),
-                        const SizedBox(height: 26),
-                        BrandSectionLabel(
-                          'This week',
-                          trailing: Text(
-                            week.stage.toUpperCase(),
-                            style: const TextStyle(
-                              color: BrandColors.cyan,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: .7,
+                          const SizedBox(height: 18),
+                          if (store.athleticProgramComplete)
+                            _ProgramCompletePanel(store: store)
+                          else
+                            _NextAthleticSessionPanel(
+                              store: store,
+                              week: week,
+                              session: session,
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _WeekRoutine(store: store, week: week),
-                        const SizedBox(height: 26),
-                        const BrandSectionLabel('Weekly rhythm'),
-                        const SizedBox(height: 12),
-                        const _WeeklyRhythmPanel(),
-                        const SizedBox(height: 26),
-                        BrandSectionLabel(
-                          'Training cycles',
-                          trailing: TextButton(
-                            onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => AthleticPlanScreen(store: store),
+                          const SizedBox(height: 26),
+                          BrandSectionLabel(
+                            'This week',
+                            trailing: Text(
+                              week.stage.toUpperCase(),
+                              style: const TextStyle(
+                                color: BrandColors.cyan,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: .7,
                               ),
                             ),
-                            child: const Text('VIEW 12 WEEKS'),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        _CycleCards(currentCycle: cycle.number),
-                        const SizedBox(height: 26),
-                        const BrandSectionLabel('Performance targets'),
-                        const SizedBox(height: 12),
-                        const _QualityGrid(),
-                        const SizedBox(height: 26),
-                        BrandSectionLabel(
-                          'Field measures',
-                          trailing: TextButton.icon(
-                            onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => AthleticAssessmentScreen(
-                                  store: store,
+                          const SizedBox(height: 12),
+                          _WeekRoutine(store: store, week: week),
+                          const SizedBox(height: 26),
+                          const BrandSectionLabel('Weekly rhythm'),
+                          const SizedBox(height: 12),
+                          const _WeeklyRhythmPanel(),
+                          const SizedBox(height: 26),
+                          BrandSectionLabel(
+                            'Training cycles',
+                            trailing: TextButton(
+                              onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      AthleticPlanScreen(store: store),
                                 ),
                               ),
-                            ),
-                            icon: const Icon(Icons.science_rounded, size: 17),
-                            label: const Text('ASSESS'),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _AssessmentPanel(
-                          assessment: latestAssessment,
-                          onOpenHistory: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => AthleticHistoryScreen(store: store),
+                              child: const Text('VIEW 12 WEEKS'),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'Training guidance only. Stop for sharp pain, dizziness, or loss of control. Field measures are repeatable performance markers, not medical screening or diagnosis.',
-                          style: TextStyle(
-                            color: BrandColors.muted.withValues(alpha: .8),
-                            fontSize: 11,
-                            height: 1.45,
+                          const SizedBox(height: 12),
+                          _CycleCards(currentCycle: cycle.number),
+                          const SizedBox(height: 26),
+                          const BrandSectionLabel('Performance targets'),
+                          const SizedBox(height: 12),
+                          const _QualityGrid(),
+                          const SizedBox(height: 26),
+                          BrandSectionLabel(
+                            'Field measures',
+                            trailing: TextButton.icon(
+                              onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      AthleticAssessmentScreen(store: store),
+                                ),
+                              ),
+                              icon: const Icon(Icons.science_rounded, size: 17),
+                              label: const Text('ASSESS'),
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 12),
+                          _AssessmentPanel(
+                            assessment: latestAssessment,
+                            onOpenHistory: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    AthleticHistoryScreen(store: store),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            'Training guidance only. Stop for sharp pain, dizziness, or loss of control. Field measures are repeatable performance markers, not medical screening or diagnosis.',
+                            style: TextStyle(
+                              color: BrandColors.muted.withValues(alpha: .8),
+                              fontSize: 11,
+                              height: 1.45,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
             ],
           ),
         ),
@@ -844,10 +843,7 @@ class _ProgramProgressPanel extends StatelessWidget {
         const SizedBox(height: 14),
         Text(
           week.goal,
-          style: const TextStyle(
-            color: BrandColors.white,
-            height: 1.45,
-          ),
+          style: const TextStyle(color: BrandColors.white, height: 1.45),
         ),
         const SizedBox(height: 14),
         SizedBox(
@@ -1167,18 +1163,12 @@ class _RoutineSessionTile extends StatelessWidget {
               const SizedBox(height: 3),
               Text(
                 '${session.durationMinutes} min · ${session.drills.length} drills',
-                style: const TextStyle(
-                  color: BrandColors.muted,
-                  fontSize: 11,
-                ),
+                style: const TextStyle(color: BrandColors.muted, fontSize: 11),
               ),
             ],
           ),
         ),
-        const Icon(
-          Icons.chevron_right_rounded,
-          color: BrandColors.muted,
-        ),
+        const Icon(Icons.chevron_right_rounded, color: BrandColors.muted),
       ],
     ),
   );
@@ -1219,9 +1209,7 @@ class _WeeklyRhythmPanel extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: day.$3.withValues(alpha: .08),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: day.$3.withValues(alpha: .18),
-                      ),
+                      border: Border.all(color: day.$3.withValues(alpha: .18)),
                     ),
                     child: Column(
                       children: [
@@ -2265,7 +2253,8 @@ class _AthleticAssessmentScreenState extends State<AthleticAssessmentScreen> {
             maxLines: 5,
             decoration: const InputDecoration(
               labelText: 'TEST CONDITIONS & NOTES',
-              hintText: 'Surface, footwear, warm-up, symptoms, or timing method',
+              hintText:
+                  'Surface, footwear, warm-up, symptoms, or timing method',
             ),
           ),
           if (error != null) ...[
@@ -2291,17 +2280,19 @@ class _AthleticAssessmentScreenState extends State<AthleticAssessmentScreen> {
       _optionalValue(sprint),
       _optionalValue(changeDirection),
     ];
-    final enteredInvalid = [
-      leftBalance,
-      rightBalance,
-      broadJump,
-      sprint,
-      changeDirection,
-    ].asMap().entries.any(
-      (entry) =>
-          entry.value.text.trim().isNotEmpty && values[entry.key] == null,
-    );
-    if (enteredInvalid || values.whereType<double>().any((value) => value <= 0)) {
+    final enteredInvalid =
+        [
+          leftBalance,
+          rightBalance,
+          broadJump,
+          sprint,
+          changeDirection,
+        ].asMap().entries.any(
+          (entry) =>
+              entry.value.text.trim().isNotEmpty && values[entry.key] == null,
+        );
+    if (enteredInvalid ||
+        values.whereType<double>().any((value) => value <= 0)) {
       setState(() => error = 'Use positive numbers or leave a measure blank.');
       return;
     }
@@ -2399,7 +2390,8 @@ class AthleticHistoryScreen extends StatelessWidget {
               else
                 for (final assessment in assessments) ...[
                   _HistoryAssessmentCard(assessment: assessment),
-                  if (assessment != assessments.last) const SizedBox(height: 10),
+                  if (assessment != assessments.last)
+                    const SizedBox(height: 10),
                 ],
             ],
           ),

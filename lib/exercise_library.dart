@@ -155,7 +155,8 @@ abstract final class ExerciseLibrary {
       if (favoritesOnly && !option.isFavorite) continue;
       if (muscles.isNotEmpty) {
         final matchPrimary = muscles.contains(option.primaryMuscle);
-        final matchSecondary = includeSecondaryMuscles &&
+        final matchSecondary =
+            includeSecondaryMuscles &&
             option.secondaryMuscles.any(muscles.contains);
         if (!matchPrimary && !matchSecondary) continue;
       }
@@ -249,7 +250,9 @@ abstract final class ExerciseLibrary {
     final names = <String>{};
     for (final exercise in _catalog) {
       if (exercise.id.trim().isEmpty || !ids.add(exercise.id)) {
-        throw StateError('Duplicate or empty built-in exercise ID: ${exercise.id}');
+        throw StateError(
+          'Duplicate or empty built-in exercise ID: ${exercise.id}',
+        );
       }
       final name = normalize(exercise.name);
       if (name.isEmpty || !names.add(name)) {

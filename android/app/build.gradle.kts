@@ -21,8 +21,8 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 31
         targetSdk = flutter.targetSdkVersion
-        versionCode = 13
-        versionName = "2.0.0"
+        versionCode = 14
+        versionName = "2.1.0"
     }
 
     buildTypes {
@@ -44,8 +44,10 @@ flutter {
     source = "../.."
 }
 
-
 dependencies {
     implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
+    implementation("androidx.health.connect:connect-client:1.1.0")
+    implementation("androidx.documentfile:documentfile:1.0.1")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 }

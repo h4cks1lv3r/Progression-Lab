@@ -25,6 +25,13 @@ import UniformTypeIdentifiers
       forPlugin: "ProgressionLabDataPortability"
     ) else { return }
     let messenger = registrar.messenger()
+
+    if let controller = window?.rootViewController {
+      IntegrationBridgeIOS.shared.register(
+        messenger: messenger,
+        viewController: controller
+      )
+    }
     let storageChannel = FlutterMethodChannel(
       name: "iron_cadence/storage",
       binaryMessenger: messenger

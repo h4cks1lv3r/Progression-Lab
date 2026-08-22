@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.1.0+14 — 2026-08-21
+
+### Added
+
+- Health Connect and Apple Health authorization, workout-summary sync, and body-metric exchange.
+- Local FIT, TCX, and GPX import for wearable and endurance activity history.
+- Secure Strava and Garmin provider adapters with PKCE and protected OAuth-broker configuration.
+- User-selected automatic cloud backup through Android document providers and iOS Files/iCloud Drive.
+- Clean Performance, Achievement, and Session Recap social templates in Story, portrait-feed, and square formats.
+- Share-card privacy controls and mature branded caption generation.
+- Deterministic personal Lab experiments and user-triggered weekly evidence reviews.
+- Replayable contextual coach marks and Reset All Tips.
+- Connections & Experiments hub for health, providers, imports, cloud, sharing, experiments, and guides.
+- Exact backup coverage for integration preferences, imported external activities, experiments, share settings, and contextual-guide state.
+
+### Security
+
+- Provider client secrets are never embedded in the mobile app.
+- OAuth uses PKCE and short-lived device sessions stored in EncryptedSharedPreferences or the iOS Keychain.
+- Cloud backups use a folder explicitly selected by the user; Progression Lab does not receive the provider account credentials.
+
+
 ## 2.0.0+13 — 2026-08-21
 
 ### Added

@@ -70,5 +70,18 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Progression Lab reads authorized workouts, bodyweight, heart rate, sleep, steps, and recovery context to compare training trends.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Progression Lab writes completed workout summaries and optional bodyweight entries when you enable Apple Health sync.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.h4cks1lv3r.progressionlab.oauth</string>
+			<key>CFBundleURLSchemes</key>
+			<array><string>progressionlab</string></array>
+		</dict>
+	</array>
 </dict>
 </plist>

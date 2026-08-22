@@ -75,7 +75,8 @@ abstract final class WarmupCalculator {
     BuiltInExercises.barbellFrontSquat.name,
   };
 
-  static bool supports(String exercise) => _compoundExercises.contains(exercise);
+  static bool supports(String exercise) =>
+      _compoundExercises.contains(exercise);
 
   static WarmupRecommendation? calculate({
     required String exercise,

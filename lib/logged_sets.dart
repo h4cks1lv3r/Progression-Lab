@@ -287,13 +287,9 @@ class _EditableSetCardState extends State<_EditableSetCard> {
 
   Future<void> _save() async {
     final type = _type;
-    final weight = type.usesWeight
-        ? double.tryParse(_weight.text.trim())
-        : 0.0;
+    final weight = type.usesWeight ? double.tryParse(_weight.text.trim()) : 0.0;
     final reps = type.usesReps ? int.tryParse(_reps.text.trim()) : 0;
-    final duration = type.usesDuration
-        ? _parseDuration(_duration.text)
-        : null;
+    final duration = type.usesDuration ? _parseDuration(_duration.text) : null;
     final distance = type.usesDistance
         ? double.tryParse(_distance.text.trim())
         : null;
@@ -429,7 +425,8 @@ class _EditableSetCardState extends State<_EditableSetCard> {
         _SetEditorFields(
           type: _type,
           unit: widget.store.unit,
-          distanceUnit: widget.log.distanceUnit ??
+          distanceUnit:
+              widget.log.distanceUnit ??
               (widget.store.unit == 'kg' ? 'km' : 'mi'),
           weight: _weight,
           reps: _reps,
@@ -568,7 +565,6 @@ String _formatNumber(double value) => value == value.roundToDouble()
 String _formatDurationInput(int seconds) => seconds >= 60
     ? '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}'
     : '$seconds';
-
 
 String _date(DateTime value) =>
     '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';

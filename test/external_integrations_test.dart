@@ -85,7 +85,12 @@ void main() {
               'sessionId': 'session-$index',
               'workout': 'Upper Body A',
               'date': DateTime.utc(2026, 8, 10 + index, 18).toIso8601String(),
-              'loggedAt': DateTime.utc(2026, 8, 10 + index, 18).toIso8601String(),
+              'loggedAt': DateTime.utc(
+                2026,
+                8,
+                10 + index,
+                18,
+              ).toIso8601String(),
               'week': index + 1,
               'days': 4,
             },
@@ -106,7 +111,12 @@ void main() {
             <String, dynamic>{
               'name': 'Coffee',
               'caffeineMg': 180,
-              'takenAt': DateTime.utc(2026, 8, 10 + index, 17).toIso8601String(),
+              'takenAt': DateTime.utc(
+                2026,
+                8,
+                10 + index,
+                17,
+              ).toIso8601String(),
             },
         ],
         'recoveryCheckIns': <Object?>[],
@@ -121,24 +131,21 @@ void main() {
 
     test('weekly review reports signals and missing data honestly', () {
       final end = DateTime.utc(2026, 8, 21, 12);
-      final review = LabExperimentAnalyzer.weeklyReview(
-        <String, dynamic>{
-          'workoutHistory': <Object?>[
-            <String, dynamic>{
-              'status': 'completed',
-              'workout': 'Upper Body A',
-              'date': DateTime.utc(2026, 8, 20).toIso8601String(),
-              'loggedAt': DateTime.utc(2026, 8, 20).toIso8601String(),
-            },
-          ],
-          'athleticHistory': <Object?>[],
-          'logs': <Object?>[],
-          'workoutResponses': <Object?>[],
-          'recoveryCheckIns': <Object?>[],
-          'supplementEvents': <Object?>[],
-        },
-        ending: end,
-      );
+      final review = LabExperimentAnalyzer.weeklyReview(<String, dynamic>{
+        'workoutHistory': <Object?>[
+          <String, dynamic>{
+            'status': 'completed',
+            'workout': 'Upper Body A',
+            'date': DateTime.utc(2026, 8, 20).toIso8601String(),
+            'loggedAt': DateTime.utc(2026, 8, 20).toIso8601String(),
+          },
+        ],
+        'athleticHistory': <Object?>[],
+        'logs': <Object?>[],
+        'workoutResponses': <Object?>[],
+        'recoveryCheckIns': <Object?>[],
+        'supplementEvents': <Object?>[],
+      }, ending: end);
       expect(review.completedStrengthWorkouts, 1);
       expect(review.signals, isNotEmpty);
       expect(review.dataGaps, contains('Sleep was not logged this week.'));

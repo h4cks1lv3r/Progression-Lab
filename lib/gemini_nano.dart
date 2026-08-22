@@ -37,7 +37,9 @@ class GeminiNanoStatus {
     };
     return GeminiNanoStatus(
       availability: availability,
-      modelName: value['modelName'] is String ? value['modelName'] as String : null,
+      modelName: value['modelName'] is String
+          ? value['modelName'] as String
+          : null,
       message: value['message'] is String ? value['message'] as String : null,
     );
   }
@@ -89,7 +91,8 @@ class GeminiNanoService {
     } on PlatformException catch (error) {
       return GeminiNanoStatus(
         availability: _availabilityForError(error.code),
-        message: error.message ?? 'The Gemini Nano model could not be downloaded.',
+        message:
+            error.message ?? 'The Gemini Nano model could not be downloaded.',
       );
     }
   }

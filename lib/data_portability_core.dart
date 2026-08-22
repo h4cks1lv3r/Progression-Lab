@@ -67,21 +67,15 @@ abstract final class ProgressionBackupCodec {
         'athleticSessionIndex': state['athleticSessionIndex'],
         'athleticStartDate': state['athleticStartDate'],
       }),
-      'athletic_history.json': _jsonBytes(
-        _listValue(state['athleticHistory']),
-      ),
-      'assessments.json': _jsonBytes(
-        _listValue(state['athleticAssessments']),
-      ),
+      'athletic_history.json': _jsonBytes(_listValue(state['athleticHistory'])),
+      'assessments.json': _jsonBytes(_listValue(state['athleticAssessments'])),
       'settings.json': _jsonBytes({
         'unit': state['unit'],
         'preferredTrack': state['preferredTrack'],
         'onboardingVersionSeen': state['onboardingVersionSeen'],
         'automaticBackupsEnabled': state['automaticBackupsEnabled'],
       }),
-      'import_history.json': _jsonBytes(
-        _listValue(state['importHistory']),
-      ),
+      'import_history.json': _jsonBytes(_listValue(state['importHistory'])),
       ...ProgressionCsvExport.portableFiles(state),
     };
     final contents = payload.keys.toList()..sort();
@@ -166,7 +160,9 @@ abstract final class ProgressionBackupCodec {
       );
     }
     final schema = _readInt(manifest['schemaVersion']);
-    if (schema == null || schema < 1 || schema > progressionBackupSchemaVersion) {
+    if (schema == null ||
+        schema < 1 ||
+        schema > progressionBackupSchemaVersion) {
       throw BackupValidationException(
         'Backup schema ${manifest['schemaVersion']} is not supported.',
       );
@@ -201,11 +197,7 @@ abstract final class ProgressionBackupCodec {
         'The checksum index does not match the backup manifest.',
       );
     }
-    final expectedFiles = {
-      'manifest.json',
-      'checksums.json',
-      ...contentNames,
-    };
+    final expectedFiles = {'manifest.json', 'checksums.json', ...contentNames};
     if (files.keys.any((name) => !expectedFiles.contains(name))) {
       throw const BackupValidationException(
         'The backup contains files that are not indexed by its manifest.',
@@ -236,11 +228,7 @@ abstract final class ProgressionBackupCodec {
     utf8.encode(const JsonEncoder.withIndent('  ').convert(value)),
   );
 
-  static void _addArchiveFile(
-    Archive archive,
-    String name,
-    Uint8List bytes,
-  ) {
+  static void _addArchiveFile(Archive archive, String name, Uint8List bytes) {
     archive.addFile(ArchiveFile(name, bytes.length, bytes));
   }
 
@@ -554,16 +542,8 @@ abstract final class WorkoutCsvImporter {
     'weight(lbs)',
     'load',
   ];
-  static const _repsAliases = <String>[
-    'reps',
-    'repetitions',
-    'rep count',
-  ];
-  static const _unitAliases = <String>[
-    'weight unit',
-    'weight_unit',
-    'unit',
-  ];
+  static const _repsAliases = <String>['reps', 'repetitions', 'rep count'];
+  static const _unitAliases = <String>['weight unit', 'weight_unit', 'unit'];
   static const _notesAliases = <String>[
     'notes',
     'note',
@@ -602,10 +582,7 @@ abstract final class WorkoutCsvImporter {
     'distance unit',
     'distance_unit',
   ];
-  static const _setTypeAliases = <String>[
-    'set type',
-    'set_type',
-  ];
+  static const _setTypeAliases = <String>['set type', 'set_type'];
   static const _rpeAliases = <String>['rpe'];
   static const _rirAliases = <String>['rir', 'reps in reserve'];
   static const _supersetAliases = <String>['superset id', 'superset_id'];
@@ -867,8 +844,7 @@ abstract final class WorkoutCsvImporter {
     }
     if (headers.contains('kind') &&
         headers.contains('exercise') &&
-        (headers.contains('weight (kg)') ||
-            headers.contains('weight (lbs)'))) {
+        (headers.contains('weight (kg)') || headers.contains('weight (lbs)'))) {
       return WorkoutImportSource.fitNotes;
     }
     if (headers.contains('workout name') &&
@@ -954,16 +930,13 @@ abstract final class WorkoutCsvImporter {
         ? mapping.alternateWeight
         : mapping.weight ?? mapping.alternateWeight;
     final explicit = _value(row, mapping.weightUnit).toLowerCase();
-    final sourceUnit = explicit.contains('kg') ||
-            explicit.contains('kilogram')
+    final sourceUnit = explicit.contains('kg') || explicit.contains('kilogram')
         ? 'kg'
         : explicit.contains('lb') || explicit.contains('pound')
         ? 'lb'
         : _unitFromHeader(selectedHeader) ?? defaultSourceWeightUnit;
     final kilograms = sourceUnit == 'kg' ? value : value * 0.45359237;
-    final targetValue = targetUnit == 'kg'
-        ? kilograms
-        : kilograms / 0.45359237;
+    final targetValue = targetUnit == 'kg' ? kilograms : kilograms / 0.45359237;
     return _ParsedWeight(targetValue: targetValue, kilograms: kilograms);
   }
 
@@ -1093,8 +1066,11 @@ abstract final class WorkoutCsvImporter {
         : _distanceUnitFromHeader(header);
     final factor = switch (normalizedUnit) {
       'm' || 'meter' || 'meters' || 'metre' || 'metres' => 1.0,
-      'km' || 'kilometer' || 'kilometers' || 'kilometre' || 'kilometres' =>
-        1000.0,
+      'km' ||
+      'kilometer' ||
+      'kilometers' ||
+      'kilometre' ||
+      'kilometres' => 1000.0,
       'cm' || 'centimeter' || 'centimeters' => 0.01,
       'mi' || 'mile' || 'miles' => 1609.344,
       'yd' || 'yard' || 'yards' => 0.9144,
@@ -1194,10 +1170,7 @@ class _MutableImportWorkout {
 }
 
 class _ParsedWeight {
-  const _ParsedWeight({
-    required this.targetValue,
-    required this.kilograms,
-  });
+  const _ParsedWeight({required this.targetValue, required this.kilograms});
 
   final double targetValue;
   final double kilograms;
@@ -1547,26 +1520,23 @@ class ImportedWorkoutRecord {
     'importBatchId': importBatchId,
   };
 
-  factory ImportedWorkoutRecord.fromJson(Map<String, dynamic> json) =>
-      ImportedWorkoutRecord(
-        id: json['id'] as String,
-        source: json['source'] as String,
-        sessionId: json['sessionId'] is String
-            ? json['sessionId'] as String
-            : null,
-        sourceId: json['sourceId'] is String
-            ? json['sourceId'] as String
-            : null,
-        name: json['name'] as String,
-        startedAt: DateTime.parse(json['startedAt'] as String),
-        sourceTimestamp: json['sourceTimestamp'] is String
-            ? json['sourceTimestamp'] as String
-            : json['startedAt'] as String,
-        durationSeconds: _readInt(json['durationSeconds']),
-        notes: json['notes'] is String ? json['notes'] as String : '',
-        signature: json['signature'] as String,
-        importBatchId: json['importBatchId'] as String,
-      );
+  factory ImportedWorkoutRecord.fromJson(
+    Map<String, dynamic> json,
+  ) => ImportedWorkoutRecord(
+    id: json['id'] as String,
+    source: json['source'] as String,
+    sessionId: json['sessionId'] is String ? json['sessionId'] as String : null,
+    sourceId: json['sourceId'] is String ? json['sourceId'] as String : null,
+    name: json['name'] as String,
+    startedAt: DateTime.parse(json['startedAt'] as String),
+    sourceTimestamp: json['sourceTimestamp'] is String
+        ? json['sourceTimestamp'] as String
+        : json['startedAt'] as String,
+    durationSeconds: _readInt(json['durationSeconds']),
+    notes: json['notes'] is String ? json['notes'] as String : '',
+    signature: json['signature'] as String,
+    importBatchId: json['importBatchId'] as String,
+  );
 }
 
 class DataImportBatch {
@@ -1628,7 +1598,10 @@ class DataImportBatch {
 
 List<String> _stringList(Object? value) {
   if (value is! List) return const [];
-  return [for (final item in value) if (item is String) item];
+  return [
+    for (final item in value)
+      if (item is String) item,
+  ];
 }
 
 int? _readInt(Object? value) {

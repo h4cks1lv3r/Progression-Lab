@@ -11,7 +11,14 @@ import 'external_workout_formats.dart';
 
 enum TrainingProvider { strava, garmin }
 
-enum ProviderConnectionState { unavailable, disconnected, connecting, connected, expired, error }
+enum ProviderConnectionState {
+  unavailable,
+  disconnected,
+  connecting,
+  connected,
+  expired,
+  error,
+}
 
 class ProviderConfiguration {
   const ProviderConfiguration({
@@ -24,25 +31,27 @@ class ProviderConfiguration {
   final String brokerBaseUrl;
   final String redirectUri;
 
-  bool get configured => brokerBaseUrl.trim().isNotEmpty && redirectUri.trim().isNotEmpty;
+  bool get configured =>
+      brokerBaseUrl.trim().isNotEmpty && redirectUri.trim().isNotEmpty;
 
-  static ProviderConfiguration forProvider(TrainingProvider provider) => switch (provider) {
+  static ProviderConfiguration forProvider(TrainingProvider provider) =>
+      switch (provider) {
         TrainingProvider.strava => const ProviderConfiguration(
-            provider: TrainingProvider.strava,
-            brokerBaseUrl: String.fromEnvironment('STRAVA_SYNC_BROKER_URL'),
-            redirectUri: String.fromEnvironment(
-              'STRAVA_REDIRECT_URI',
-              defaultValue: 'progressionlab://oauth/strava',
-            ),
+          provider: TrainingProvider.strava,
+          brokerBaseUrl: String.fromEnvironment('STRAVA_SYNC_BROKER_URL'),
+          redirectUri: String.fromEnvironment(
+            'STRAVA_REDIRECT_URI',
+            defaultValue: 'progressionlab://oauth/strava',
           ),
+        ),
         TrainingProvider.garmin => const ProviderConfiguration(
-            provider: TrainingProvider.garmin,
-            brokerBaseUrl: String.fromEnvironment('GARMIN_SYNC_BROKER_URL'),
-            redirectUri: String.fromEnvironment(
-              'GARMIN_REDIRECT_URI',
-              defaultValue: 'progressionlab://oauth/garmin',
-            ),
+          provider: TrainingProvider.garmin,
+          brokerBaseUrl: String.fromEnvironment('GARMIN_SYNC_BROKER_URL'),
+          redirectUri: String.fromEnvironment(
+            'GARMIN_REDIRECT_URI',
+            defaultValue: 'progressionlab://oauth/garmin',
           ),
+        ),
       };
 }
 
@@ -71,15 +80,14 @@ class ProviderStatus {
     DateTime? connectedAt,
     DateTime? lastSyncAt,
     String? message,
-  }) =>
-      ProviderStatus(
-        provider: provider,
-        state: state ?? this.state,
-        accountName: accountName ?? this.accountName,
-        connectedAt: connectedAt ?? this.connectedAt,
-        lastSyncAt: lastSyncAt ?? this.lastSyncAt,
-        message: message ?? this.message,
-      );
+  }) => ProviderStatus(
+    provider: provider,
+    state: state ?? this.state,
+    accountName: accountName ?? this.accountName,
+    connectedAt: connectedAt ?? this.connectedAt,
+    lastSyncAt: lastSyncAt ?? this.lastSyncAt,
+    message: message ?? this.message,
+  );
 }
 
 class ProviderActivityPage {
@@ -103,28 +111,31 @@ class ProviderIntegrationService extends ChangeNotifier {
     HttpClient? httpClient,
     MethodChannel? secureChannel,
     MethodChannel? browserChannel,
-  })  : _httpClient = httpClient ?? HttpClient(),
-        _secureChannel = secureChannel ??
-            const MethodChannel('progression_lab/secure_storage'),
-        _browserChannel = browserChannel ??
-            const MethodChannel('progression_lab/oauth');
+  }) : _httpClient = httpClient ?? HttpClient(),
+       _secureChannel =
+           secureChannel ??
+           const MethodChannel('progression_lab/secure_storage'),
+       _browserChannel =
+           browserChannel ?? const MethodChannel('progression_lab/oauth');
 
   final HttpClient _httpClient;
   final MethodChannel _secureChannel;
   final MethodChannel _browserChannel;
-  final Map<TrainingProvider, ProviderStatus> _status = <TrainingProvider, ProviderStatus>{
-    for (final provider in TrainingProvider.values)
-      provider: ProviderStatus(
-        provider: provider,
-        state: ProviderConfiguration.forProvider(provider).configured
-            ? ProviderConnectionState.disconnected
-            : ProviderConnectionState.unavailable,
-      ),
-  };
+  final Map<TrainingProvider, ProviderStatus> _status =
+      <TrainingProvider, ProviderStatus>{
+        for (final provider in TrainingProvider.values)
+          provider: ProviderStatus(
+            provider: provider,
+            state: ProviderConfiguration.forProvider(provider).configured
+                ? ProviderConnectionState.disconnected
+                : ProviderConnectionState.unavailable,
+          ),
+      };
   bool _busy = false;
   String? _lastError;
 
-  Map<TrainingProvider, ProviderStatus> get statuses => Map.unmodifiable(_status);
+  Map<TrainingProvider, ProviderStatus> get statuses =>
+      Map.unmodifiable(_status);
   bool get busy => _busy;
   String? get lastError => _lastError;
 
@@ -191,7 +202,9 @@ class ProviderIntegrationService extends ChangeNotifier {
       );
       final authorizationUrl = '${start['authorizationUrl'] ?? ''}';
       if (!authorizationUrl.startsWith('https://')) {
-        throw const FormatException('The provider returned an invalid authorization URL.');
+        throw const FormatException(
+          'The provider returned an invalid authorization URL.',
+        );
       }
       final callback = await _browserChannel.invokeMapMethod<Object?, Object?>(
         'authorize',
@@ -213,7 +226,8 @@ class ProviderIntegrationService extends ChangeNotifier {
       }
       final code = '${callback['code'] ?? ''}';
       if (code.isEmpty) {
-        final description = '${callback['errorDescription'] ?? callback['error'] ?? 'Authorization was cancelled.'}';
+        final description =
+            '${callback['errorDescription'] ?? callback['error'] ?? 'Authorization was cancelled.'}';
         throw StateError(description);
       }
       final exchange = await _postJson(
@@ -228,7 +242,9 @@ class ProviderIntegrationService extends ChangeNotifier {
       );
       final sessionToken = '${exchange['sessionToken'] ?? ''}';
       if (sessionToken.isEmpty) {
-        throw const FormatException('The OAuth broker returned no session token.');
+        throw const FormatException(
+          'The OAuth broker returned no session token.',
+        );
       }
       await _writeSecret(_tokenKey(provider), sessionToken);
       _status[provider] = ProviderStatus(
@@ -294,7 +310,9 @@ class ProviderIntegrationService extends ChangeNotifier {
       if (rawActivities is List) {
         for (final raw in rawActivities.whereType<Map>()) {
           try {
-            workouts.add(_providerWorkout(provider, Map<String, dynamic>.from(raw)));
+            workouts.add(
+              _providerWorkout(provider, Map<String, dynamic>.from(raw)),
+            );
           } on Object catch (error) {
             warnings.add('One ${provider.name} activity was skipped: $error');
           }
@@ -333,7 +351,10 @@ class ProviderIntegrationService extends ChangeNotifier {
     request.headers.set(HttpHeaders.acceptHeader, 'application/octet-stream');
     final response = await request.close();
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException('Provider export failed with HTTP ${response.statusCode}.', uri: uri);
+      throw HttpException(
+        'Provider export failed with HTTP ${response.statusCode}.',
+        uri: uri,
+      );
     }
     final chunks = <int>[];
     await for (final chunk in response) {
@@ -352,7 +373,10 @@ class ProviderIntegrationService extends ChangeNotifier {
     final request = await _httpClient.getUrl(uri);
     request.headers.set(HttpHeaders.acceptHeader, 'application/json');
     if (sessionToken != null) {
-      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $sessionToken');
+      request.headers.set(
+        HttpHeaders.authorizationHeader,
+        'Bearer $sessionToken',
+      );
     }
     final response = await request.close();
     return _decodeResponse(response, uri);
@@ -369,7 +393,10 @@ class ProviderIntegrationService extends ChangeNotifier {
     request.headers.contentType = ContentType.json;
     request.headers.set(HttpHeaders.acceptHeader, 'application/json');
     if (sessionToken != null) {
-      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $sessionToken');
+      request.headers.set(
+        HttpHeaders.authorizationHeader,
+        'Bearer $sessionToken',
+      );
     }
     request.add(utf8.encode(jsonEncode(body)));
     final response = await request.close();
@@ -387,7 +414,8 @@ class ProviderIntegrationService extends ChangeNotifier {
       if (decoded is Map) body = Map<String, dynamic>.from(decoded);
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final message = '${body['message'] ?? body['error'] ?? 'HTTP ${response.statusCode}'}';
+      final message =
+          '${body['message'] ?? body['error'] ?? 'HTTP ${response.statusCode}'}';
       throw HttpException(message, uri: uri);
     }
     return body;
@@ -420,10 +448,10 @@ class ProviderIntegrationService extends ChangeNotifier {
       _secureChannel.invokeMethod<String>('read', <String, String>{'key': key});
 
   Future<void> _writeSecret(String key, String value) =>
-      _secureChannel.invokeMethod<void>(
-        'write',
-        <String, String>{'key': key, 'value': value},
-      );
+      _secureChannel.invokeMethod<void>('write', <String, String>{
+        'key': key,
+        'value': value,
+      });
 
   Future<void> _deleteSecret(String key) =>
       _secureChannel.invokeMethod<void>('delete', <String, String>{'key': key});
@@ -432,7 +460,8 @@ class ProviderIntegrationService extends ChangeNotifier {
       'provider.${provider.name}.sessionToken';
 
   String _randomVerifier({int length = 64}) {
-    const alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~';
+    const alphabet =
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~';
     final random = Random.secure();
     return List<String>.generate(
       length,
@@ -447,13 +476,18 @@ class ProviderIntegrationService extends ChangeNotifier {
     TrainingProvider provider,
     Map<String, dynamic> raw,
   ) {
-    final startedAt = DateTime.parse('${raw['startedAt'] ?? raw['startDate']}').toUtc();
-    final durationSeconds = (raw['durationSeconds'] as num?)?.toDouble() ??
+    final startedAt = DateTime.parse(
+      '${raw['startedAt'] ?? raw['startDate']}',
+    ).toUtc();
+    final durationSeconds =
+        (raw['durationSeconds'] as num?)?.toDouble() ??
         (raw['movingTimeSeconds'] as num?)?.toDouble() ??
         0;
     final endedAt = raw['endedAt'] is String
         ? DateTime.parse(raw['endedAt']! as String).toUtc()
-        : startedAt.add(Duration(milliseconds: (durationSeconds * 1000).round()));
+        : startedAt.add(
+            Duration(milliseconds: (durationSeconds * 1000).round()),
+          );
     return ExternalWorkout(
       id: '${provider.name}-${raw['id']}',
       source: provider == TrainingProvider.strava

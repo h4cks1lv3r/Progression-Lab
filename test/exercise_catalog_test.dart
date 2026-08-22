@@ -7,7 +7,9 @@ void main() {
       expect(BuiltInExercises.values.length, greaterThanOrEqualTo(250));
       expect(ExerciseLibrary.validateCatalog, returnsNormally);
 
-      final ids = BuiltInExercises.values.map((exercise) => exercise.id).toSet();
+      final ids = BuiltInExercises.values
+          .map((exercise) => exercise.id)
+          .toSet();
       final names = BuiltInExercises.values
           .map((exercise) => ExerciseLibrary.normalize(exercise.name))
           .toSet();
@@ -60,7 +62,9 @@ void main() {
         'captains_chair_leg_lift',
       );
       expect(
-        ExerciseLibrary.builtInByName('Vertical Knee Raise Station Leg Raise')?.id,
+        ExerciseLibrary.builtInByName(
+          'Vertical Knee Raise Station Leg Raise',
+        )?.id,
         'captains_chair_leg_lift',
       );
     });
@@ -88,27 +92,32 @@ void main() {
       }
     });
 
-    test('weighted and assisted bodyweight variants keep distinct semantics', () {
-      final weighted = ExerciseLibrary.builtInById('weighted_pull_up');
-      final assisted = ExerciseLibrary.builtInById('assisted_pull_up');
+    test(
+      'weighted and assisted bodyweight variants keep distinct semantics',
+      () {
+        final weighted = ExerciseLibrary.builtInById('weighted_pull_up');
+        final assisted = ExerciseLibrary.builtInById('assisted_pull_up');
 
-      expect(weighted, isNotNull);
-      expect(weighted!.trackingType, ExerciseTrackingType.weightedBodyweight);
-      expect(weighted.trackingType.weightLabel, 'ADDED WEIGHT');
-      expect(weighted.trackingType.requiresPositiveWeight, isFalse);
+        expect(weighted, isNotNull);
+        expect(weighted!.trackingType, ExerciseTrackingType.weightedBodyweight);
+        expect(weighted.trackingType.weightLabel, 'ADDED WEIGHT');
+        expect(weighted.trackingType.requiresPositiveWeight, isFalse);
 
-      expect(assisted, isNotNull);
-      expect(assisted!.trackingType, ExerciseTrackingType.assistedBodyweight);
-      expect(assisted.trackingType.weightLabel, 'ASSISTANCE');
-      expect(assisted.trackingType.performanceLabel, 'Lowest Assistance');
-    });
+        expect(assisted, isNotNull);
+        expect(assisted!.trackingType, ExerciseTrackingType.assistedBodyweight);
+        expect(assisted.trackingType.weightLabel, 'ASSISTANCE');
+        expect(assisted.trackingType.performanceLabel, 'Lowest Assistance');
+      },
+    );
 
     test('search resolves common aliases and abbreviations', () {
       expect(ExerciseLibrary.builtInByName('RDL')?.id, isNotNull);
       expect(ExerciseLibrary.builtInByName('OHP')?.id, isNotNull);
       expect(ExerciseLibrary.builtInByName('Pullup')?.id, 'pull_up');
-      expect(ExerciseLibrary.builtInByName('Captain’s Chair Leg Raise')?.id,
-          'captains_chair_leg_lift');
+      expect(
+        ExerciseLibrary.builtInByName('Captain’s Chair Leg Raise')?.id,
+        'captains_chair_leg_lift',
+      );
     });
   });
 }

@@ -3,7 +3,8 @@ import 'dart:math' as math;
 String createRecordId(String prefix) =>
     '$prefix-${DateTime.now().microsecondsSinceEpoch}-${math.Random().nextInt(1 << 20)}';
 
-DateTime dateOnly(DateTime value) => DateTime(value.year, value.month, value.day);
+DateTime dateOnly(DateTime value) =>
+    DateTime(value.year, value.month, value.day);
 
 bool sameLocalDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
@@ -262,8 +263,7 @@ class MealEvent {
     'timing': timing.name,
     if (calories != null) 'calories': calories,
     if (proteinGrams != null) 'proteinGrams': proteinGrams,
-    if (carbohydrateGrams != null)
-      'carbohydrateGrams': carbohydrateGrams,
+    if (carbohydrateGrams != null) 'carbohydrateGrams': carbohydrateGrams,
     if (fatGrams != null) 'fatGrams': fatGrams,
     'notes': notes,
     if (workoutSessionId != null) 'workoutSessionId': workoutSessionId,

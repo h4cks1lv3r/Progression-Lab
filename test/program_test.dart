@@ -686,7 +686,9 @@ void main() {
       'custom exercises add, rename, soft-delete, and persist separately',
       () async {
         final store = AppStore();
-        final custom = await store.addCustomExercise('  Researcher Offset Row  ');
+        final custom = await store.addCustomExercise(
+          '  Researcher Offset Row  ',
+        );
         expect(custom.name, 'Researcher Offset Row');
         expect(
           store.selectableExercises.map((item) => item.name),
@@ -799,33 +801,36 @@ void main() {
       expect(() => AthleticProgram.week(13), throwsRangeError);
     });
 
-    test('completion advances independently from the strength program', () async {
-      final store = AppStore()
-        ..week = 19
-        ..workoutIndex = 2
-        ..athleticWeek = 1
-        ..athleticSessionIndex = 0;
+    test(
+      'completion advances independently from the strength program',
+      () async {
+        final store = AppStore()
+          ..week = 19
+          ..workoutIndex = 2
+          ..athleticWeek = 1
+          ..athleticSessionIndex = 0;
 
-      await store.completeAthleticSession(
-        effort: 7,
-        notes: 'Stable landings',
-      );
+        await store.completeAthleticSession(
+          effort: 7,
+          notes: 'Stable landings',
+        );
 
-      expect(store.week, 19);
-      expect(store.workoutIndex, 2);
-      expect(store.athleticWeek, 1);
-      expect(store.athleticSessionIndex, 1);
-      expect(store.athleticCompletedSessions, 1);
-      expect(store.athleticHistory.single.effort, 7);
-      expect(store.athleticHistory.single.notes, 'Stable landings');
+        expect(store.week, 19);
+        expect(store.workoutIndex, 2);
+        expect(store.athleticWeek, 1);
+        expect(store.athleticSessionIndex, 1);
+        expect(store.athleticCompletedSessions, 1);
+        expect(store.athleticHistory.single.effort, 7);
+        expect(store.athleticHistory.single.notes, 'Stable landings');
 
-      final restored = AppStore();
-      await restored.load();
-      expect(restored.week, 19);
-      expect(restored.athleticWeek, 1);
-      expect(restored.athleticSessionIndex, 1);
-      expect(restored.athleticHistory.single.notes, 'Stable landings');
-    });
+        final restored = AppStore();
+        await restored.load();
+        expect(restored.week, 19);
+        expect(restored.athleticWeek, 1);
+        expect(restored.athleticSessionIndex, 1);
+        expect(restored.athleticHistory.single.notes, 'Stable landings');
+      },
+    );
 
     test('the last session completes without silently wrapping', () async {
       final store = AppStore()
@@ -925,127 +930,134 @@ void main() {
     });
   });
 
-
   group('program starting positions', () {
-    test('a new strength run can begin at any authored phase and cycle', () async {
-      final oldRecord = WorkoutRecord(
-        week: 19,
-        workoutIndex: 4,
-        workout: 'Upper Body C',
-        date: DateTime(2026, 8, 1),
-        status: WorkoutStatus.completed,
-        programRun: 1,
-        days: 5,
-      );
-      final activeDraft = DraftSetInput(
-        week: 2,
-        workoutIndex: 0,
-        workout: 'Upper Body A',
-        exerciseIndex: 0,
-        setNumber: 1,
-        sessionId: 'active-draft',
-        weight: '185',
-        reps: '6',
-        notes: '',
-        programRun: 1,
-      );
-      final store = AppStore()
-        ..days = 4
-        ..week = 2
-        ..workoutIndex = 0
-        ..strengthProgramRun = 1
-        ..workoutHistory = [oldRecord]
-        ..draft = activeDraft
-        ..drafts = [activeDraft];
+    test(
+      'a new strength run can begin at any authored phase and cycle',
+      () async {
+        final oldRecord = WorkoutRecord(
+          week: 19,
+          workoutIndex: 4,
+          workout: 'Upper Body C',
+          date: DateTime(2026, 8, 1),
+          status: WorkoutStatus.completed,
+          programRun: 1,
+          days: 5,
+        );
+        final activeDraft = DraftSetInput(
+          week: 2,
+          workoutIndex: 0,
+          workout: 'Upper Body A',
+          exerciseIndex: 0,
+          setNumber: 1,
+          sessionId: 'active-draft',
+          weight: '185',
+          reps: '6',
+          notes: '',
+          programRun: 1,
+        );
+        final store = AppStore()
+          ..days = 4
+          ..week = 2
+          ..workoutIndex = 0
+          ..strengthProgramRun = 1
+          ..workoutHistory = [oldRecord]
+          ..draft = activeDraft
+          ..drafts = [activeDraft];
 
-      await store.setStrengthProgramPosition(
-        phase: 2,
-        microcycle: 3,
-        cadence: 5,
-        nextWorkoutIndex: 4,
-        nextWorkoutDate: DateTime(2026, 9, 1),
-        startNewRun: true,
-      );
-
-      expect(store.strengthProgramRun, 2);
-      expect(store.week, 19);
-      expect(store.days, 5);
-      expect(store.workoutIndex, 4);
-      expect(store.dateForSlot(19, 4), DateTime(2026, 9, 1));
-      expect(store.workoutHistory, [oldRecord]);
-      expect(store.recordsForSlot(19, 4), isEmpty);
-      expect(store.draft, isNull);
-      expect(store.drafts, isEmpty);
-
-      final restored = AppStore();
-      await restored.load();
-      expect(restored.strengthProgramRun, 2);
-      expect(restored.week, 19);
-      expect(restored.days, 5);
-      expect(restored.workoutIndex, 4);
-      expect(restored.dateForSlot(19, 4), DateTime(2026, 9, 1));
-      expect(restored.workoutHistory.single.programRun, 1);
-    });
-
-    test('moving within a run rejects an already-recorded target workout', () async {
-      final store = AppStore()
-        ..days = 4
-        ..week = 1
-        ..workoutIndex = 0
-        ..strengthProgramRun = 3
-        ..workoutHistory = [
-          WorkoutRecord(
-            week: 17,
-            workoutIndex: 0,
-            workout: 'Upper Body A',
-            date: DateTime(2026, 8, 1),
-            status: WorkoutStatus.completed,
-            programRun: 3,
-            days: 4,
-          ),
-        ];
-
-      expect(
-        store.setStrengthProgramPosition(
+        await store.setStrengthProgramPosition(
           phase: 2,
-          microcycle: 1,
-          cadence: 4,
-          nextWorkoutIndex: 0,
+          microcycle: 3,
+          cadence: 5,
+          nextWorkoutIndex: 4,
           nextWorkoutDate: DateTime(2026, 9, 1),
-          startNewRun: false,
-        ),
-        throwsStateError,
-      );
-      expect(store.week, 1);
-      expect(store.strengthProgramRun, 3);
-    });
+          startNewRun: true,
+        );
 
-    test('athletic training can start at a selected cycle and session', () async {
-      final previous = AthleticSessionRecord(
-        programRun: 1,
-        week: 6,
-        sessionIndex: 2,
-        completedAt: DateTime(2026, 8, 1),
-        effort: 7,
-      );
-      final store = AppStore()
-        ..athleticProgramRun = 1
-        ..athleticHistory = [previous];
+        expect(store.strengthProgramRun, 2);
+        expect(store.week, 19);
+        expect(store.days, 5);
+        expect(store.workoutIndex, 4);
+        expect(store.dateForSlot(19, 4), DateTime(2026, 9, 1));
+        expect(store.workoutHistory, [oldRecord]);
+        expect(store.recordsForSlot(19, 4), isEmpty);
+        expect(store.draft, isNull);
+        expect(store.drafts, isEmpty);
 
-      await store.setAthleticProgramPosition(
-        weekNumber: 6,
-        sessionIndex: 2,
-        nextSessionDate: DateTime(2026, 9, 3),
-        startNewRun: true,
-      );
+        final restored = AppStore();
+        await restored.load();
+        expect(restored.strengthProgramRun, 2);
+        expect(restored.week, 19);
+        expect(restored.days, 5);
+        expect(restored.workoutIndex, 4);
+        expect(restored.dateForSlot(19, 4), DateTime(2026, 9, 1));
+        expect(restored.workoutHistory.single.programRun, 1);
+      },
+    );
 
-      expect(store.athleticProgramRun, 2);
-      expect(store.athleticWeek, 6);
-      expect(store.athleticSessionIndex, 2);
-      expect(store.athleticDateForSlot(6, 2), DateTime(2026, 9, 3));
-      expect(store.currentAthleticRunHistory, isEmpty);
-      expect(store.athleticHistory, [previous]);
-    });
+    test(
+      'moving within a run rejects an already-recorded target workout',
+      () async {
+        final store = AppStore()
+          ..days = 4
+          ..week = 1
+          ..workoutIndex = 0
+          ..strengthProgramRun = 3
+          ..workoutHistory = [
+            WorkoutRecord(
+              week: 17,
+              workoutIndex: 0,
+              workout: 'Upper Body A',
+              date: DateTime(2026, 8, 1),
+              status: WorkoutStatus.completed,
+              programRun: 3,
+              days: 4,
+            ),
+          ];
+
+        expect(
+          store.setStrengthProgramPosition(
+            phase: 2,
+            microcycle: 1,
+            cadence: 4,
+            nextWorkoutIndex: 0,
+            nextWorkoutDate: DateTime(2026, 9, 1),
+            startNewRun: false,
+          ),
+          throwsStateError,
+        );
+        expect(store.week, 1);
+        expect(store.strengthProgramRun, 3);
+      },
+    );
+
+    test(
+      'athletic training can start at a selected cycle and session',
+      () async {
+        final previous = AthleticSessionRecord(
+          programRun: 1,
+          week: 6,
+          sessionIndex: 2,
+          completedAt: DateTime(2026, 8, 1),
+          effort: 7,
+        );
+        final store = AppStore()
+          ..athleticProgramRun = 1
+          ..athleticHistory = [previous];
+
+        await store.setAthleticProgramPosition(
+          weekNumber: 6,
+          sessionIndex: 2,
+          nextSessionDate: DateTime(2026, 9, 3),
+          startNewRun: true,
+        );
+
+        expect(store.athleticProgramRun, 2);
+        expect(store.athleticWeek, 6);
+        expect(store.athleticSessionIndex, 2);
+        expect(store.athleticDateForSlot(6, 2), DateTime(2026, 9, 3));
+        expect(store.currentAthleticRunHistory, isEmpty);
+        expect(store.athleticHistory, [previous]);
+      },
+    );
   });
-
 }

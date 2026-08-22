@@ -26,13 +26,13 @@ class WorkoutSharePrivacy {
   final bool completionOnly;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'showExactWeights': showExactWeights,
-        'showDuration': showDuration,
-        'showBodyweight': showBodyweight,
-        'showVolume': showVolume,
-        'showDate': showDate,
-        'completionOnly': completionOnly,
-      };
+    'showExactWeights': showExactWeights,
+    'showDuration': showDuration,
+    'showBodyweight': showBodyweight,
+    'showVolume': showVolume,
+    'showDate': showDate,
+    'completionOnly': completionOnly,
+  };
 
   factory WorkoutSharePrivacy.fromJson(Map<String, dynamic> value) =>
       WorkoutSharePrivacy(
@@ -59,11 +59,11 @@ class WorkoutSharePreferences {
   final bool includeCaption;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'template': template.name,
-        'aspect': aspect.name,
-        'privacy': privacy.toJson(),
-        'includeCaption': includeCaption,
-      };
+    'template': template.name,
+    'aspect': aspect.name,
+    'privacy': privacy.toJson(),
+    'includeCaption': includeCaption,
+  };
 
   factory WorkoutSharePreferences.fromJson(Map<String, dynamic> value) {
     T enumByName<T extends Enum>(List<T> values, Object? raw, T fallback) =>
@@ -150,6 +150,9 @@ abstract final class WorkoutShareCaptionBuilder {
 }
 
 abstract final class AdvancedWorkoutShareCardGenerator {
+  static WorkoutSharePreferences currentPreferences =
+      const WorkoutSharePreferences();
+
   static Future<Uint8List> generate(
     ShareWorkoutSnapshot snapshot,
     WorkoutSharePreferences preferences,
@@ -165,18 +168,22 @@ abstract final class AdvancedWorkoutShareCardGenerator {
     switch (preferences.template) {
       case WorkoutShareTemplate.cleanPerformance:
         _paintClean(canvas, size, snapshot, preferences.privacy);
+        break;
       case WorkoutShareTemplate.achievement:
         _paintAchievement(canvas, size, snapshot, preferences.privacy);
+        break;
       case WorkoutShareTemplate.sessionRecap:
         _paintRecap(canvas, size, snapshot, preferences.privacy);
+        break;
     }
     _paintFooter(canvas, size);
     final image = await recorder.endRecording().toImage(
-          size.width.round(),
-          size.height.round(),
-        );
+      size.width.round(),
+      size.height.round(),
+    );
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
-    if (data == null) throw StateError('The workout image could not be encoded.');
+    if (data == null)
+      throw StateError('The workout image could not be encoded.');
     return data.buffer.asUint8List();
   }
 
@@ -236,15 +243,35 @@ abstract final class AdvancedWorkoutShareCardGenerator {
   ) {
     final left = size.width * .085;
     var y = size.height * .105;
-    _text(canvas, 'WORKOUT COMPLETE', Offset(left, y), 34,
-        color: const Color(0xff22d3ee), weight: FontWeight.w800, letterSpacing: 4);
+    _text(
+      canvas,
+      'WORKOUT COMPLETE',
+      Offset(left, y),
+      34,
+      color: const Color(0xff22d3ee),
+      weight: FontWeight.w800,
+      letterSpacing: 4,
+    );
     y += 92;
-    _textBlock(canvas, snapshot.workout, Offset(left, y), size.width * .82, 88,
-        weight: FontWeight.w900, height: 1.02);
+    _textBlock(
+      canvas,
+      snapshot.workout,
+      Offset(left, y),
+      size.width * .82,
+      88,
+      weight: FontWeight.w900,
+      height: 1.02,
+    );
     y += size.height * .19;
     if (snapshot.phaseLabel.isNotEmpty) {
-      _text(canvas, snapshot.phaseLabel, Offset(left, y), 34,
-          color: Colors.white70, weight: FontWeight.w600);
+      _text(
+        canvas,
+        snapshot.phaseLabel,
+        Offset(left, y),
+        34,
+        color: Colors.white70,
+        weight: FontWeight.w600,
+      );
       y += 74;
     }
     if (!privacy.completionOnly) {
@@ -267,14 +294,10 @@ abstract final class AdvancedWorkoutShareCardGenerator {
       center,
       radius,
       Paint()
-        ..shader = ui.Gradient.radial(
-          center,
-          radius,
-          <Color>[
-            const Color(0xffa855f7).withValues(alpha: .42),
-            const Color(0xff7c3aed).withValues(alpha: .12),
-          ],
-        )
+        ..shader = ui.Gradient.radial(center, radius, <Color>[
+          const Color(0xffa855f7).withValues(alpha: .42),
+          const Color(0xff7c3aed).withValues(alpha: .12),
+        ])
         ..style = PaintingStyle.fill,
     );
     canvas.drawCircle(
@@ -285,9 +308,15 @@ abstract final class AdvancedWorkoutShareCardGenerator {
         ..strokeWidth = 4
         ..style = PaintingStyle.stroke,
     );
-    _textCentered(canvas, snapshot.achievement.isNotEmpty ? 'NEW BEST' : 'LOCKED IN',
-        Offset(size.width / 2, size.height * .135), 40,
-        color: const Color(0xff22d3ee), weight: FontWeight.w900, letterSpacing: 5);
+    _textCentered(
+      canvas,
+      snapshot.achievement.isNotEmpty ? 'NEW BEST' : 'LOCKED IN',
+      Offset(size.width / 2, size.height * .135),
+      40,
+      color: const Color(0xff22d3ee),
+      weight: FontWeight.w900,
+      letterSpacing: 5,
+    );
     final highlight = snapshot.highlights.firstOrNull;
     _textCentered(
       canvas,
@@ -301,8 +330,8 @@ abstract final class AdvancedWorkoutShareCardGenerator {
     final value = highlight == null
         ? snapshot.workout
         : (!privacy.showExactWeights && highlight.sensitiveWeight
-            ? 'PERSONAL RECORD'
-            : highlight.value);
+              ? 'PERSONAL RECORD'
+              : highlight.value);
     _textCentered(
       canvas,
       value,
@@ -312,8 +341,14 @@ abstract final class AdvancedWorkoutShareCardGenerator {
       maxWidth: size.width * .72,
     );
     var y = center.dy + radius + 115;
-    _textCentered(canvas, snapshot.workout, Offset(size.width / 2, y), 48,
-        weight: FontWeight.w800, maxWidth: size.width * .82);
+    _textCentered(
+      canvas,
+      snapshot.workout,
+      Offset(size.width / 2, y),
+      48,
+      weight: FontWeight.w800,
+      maxWidth: size.width * .82,
+    );
     y += 96;
     if (!privacy.completionOnly) {
       _metricGrid(
@@ -333,11 +368,25 @@ abstract final class AdvancedWorkoutShareCardGenerator {
   ) {
     final left = size.width * .075;
     var y = size.height * .085;
-    _text(canvas, 'SESSION RECAP', Offset(left, y), 34,
-        color: const Color(0xff22d3ee), weight: FontWeight.w900, letterSpacing: 4);
+    _text(
+      canvas,
+      'SESSION RECAP',
+      Offset(left, y),
+      34,
+      color: const Color(0xff22d3ee),
+      weight: FontWeight.w900,
+      letterSpacing: 4,
+    );
     y += 82;
-    _textBlock(canvas, snapshot.workout, Offset(left, y), size.width * .84, 70,
-        weight: FontWeight.w900, height: 1.02);
+    _textBlock(
+      canvas,
+      snapshot.workout,
+      Offset(left, y),
+      size.width * .84,
+      70,
+      weight: FontWeight.w900,
+      height: 1.02,
+    );
     y += size.height * .16;
     if (!privacy.completionOnly) {
       final metrics = _metrics(snapshot, privacy);
@@ -348,16 +397,32 @@ abstract final class AdvancedWorkoutShareCardGenerator {
           .take(3)
           .toList();
       for (final item in visible) {
-        _recapRow(canvas, Offset(left, y), size.width * .85, item.label, item.value);
+        _recapRow(
+          canvas,
+          Offset(left, y),
+          size.width * .85,
+          item.label,
+          item.value,
+        );
         y += 122;
       }
       if (visible.isEmpty) {
-        _recapRow(canvas, Offset(left, y), size.width * .85, 'RESULT',
-            'All prescribed work complete');
+        _recapRow(
+          canvas,
+          Offset(left, y),
+          size.width * .85,
+          'RESULT',
+          'All prescribed work complete',
+        );
       }
     } else {
-      _recapRow(canvas, Offset(left, y), size.width * .85, 'RESULT',
-          'Workout complete');
+      _recapRow(
+        canvas,
+        Offset(left, y),
+        size.width * .85,
+        'RESULT',
+        'Workout complete',
+      );
     }
   }
 
@@ -405,10 +470,23 @@ abstract final class AdvancedWorkoutShareCardGenerator {
         120,
       );
       _panel(canvas, rect);
-      _text(canvas, metrics[index].label, rect.topLeft + const Offset(24, 22), 22,
-          color: Colors.white54, weight: FontWeight.w700, letterSpacing: 2);
-      _text(canvas, metrics[index].value, rect.topLeft + const Offset(24, 58), 36,
-          weight: FontWeight.w900, maxWidth: rect.width - 48);
+      _text(
+        canvas,
+        metrics[index].label,
+        rect.topLeft + const Offset(24, 22),
+        22,
+        color: Colors.white54,
+        weight: FontWeight.w700,
+        letterSpacing: 2,
+      );
+      _text(
+        canvas,
+        metrics[index].value,
+        rect.topLeft + const Offset(24, 58),
+        36,
+        weight: FontWeight.w900,
+        maxWidth: rect.width - 48,
+      );
     }
   }
 
@@ -425,7 +503,13 @@ abstract final class AdvancedWorkoutShareCardGenerator {
         .toList();
     var y = origin.dy;
     if (snapshot.achievement.isNotEmpty) {
-      _recapRow(canvas, Offset(origin.dx, y), width, 'ACHIEVEMENT', snapshot.achievement);
+      _recapRow(
+        canvas,
+        Offset(origin.dx, y),
+        width,
+        'ACHIEVEMENT',
+        snapshot.achievement,
+      );
       y += 130;
     }
     for (final item in visible) {
@@ -443,10 +527,23 @@ abstract final class AdvancedWorkoutShareCardGenerator {
   ) {
     final rect = Rect.fromLTWH(origin.dx, origin.dy, width, 104);
     _panel(canvas, rect);
-    _text(canvas, label.toUpperCase(), rect.topLeft + const Offset(24, 20), 20,
-        color: const Color(0xff22d3ee), weight: FontWeight.w800, letterSpacing: 2);
-    _text(canvas, value, rect.topLeft + const Offset(24, 51), 30,
-        weight: FontWeight.w800, maxWidth: rect.width - 48);
+    _text(
+      canvas,
+      label.toUpperCase(),
+      rect.topLeft + const Offset(24, 20),
+      20,
+      color: const Color(0xff22d3ee),
+      weight: FontWeight.w800,
+      letterSpacing: 2,
+    );
+    _text(
+      canvas,
+      value,
+      rect.topLeft + const Offset(24, 51),
+      30,
+      weight: FontWeight.w800,
+      maxWidth: rect.width - 48,
+    );
   }
 
   static void _panel(Canvas canvas, Rect rect) {
@@ -465,12 +562,28 @@ abstract final class AdvancedWorkoutShareCardGenerator {
   }
 
   static void _paintFooter(Canvas canvas, Size size) {
-    _drawLabMark(canvas, Offset(size.width * .085, size.height * .9), size.width * .075);
-    _text(canvas, 'PROGRESSION LAB', Offset(size.width * .18, size.height * .895), 34,
-        weight: FontWeight.w900, letterSpacing: 3);
-    _text(canvas, 'TEST. TRAIN. TRANSFORM.',
-        Offset(size.width * .18, size.height * .925), 18,
-        color: Colors.white54, weight: FontWeight.w700, letterSpacing: 3);
+    _drawLabMark(
+      canvas,
+      Offset(size.width * .085, size.height * .9),
+      size.width * .075,
+    );
+    _text(
+      canvas,
+      'PROGRESSION LAB',
+      Offset(size.width * .18, size.height * .895),
+      34,
+      weight: FontWeight.w900,
+      letterSpacing: 3,
+    );
+    _text(
+      canvas,
+      'TEST. TRAIN. TRANSFORM.',
+      Offset(size.width * .18, size.height * .925),
+      18,
+      color: Colors.white54,
+      weight: FontWeight.w700,
+      letterSpacing: 3,
+    );
   }
 
   static void _drawLabMark(Canvas canvas, Offset center, double radius) {
@@ -600,7 +713,8 @@ abstract final class AdvancedWorkoutShareCardGenerator {
   }
 
   static String _compact(double value) {
-    if (value.abs() >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
+    if (value.abs() >= 1000000)
+      return '${(value / 1000000).toStringAsFixed(1)}M';
     if (value.abs() >= 1000) return '${(value / 1000).toStringAsFixed(1)}K';
     return value.toStringAsFixed(value == value.roundToDouble() ? 0 : 1);
   }

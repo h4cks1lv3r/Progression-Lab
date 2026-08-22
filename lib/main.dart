@@ -21,6 +21,9 @@ import 'safe_layout.dart';
 import 'store.dart';
 import 'warmup.dart';
 
+import 'integrations_hub.dart';
+import 'cloud_sync.dart';
+
 void main() => runApp(const ProgressionLabApp());
 
 const ink = BrandColors.ink;
@@ -37,11 +40,22 @@ class ProgressionLabApp extends StatefulWidget {
 }
 
 class _ProgressionLabAppState extends State<ProgressionLabApp> {
+  CloudBackupSyncService? _automaticCloudSync;
+
   final store = AppStore();
   @override
   void initState() {
     super.initState();
-    store.load();
+    _automaticCloudSync = CloudBackupSyncService.shared(store);
+    unawaited(_automaticCloudSync!.initialize());
+    unawaited(store.load());
+  }
+
+  @override
+  void dispose() {
+    _automaticCloudSync?.dispose();
+    store.dispose();
+    super.dispose();
   }
 
   @override
@@ -83,10 +97,7 @@ class _ShellState extends State<Shell> {
   bool _autoTourHandled = false;
 
   List<NavigationDestination> get _destinations => [
-    const NavigationDestination(
-      icon: Icon(Icons.home_rounded),
-      label: 'Home',
-    ),
+    const NavigationDestination(icon: Icon(Icons.home_rounded), label: 'Home'),
     const NavigationDestination(
       icon: Icon(Icons.dashboard_customize_rounded),
       label: 'Programs',
@@ -503,11 +514,7 @@ class TodayPage extends StatelessWidget {
                         label: 'STRENGTH',
                       ),
                     ),
-                    Container(
-                      width: 1,
-                      height: 54,
-                      color: BrandColors.line,
-                    ),
+                    Container(width: 1, height: 54, color: BrandColors.line),
                     Expanded(
                       child: _HomeSummaryMetric(
                         icon: Icons.directions_run_rounded,
@@ -525,8 +532,10 @@ class TodayPage extends StatelessWidget {
                 onTap: onOpenPrograms,
                 child: const Row(
                   children: [
-                    Icon(Icons.dashboard_customize_rounded,
-                        color: BrandColors.violet),
+                    Icon(
+                      Icons.dashboard_customize_rounded,
+                      color: BrandColors.violet,
+                    ),
                     SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -550,8 +559,7 @@ class TodayPage extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Icon(Icons.arrow_forward_rounded,
-                        color: BrandColors.muted),
+                    Icon(Icons.arrow_forward_rounded, color: BrandColors.muted),
                   ],
                 ),
               ),
@@ -636,7 +644,9 @@ class _StrengthHomeCard extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           GradientAction(
-            label: resuming ? 'RESUME STRENGTH WORKOUT' : 'START STRENGTH WORKOUT',
+            label: resuming
+                ? 'RESUME STRENGTH WORKOUT'
+                : 'START STRENGTH WORKOUT',
             icon: resuming ? Icons.play_arrow_rounded : Icons.bolt_rounded,
             onPressed: () => Navigator.push(
               context,
@@ -1054,7 +1064,6 @@ class _ProgramTrackCard extends StatelessWidget {
   );
 }
 
-
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({
     super.key,
@@ -1196,7 +1205,8 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     final type = option.trackingType;
     final best = widget.store.best(plan.name);
     if (type.usesWeight && !preserveWeight) {
-      weight.text = best == null ||
+      weight.text =
+          best == null ||
               best.resolvedTrackingType != type ||
               (type == ExerciseTrackingType.assistedBodyweight &&
                   best.weight <= 0)
@@ -1335,9 +1345,9 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       caloriesValue: parsedCalories,
     );
     if (validation != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(validation)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(validation)));
       return;
     }
 
@@ -1552,7 +1562,9 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       _startTimer();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('That workout was not saved. Your set data is unchanged.'),
+          content: Text(
+            'That workout was not saved. Your set data is unchanged.',
+          ),
         ),
       );
     }
@@ -1582,7 +1594,10 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       completedAt: DateTime.now(),
       achievementLabel: sessionHadPr ? 'New personal best' : null,
       metrics: [
-        ShareMetric('Duration', formatShareDuration(Duration(seconds: elapsed))),
+        ShareMetric(
+          'Duration',
+          formatShareDuration(Duration(seconds: elapsed)),
+        ),
         ShareMetric('Sets', '${sessionLogs.length}'),
         if (totalVolume > 0)
           ShareMetric(
@@ -1598,22 +1613,23 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     );
   }
 
-  double _sharePerformanceScore(SetLog log) => switch (log.resolvedTrackingType) {
-    ExerciseTrackingType.assistedBodyweight =>
-      log.reps * 100000 - log.weight,
-    ExerciseTrackingType.bodyweightReps || ExerciseTrackingType.repsOnly =>
-      log.reps.toDouble(),
-    ExerciseTrackingType.duration => (log.durationSeconds ?? 0).toDouble(),
-    ExerciseTrackingType.distanceOnly ||
-    ExerciseTrackingType.distanceDuration => log.distance ?? 0,
-    _ => log.e1rm,
-  };
+  double _sharePerformanceScore(SetLog log) =>
+      switch (log.resolvedTrackingType) {
+        ExerciseTrackingType.assistedBodyweight =>
+          log.reps * 100000 - log.weight,
+        ExerciseTrackingType.bodyweightReps ||
+        ExerciseTrackingType.repsOnly => log.reps.toDouble(),
+        ExerciseTrackingType.duration => (log.durationSeconds ?? 0).toDouble(),
+        ExerciseTrackingType.distanceOnly ||
+        ExerciseTrackingType.distanceDuration => log.distance ?? 0,
+        _ => log.e1rm,
+      };
 
   String _shareSetDescription(SetLog log) {
     final type = log.resolvedTrackingType;
     return switch (type) {
-      ExerciseTrackingType.bodyweightReps || ExerciseTrackingType.repsOnly =>
-        '${log.exercise} · ${log.reps} reps',
+      ExerciseTrackingType.bodyweightReps ||
+      ExerciseTrackingType.repsOnly => '${log.exercise} · ${log.reps} reps',
       ExerciseTrackingType.weightedBodyweight =>
         '${log.exercise} · +${_shareWeight(log.weight)} ${widget.store.unit} × ${log.reps}',
       ExerciseTrackingType.assistedBodyweight =>
@@ -1942,11 +1958,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     }
     if (type.usesCalories) {
       fields.add(
-        _WorkoutInput(
-          controller: calories,
-          label: 'CALORIES',
-          decimal: true,
-        ),
+        _WorkoutInput(controller: calories, label: 'CALORIES', decimal: true),
       );
     }
     if (fields.length == 1) return fields.single;
@@ -2189,15 +2201,10 @@ class _WorkoutMetaChip extends StatelessWidget {
     ),
     child: Text(
       label,
-      style: TextStyle(
-        color: color,
-        fontSize: 10,
-        fontWeight: FontWeight.w800,
-      ),
+      style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w800),
     ),
   );
 }
-
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({
@@ -2391,8 +2398,20 @@ class SettingsPage extends StatelessWidget {
         badge: 'PORTABLE',
         onTap: () => Navigator.push(
           context,
+          MaterialPageRoute(builder: (_) => DataManagementScreen(store: store)),
+        ),
+      ),
+      _Setting(
+        icon: Icons.hub_rounded,
+        title: 'Connections & Experiments',
+        subtitle:
+            'Health, wearables, cloud sync, sharing, and Lab experiments.',
+        available: true,
+        badge: 'PORTABLE',
+        onTap: () => Navigator.push(
+          context,
           MaterialPageRoute(
-            builder: (_) => DataManagementScreen(store: store),
+            builder: (_) => IntegrationsHubScreen(store: store),
           ),
         ),
       ),
@@ -2471,7 +2490,10 @@ class _WarmupCard extends StatelessWidget {
                 color: cyan.withValues(alpha: .12),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Icon(Icons.local_fire_department_rounded, color: cyan),
+              child: const Icon(
+                Icons.local_fire_department_rounded,
+                color: cyan,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -2605,8 +2627,8 @@ class _Previous extends StatelessWidget {
   }
 
   String _summary(SetLog log) => switch (log.resolvedTrackingType) {
-    ExerciseTrackingType.bodyweightReps || ExerciseTrackingType.repsOnly =>
-      'Best  ${log.reps} reps',
+    ExerciseTrackingType.bodyweightReps ||
+    ExerciseTrackingType.repsOnly => 'Best  ${log.reps} reps',
     ExerciseTrackingType.weightedBodyweight =>
       'Best  +${log.weight.g} $unit × ${log.reps}',
     ExerciseTrackingType.assistedBodyweight =>
@@ -2633,13 +2655,13 @@ class _Previous extends StatelessWidget {
   };
 
   String _metric(SetLog log) => switch (log.resolvedTrackingType) {
-    ExerciseTrackingType.weightReps || ExerciseTrackingType.weightedBodyweight =>
-      'e1RM ${log.e1rm.round()}',
+    ExerciseTrackingType.weightReps ||
+    ExerciseTrackingType.weightedBodyweight => 'e1RM ${log.e1rm.round()}',
     ExerciseTrackingType.assistedBodyweight => 'LESS IS MORE',
-    ExerciseTrackingType.bodyweightReps || ExerciseTrackingType.repsOnly =>
-      'REP PR',
-    ExerciseTrackingType.duration || ExerciseTrackingType.durationWeight =>
-      'TIME PR',
+    ExerciseTrackingType.bodyweightReps ||
+    ExerciseTrackingType.repsOnly => 'REP PR',
+    ExerciseTrackingType.duration ||
+    ExerciseTrackingType.durationWeight => 'TIME PR',
     ExerciseTrackingType.distanceDuration ||
     ExerciseTrackingType.weightDistance ||
     ExerciseTrackingType.repsDistance ||

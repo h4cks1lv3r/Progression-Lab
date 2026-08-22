@@ -73,7 +73,8 @@ class SetLog {
     return ExerciseTrackingType.weightReps;
   }
 
-  double get standardVolume => resolvedTrackingType == ExerciseTrackingType.weightReps
+  double get standardVolume =>
+      resolvedTrackingType == ExerciseTrackingType.weightReps
       ? weight * reps
       : resolvedTrackingType == ExerciseTrackingType.weightedBodyweight
       ? weight * reps
@@ -164,7 +165,9 @@ class SetLog {
     notes: json['n'] is String ? json['n'] as String : '',
     sessionId: json['s'] is String ? json['s'] as String : null,
     exerciseIndex: json['i'] is num ? (json['i'] as num).toInt() : null,
-    exerciseId: json['exerciseId'] is String ? json['exerciseId'] as String : null,
+    exerciseId: json['exerciseId'] is String
+        ? json['exerciseId'] as String
+        : null,
     trackingType: json['trackingType'] is String
         ? json['trackingType'] as String
         : 'weightReps',
@@ -192,9 +195,7 @@ class SetLog {
     supersetId: json['supersetId'] is String
         ? json['supersetId'] as String
         : null,
-    sourceApp: json['sourceApp'] is String
-        ? json['sourceApp'] as String
-        : null,
+    sourceApp: json['sourceApp'] is String ? json['sourceApp'] as String : null,
     sourceId: json['sourceId'] is String ? json['sourceId'] as String : null,
     importBatchId: json['importBatchId'] is String
         ? json['importBatchId'] as String
@@ -370,8 +371,9 @@ class DraftSetInput {
 }
 
 class AppStore extends ChangeNotifier {
+  Map<String, dynamic> integrationState = <String, dynamic>{};
   static const _channel = MethodChannel('iron_cadence/storage');
-  static const int schemaVersion = 13;
+  static const int schemaVersion = 15;
   static const double poundsToKilograms = 0.45359237;
   bool isLoaded = false;
   int days = 4;
@@ -418,6 +420,11 @@ class AppStore extends ChangeNotifier {
           final original = Map<String, dynamic>.from(decoded);
           final originalVersion = _readInt(original['schemaVersion']) ?? 1;
           final data = _migrate(original);
+
+          final storedIntegrationState = data['integrationState'];
+          integrationState = storedIntegrationState is Map
+              ? Map<String, dynamic>.from(storedIntegrationState)
+              : <String, dynamic>{};
           _applyStateData(data);
           if (originalVersion < schemaVersion) {
             try {
@@ -589,6 +596,10 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> restoreState(Map<String, dynamic> source) async {
+    final importedIntegrationState = source['integrationState'];
+    integrationState = importedIntegrationState is Map
+        ? Map<String, dynamic>.from(importedIntegrationState)
+        : <String, dynamic>{};
     final sourceVersion = _readInt(source['schemaVersion']);
     if (sourceVersion != null && sourceVersion > schemaVersion) {
       throw StateError(
@@ -610,6 +621,7 @@ class AppStore extends ChangeNotifier {
   }
 
   Map<String, dynamic> exportState() => {
+    'integrationState': integrationState,
     'days': days,
     'week': week,
     'workout': workoutIndex,
@@ -629,7 +641,9 @@ class AppStore extends ChangeNotifier {
     'athleticWeek': athleticWeek,
     'athleticSessionIndex': athleticSessionIndex,
     'athleticStartDate': athleticStartDate.toIso8601String(),
-    'athleticHistory': athleticHistory.map((record) => record.toJson()).toList(),
+    'athleticHistory': athleticHistory
+        .map((record) => record.toJson())
+        .toList(),
     'athleticAssessments': athleticAssessments
         .map((assessment) => assessment.toJson())
         .toList(),
@@ -638,7 +652,9 @@ class AppStore extends ChangeNotifier {
     'automaticBackupsEnabled': automaticBackupsEnabled,
     'importedWorkouts': importedWorkouts.map((item) => item.toJson()).toList(),
     'importHistory': importHistory.map((item) => item.toJson()).toList(),
-    'supplementPresets': supplementPresets.map((item) => item.toJson()).toList(),
+    'supplementPresets': supplementPresets
+        .map((item) => item.toJson())
+        .toList(),
     'supplementEvents': supplementEvents.map((item) => item.toJson()).toList(),
     'mealEvents': mealEvents.map((item) => item.toJson()).toList(),
     'hydrationEvents': hydrationEvents.map((item) => item.toJson()).toList(),
@@ -702,7 +718,6 @@ class AppStore extends ChangeNotifier {
     suppressErrors: !required,
   );
 
-
   Future<void> setPreferredTrack(TrainingTrack value) async {
     if (preferredTrack == value) return;
     final previous = preferredTrack;
@@ -731,25 +746,25 @@ class AppStore extends ChangeNotifier {
     }
   }
 
-  List<SupplementPreset> get activeSupplementPresets => supplementPresets
-      .where((preset) => !preset.archived)
-      .toList()
-    ..sort((a, b) => a.name.compareTo(b.name));
+  List<SupplementPreset> get activeSupplementPresets =>
+      supplementPresets.where((preset) => !preset.archived).toList()
+        ..sort((a, b) => a.name.compareTo(b.name));
 
-  List<SupplementEvent> supplementEventsForDay(DateTime day) => supplementEvents
-      .where((event) => sameLocalDay(event.takenAt, day))
-      .toList()
-    ..sort((a, b) => b.takenAt.compareTo(a.takenAt));
+  List<SupplementEvent> supplementEventsForDay(DateTime day) =>
+      supplementEvents
+          .where((event) => sameLocalDay(event.takenAt, day))
+          .toList()
+        ..sort((a, b) => b.takenAt.compareTo(a.takenAt));
 
-  List<MealEvent> mealEventsForDay(DateTime day) => mealEvents
-      .where((event) => sameLocalDay(event.occurredAt, day))
-      .toList()
-    ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+  List<MealEvent> mealEventsForDay(DateTime day) =>
+      mealEvents.where((event) => sameLocalDay(event.occurredAt, day)).toList()
+        ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
 
-  List<HydrationEvent> hydrationEventsForDay(DateTime day) => hydrationEvents
-      .where((event) => sameLocalDay(event.occurredAt, day))
-      .toList()
-    ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+  List<HydrationEvent> hydrationEventsForDay(DateTime day) =>
+      hydrationEvents
+          .where((event) => sameLocalDay(event.occurredAt, day))
+          .toList()
+        ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
 
   double caffeineForDay(DateTime day) => supplementEvents
       .where((event) => sameLocalDay(event.takenAt, day))
@@ -776,14 +791,19 @@ class AppStore extends ChangeNotifier {
   Future<void> saveSupplementPreset(SupplementPreset value) async {
     final name = value.name.trim();
     final unitValue = value.unit.trim();
-    if (name.isEmpty || unitValue.isEmpty || !value.dose.isFinite || value.dose <= 0) {
+    if (name.isEmpty ||
+        unitValue.isEmpty ||
+        !value.dose.isFinite ||
+        value.dose <= 0) {
       throw ArgumentError('Supplement name, dose, and unit are required.');
     }
     if (!value.caffeineMg.isFinite || value.caffeineMg < 0) {
       throw ArgumentError('Caffeine must be zero or greater.');
     }
     final previous = List<SupplementPreset>.of(supplementPresets);
-    final index = supplementPresets.indexWhere((preset) => preset.id == value.id);
+    final index = supplementPresets.indexWhere(
+      (preset) => preset.id == value.id,
+    );
     if (index < 0) {
       supplementPresets.add(value);
     } else {
@@ -874,7 +894,8 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> saveMealEvent(MealEvent value) async {
-    if (value.name.trim().isEmpty) throw ArgumentError('Meal name is required.');
+    if (value.name.trim().isEmpty)
+      throw ArgumentError('Meal name is required.');
     final previous = List<MealEvent>.of(mealEvents);
     final index = mealEvents.indexWhere((event) => event.id == value.id);
     if (index < 0) {
@@ -952,11 +973,15 @@ class AppStore extends ChangeNotifier {
       throw RangeError('Recovery ratings must be between 1 and 5.');
     }
     if (value.sleepHours != null &&
-        (!value.sleepHours!.isFinite || value.sleepHours! < 0 || value.sleepHours! > 24)) {
+        (!value.sleepHours!.isFinite ||
+            value.sleepHours! < 0 ||
+            value.sleepHours! > 24)) {
       throw ArgumentError('Sleep hours must be between 0 and 24.');
     }
     final previous = List<RecoveryCheckIn>.of(recoveryCheckIns);
-    recoveryCheckIns.removeWhere((item) => sameLocalDay(item.localDate, value.localDate));
+    recoveryCheckIns.removeWhere(
+      (item) => sameLocalDay(item.localDate, value.localDate),
+    );
     recoveryCheckIns.add(value);
     try {
       await save();
@@ -1370,14 +1395,14 @@ class AppStore extends ChangeNotifier {
     favoriteBuiltInIds: favoriteBuiltInExerciseIds,
   );
 
-  List<ExerciseOption> get favoriteExercises => selectableExercises
-      .where((item) => item.isFavorite)
-      .toList();
+  List<ExerciseOption> get favoriteExercises =>
+      selectableExercises.where((item) => item.isFavorite).toList();
 
   List<ExerciseOption> get recentExercises {
     final seen = <String>{};
     final values = <ExerciseOption>[];
-    final sorted = List<SetLog>.of(logs)..sort((a, b) => b.date.compareTo(a.date));
+    final sorted = List<SetLog>.of(logs)
+      ..sort((a, b) => b.date.compareTo(a.date));
     for (final log in sorted) {
       final option = exerciseOptionForName(log.exercise);
       if (option != null && seen.add(option.id)) values.add(option);
@@ -1415,7 +1440,8 @@ class AppStore extends ChangeNotifier {
     if (index >= 0) {
       final old = customExercises[index];
       final hasHistory = logs.any(
-        (log) => log.exerciseId == old.id ||
+        (log) =>
+            log.exerciseId == old.id ||
             _normalizeExerciseName(log.exercise) ==
                 _normalizeExerciseName(old.name),
       );
@@ -1446,7 +1472,8 @@ class AppStore extends ChangeNotifier {
 
   Future<CustomExercise> duplicateBuiltInExercise(String id) async {
     final source = ExerciseLibrary.builtInById(id);
-    if (source == null) throw StateError('The built-in exercise was not found.');
+    if (source == null)
+      throw StateError('The built-in exercise was not found.');
     var name = '${source.name} — Custom';
     var index = 2;
     while (_exerciseNameExists(name)) {
@@ -1543,7 +1570,9 @@ class AppStore extends ChangeNotifier {
     final name = value.trim();
     if (name.isEmpty) throw ArgumentError('Exercise name cannot be empty.');
     if (_exerciseNameExists(name, exceptId: exceptId)) {
-      throw ArgumentError('An exercise with that name or alias already exists.');
+      throw ArgumentError(
+        'An exercise with that name or alias already exists.',
+      );
     }
     return name;
   }
@@ -1587,7 +1616,8 @@ class AppStore extends ChangeNotifier {
     if (type.usesReps && reps <= 0) {
       throw ArgumentError('Repetitions must be above zero.');
     }
-    if (type.usesDuration && (durationSeconds == null || durationSeconds <= 0)) {
+    if (type.usesDuration &&
+        (durationSeconds == null || durationSeconds <= 0)) {
       throw ArgumentError('Duration must be above zero.');
     }
     if (type.usesDistance &&
@@ -1831,10 +1861,11 @@ class AppStore extends ChangeNotifier {
   AthleticSession get currentAthleticSession =>
       currentAthleticWeek.sessions[athleticSessionIndex];
 
-  List<AthleticSessionRecord> get currentAthleticRunHistory => athleticHistory
-      .where((record) => record.programRun == athleticProgramRun)
-      .toList()
-    ..sort((a, b) => a.completedAt.compareTo(b.completedAt));
+  List<AthleticSessionRecord> get currentAthleticRunHistory =>
+      athleticHistory
+          .where((record) => record.programRun == athleticProgramRun)
+          .toList()
+        ..sort((a, b) => a.completedAt.compareTo(b.completedAt));
 
   int get athleticCompletedSessions => currentAthleticRunHistory.length;
 
@@ -1982,8 +2013,7 @@ class AppStore extends ChangeNotifier {
         'nextWorkoutIndex',
       );
     }
-    final targetWeek =
-        ProgramEngine.firstWeekOfPhase(phase) + microcycle - 1;
+    final targetWeek = ProgramEngine.firstWeekOfPhase(phase) + microcycle - 1;
     if (!startNewRun &&
         workoutHistory.any(
           (record) =>
@@ -2011,9 +2041,7 @@ class AppStore extends ChangeNotifier {
     workoutIndex = nextWorkoutIndex;
     final offsets = _strengthOffsetsForCadence(cadence);
     programStartDate = _dateOnly(nextWorkoutDate).subtract(
-      Duration(
-        days: (targetWeek - 1) * 7 + offsets[nextWorkoutIndex],
-      ),
+      Duration(days: (targetWeek - 1) * 7 + offsets[nextWorkoutIndex]),
     );
     drafts = drafts.where((item) => item.retroactive).toList();
     draft = null;
@@ -2047,8 +2075,7 @@ class AppStore extends ChangeNotifier {
         'weekNumber',
       );
     }
-    if (sessionIndex < 0 ||
-        sessionIndex >= AthleticProgram.sessionsPerWeek) {
+    if (sessionIndex < 0 || sessionIndex >= AthleticProgram.sessionsPerWeek) {
       throw RangeError.range(
         sessionIndex,
         0,
@@ -2056,8 +2083,7 @@ class AppStore extends ChangeNotifier {
         'sessionIndex',
       );
     }
-    if (!startNewRun &&
-        isAthleticSessionCompleted(weekNumber, sessionIndex)) {
+    if (!startNewRun && isAthleticSessionCompleted(weekNumber, sessionIndex)) {
       throw StateError(
         'That session is already complete in the current run. Start a new run instead.',
       );
@@ -2072,9 +2098,9 @@ class AppStore extends ChangeNotifier {
     athleticWeek = weekNumber;
     athleticSessionIndex = sessionIndex;
     const offsets = [0, 2, 4, 5];
-    athleticStartDate = _dateOnly(nextSessionDate).subtract(
-      Duration(days: (weekNumber - 1) * 7 + offsets[sessionIndex]),
-    );
+    athleticStartDate = _dateOnly(
+      nextSessionDate,
+    ).subtract(Duration(days: (weekNumber - 1) * 7 + offsets[sessionIndex]));
 
     try {
       await save();
@@ -2156,6 +2182,18 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setIntegrationState(Map<String, dynamic> value) async {
+    final previous = integrationState;
+    integrationState = Map<String, dynamic>.from(value);
+    try {
+      await save();
+    } on Object {
+      integrationState = previous;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
   static int? _readInt(Object? value) {
     if (value is int) return value;
     if (value is num && value.isFinite) return value.toInt();
@@ -2228,8 +2266,7 @@ class AppStore extends ChangeNotifier {
       final assessment = AthleticAssessment.fromJson(
         Map<String, dynamic>.from(value),
       );
-      if (assessment.movementQuality < 1 ||
-          assessment.movementQuality > 5) {
+      if (assessment.movementQuality < 1 || assessment.movementQuality > 5) {
         return null;
       }
       return assessment;
@@ -2241,7 +2278,9 @@ class AppStore extends ChangeNotifier {
   static SupplementPreset? _readSupplementPreset(Object? value) {
     if (value is! Map) return null;
     try {
-      final preset = SupplementPreset.fromJson(Map<String, dynamic>.from(value));
+      final preset = SupplementPreset.fromJson(
+        Map<String, dynamic>.from(value),
+      );
       if (preset.id.isEmpty || preset.name.trim().isEmpty || preset.dose <= 0) {
         return null;
       }
@@ -2510,12 +2549,18 @@ class AppStore extends ChangeNotifier {
                 ..putIfAbsent('primaryMuscle', () => MuscleGroup.other.name)
                 ..putIfAbsent('secondaryMuscles', () => <Object>[])
                 ..putIfAbsent('equipment', () => ExerciseEquipment.other.name)
-                ..putIfAbsent('movementPattern', () => MovementPattern.other.name)
+                ..putIfAbsent(
+                  'movementPattern',
+                  () => MovementPattern.other.name,
+                )
                 ..putIfAbsent(
                   'trackingType',
                   () => ExerciseTrackingType.weightReps.name,
                 )
-                ..putIfAbsent('unilateralMode', () => UnilateralMode.bilateral.name)
+                ..putIfAbsent(
+                  'unilateralMode',
+                  () => UnilateralMode.bilateral.name,
+                )
                 ..putIfAbsent('isPrimaryCompound', () => false)
                 ..putIfAbsent('warmupEligible', () => false)
                 ..putIfAbsent('notes', () => '')
@@ -2541,7 +2586,8 @@ class AppStore extends ChangeNotifier {
                 row.putIfAbsent('exerciseId', () => builtIn?.id);
                 row.putIfAbsent(
                   'trackingType',
-                  () => builtIn?.trackingType.name ??
+                  () =>
+                      builtIn?.trackingType.name ??
                       ExerciseTrackingType.weightReps.name,
                 );
                 return row;
@@ -2561,6 +2607,7 @@ class AppStore extends ChangeNotifier {
           raw.putIfAbsent('calories', () => '');
         }
       }
+
       upgradeDraft(data['draft']);
       final storedDrafts = data['drafts'];
       if (storedDrafts is List) {
@@ -2571,6 +2618,8 @@ class AppStore extends ChangeNotifier {
       version = 13;
       data['schemaVersion'] = version;
     }
+    data.putIfAbsent('integrationState', () => <String, dynamic>{});
+    data['schemaVersion'] = schemaVersion;
     return data;
   }
 

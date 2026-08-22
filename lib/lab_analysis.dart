@@ -134,7 +134,9 @@ class LabAnalysisEngine {
       evidence: evidence,
       dataSummary: {
         'strengthSessions': sessions.length,
-        'strengthSets': store.logs.where((log) => !log.date.isBefore(start)).length,
+        'strengthSets': store.logs
+            .where((log) => !log.date.isBefore(start))
+            .length,
         'athleticSessions': store.athleticHistory
             .where((record) => !record.completedAt.isBefore(start))
             .length,
@@ -164,18 +166,20 @@ class LabAnalysisEngine {
       final target = !log.date.isBefore(recentStart)
           ? recent
           : !log.date.isBefore(previousStart)
-              ? previous
-              : null;
+          ? previous
+          : null;
       if (target == null) continue;
       final current = target[log.exercise];
-      if (current == null || log.e1rm > current) target[log.exercise] = log.e1rm;
+      if (current == null || log.e1rm > current)
+        target[log.exercise] = log.e1rm;
     }
     final common = recent.keys.where(previous.containsKey).toList();
     if (common.length < 2) {
       return const LabEvidence(
         id: 'strength-trend',
         title: 'Strength trend',
-        finding: 'More repeated exercise data is needed across two four-week windows.',
+        finding:
+            'More repeated exercise data is needed across two four-week windows.',
         metric: 'Best estimated strength by exercise',
         comparison: 'Last 28 days vs previous 28 days',
         sampleLabel: 'Fewer than 2 matched exercises',
@@ -198,7 +202,11 @@ class LabAnalysisEngine {
       comparison: 'Last 28 days vs previous 28 days',
       sampleLabel: '${common.length} matched exercises',
       confidence: _confidence(common.length, common.length),
-      confounders: const ['Program phase', 'rep range', 'exercise substitutions'],
+      confounders: const [
+        'Program phase',
+        'rep range',
+        'exercise substitutions',
+      ],
       effectPercent: average,
       positive: average >= 0,
     );
@@ -222,7 +230,12 @@ class LabAnalysisEngine {
         sampleLabel:
             '${grouped.withCondition} with · ${grouped.withoutCondition} without',
         confidence: LabConfidence.insufficient,
-        confounders: const ['Sleep', 'meal timing', 'program phase', 'dose tolerance'],
+        confounders: const [
+          'Sleep',
+          'meal timing',
+          'program phase',
+          'dose tolerance',
+        ],
       );
     }
     final effect = grouped.effectPercent;
@@ -237,7 +250,12 @@ class LabAnalysisEngine {
       sampleLabel:
           '${grouped.withCondition} with · ${grouped.withoutCondition} without',
       confidence: _confidence(grouped.withCondition, grouped.withoutCondition),
-      confounders: const ['Sleep', 'meal timing', 'program phase', 'dose tolerance'],
+      confounders: const [
+        'Sleep',
+        'meal timing',
+        'program phase',
+        'dose tolerance',
+      ],
       effectPercent: effect,
       positive: effect >= 0,
     );
@@ -255,7 +273,8 @@ class LabAnalysisEngine {
       return LabEvidence(
         id: 'meal-timing',
         title: 'Pre-workout meals',
-        finding: 'More matched workouts with and without a recent meal are needed.',
+        finding:
+            'More matched workouts with and without a recent meal are needed.',
         metric: 'Normalized session strength score',
         comparison: 'Meal 45–240 minutes before training vs no logged meal',
         sampleLabel:
@@ -294,7 +313,8 @@ class LabAnalysisEngine {
       return LabEvidence(
         id: 'hydration',
         title: 'Hydration and performance',
-        finding: 'More matched workouts with different hydration conditions are needed.',
+        finding:
+            'More matched workouts with different hydration conditions are needed.',
         metric: 'Normalized session strength score',
         comparison: '500+ mL logged in the four hours before training vs less',
         sampleLabel:
@@ -326,7 +346,10 @@ class LabAnalysisEngine {
     List<_StrengthSession> sessions,
   ) {
     final usable = sessions
-        .where((session) => store.recoveryForDay(session.startedAt)?.sleepHours != null)
+        .where(
+          (session) =>
+              store.recoveryForDay(session.startedAt)?.sleepHours != null,
+        )
         .toList();
     final grouped = _matchedGroups(
       usable,
@@ -337,7 +360,8 @@ class LabAnalysisEngine {
       return LabEvidence(
         id: 'sleep',
         title: 'Sleep and performance',
-        finding: 'More matched workouts with complete sleep check-ins are needed.',
+        finding:
+            'More matched workouts with complete sleep check-ins are needed.',
         metric: 'Normalized session strength score',
         comparison: '7+ hours sleep vs under 7 hours',
         sampleLabel:
@@ -379,7 +403,9 @@ class LabAnalysisEngine {
               !record.loggedAt.isBefore(start),
         )
         .length;
-    if (store.supplementEvents.where((event) => event.containsCreatine).isEmpty) {
+    if (store.supplementEvents
+        .where((event) => event.containsCreatine)
+        .isEmpty) {
       return const LabEvidence(
         id: 'creatine',
         title: 'Creatine consistency',
@@ -402,7 +428,11 @@ class LabAnalysisEngine {
       confidence: creatineDays.length >= 14
           ? LabConfidence.developing
           : LabConfidence.preliminary,
-      confounders: const ['Unlogged doses', 'training consistency', 'dietary intake'],
+      confounders: const [
+        'Unlogged doses',
+        'training consistency',
+        'dietary intake',
+      ],
       effectPercent: adherence,
       positive: adherence >= 70,
     );
@@ -417,7 +447,8 @@ class LabAnalysisEngine {
       return LabEvidence(
         id: 'workout-response',
         title: 'Session response',
-        finding: 'Complete a few post-workout check-ins to establish a baseline.',
+        finding:
+            'Complete a few post-workout check-ins to establish a baseline.',
         metric: 'Energy, focus, effort, and discomfort',
         comparison: 'Last 28 days',
         sampleLabel: '${values.length} check-ins',
@@ -446,13 +477,14 @@ class LabAnalysisEngine {
 
   LabEvidence _bodyweightTrend(AppStore store, DateTime end) {
     final start = dateOnly(end.subtract(const Duration(days: 56)));
-    final values = store.recoveryCheckIns
-        .where(
-          (item) =>
-              item.bodyWeight != null && !item.localDate.isBefore(start),
-        )
-        .toList()
-      ..sort((a, b) => a.localDate.compareTo(b.localDate));
+    final values =
+        store.recoveryCheckIns
+            .where(
+              (item) =>
+                  item.bodyWeight != null && !item.localDate.isBefore(start),
+            )
+            .toList()
+          ..sort((a, b) => a.localDate.compareTo(b.localDate));
     if (values.length < 3) {
       return LabEvidence(
         id: 'bodyweight',
@@ -503,7 +535,7 @@ class LabAnalysisEngine {
     }
     final averageEffort =
         records.map((item) => item.effort).reduce((a, b) => a + b) /
-            records.length;
+        records.length;
     return LabEvidence(
       id: 'athletic-consistency',
       title: 'Athletic consistency',
@@ -525,7 +557,8 @@ class LabAnalysisEngine {
   }) {
     final result = <_StrengthSession>[];
     for (final record in store.workoutHistory) {
-      if (record.status != WorkoutStatus.completed || record.sessionId == null) {
+      if (record.status != WorkoutStatus.completed ||
+          record.sessionId == null) {
         continue;
       }
       final sessionLogs = store.logs
@@ -543,8 +576,8 @@ class LabAnalysisEngine {
         }
       }
       if (bestByExercise.isEmpty) continue;
-      final score = bestByExercise.values.reduce((a, b) => a + b) /
-          bestByExercise.length;
+      final score =
+          bestByExercise.values.reduce((a, b) => a + b) / bestByExercise.length;
       result.add(
         _StrengthSession(
           id: record.sessionId!,
@@ -570,14 +603,21 @@ class LabAnalysisEngine {
     var weightedDifference = 0.0;
     var comparisonWeight = 0;
     for (final group in byWorkout.values) {
-      final withValues = group.where(hasCondition).map((item) => item.score).toList();
-      final withoutValues = group.where((item) => !hasCondition(item)).map((item) => item.score).toList();
+      final withValues = group
+          .where(hasCondition)
+          .map((item) => item.score)
+          .toList();
+      final withoutValues = group
+          .where((item) => !hasCondition(item))
+          .map((item) => item.score)
+          .toList();
       if (withValues.isEmpty || withoutValues.isEmpty) continue;
       final withMean = _mean(withValues);
       final withoutMean = _mean(withoutValues);
       if (withoutMean <= 0) continue;
       final weight = math.min(withValues.length, withoutValues.length);
-      weightedDifference += ((withMean - withoutMean) / withoutMean * 100) * weight;
+      weightedDifference +=
+          ((withMean - withoutMean) / withoutMean * 100) * weight;
       comparisonWeight += weight;
       withCount += withValues.length;
       withoutCount += withoutValues.length;

@@ -229,16 +229,21 @@ void main() {
     expect(preferences, isNot(contains('Private analysis')));
   });
 
-  test('portable ZIP is readable and excludes private Lab conversation text', () {
-    final bytes = ComprehensivePortableExport.encodePortableCsvZip(
-      sampleState(),
-    );
-    final archive = ZipDecoder().decodeBytes(bytes, verify: true);
-    final names = archive.files.where((file) => file.isFile).map((file) => file.name);
+  test(
+    'portable ZIP is readable and excludes private Lab conversation text',
+    () {
+      final bytes = ComprehensivePortableExport.encodePortableCsvZip(
+        sampleState(),
+      );
+      final archive = ZipDecoder().decodeBytes(bytes, verify: true);
+      final names = archive.files
+          .where((file) => file.isFile)
+          .map((file) => file.name);
 
-    expect(names, contains('README.txt'));
-    expect(names, contains('supplement_events.csv'));
-    expect(names, contains('workout_responses.csv'));
-    expect(names, isNot(contains('lab_messages.csv')));
-  });
+      expect(names, contains('README.txt'));
+      expect(names, contains('supplement_events.csv'));
+      expect(names, contains('workout_responses.csv'));
+      expect(names, isNot(contains('lab_messages.csv')));
+    },
+  );
 }

@@ -45,15 +45,15 @@ class LabExperimentCondition {
   final Map<String, dynamic> metadata;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'id': id,
-        'label': label,
-        'kind': kind,
-        if (minimum != null) 'minimum': minimum,
-        if (maximum != null) 'maximum': maximum,
-        if (windowMinutes != null) 'windowMinutes': windowMinutes,
-        if (rollingDays != null) 'rollingDays': rollingDays,
-        if (metadata.isNotEmpty) 'metadata': metadata,
-      };
+    'id': id,
+    'label': label,
+    'kind': kind,
+    if (minimum != null) 'minimum': minimum,
+    if (maximum != null) 'maximum': maximum,
+    if (windowMinutes != null) 'windowMinutes': windowMinutes,
+    if (rollingDays != null) 'rollingDays': rollingDays,
+    if (metadata.isNotEmpty) 'metadata': metadata,
+  };
 
   factory LabExperimentCondition.fromJson(Map<String, dynamic> value) =>
       LabExperimentCondition(
@@ -110,42 +110,41 @@ class LabExperiment {
     DateTime? endedAt,
     LabExperimentStatus? status,
     DateTime? updatedAt,
-  }) =>
-      LabExperiment(
-        id: id,
-        name: name ?? this.name,
-        template: template,
-        metric: metric,
-        conditionA: conditionA,
-        conditionB: conditionB,
-        startedAt: startedAt,
-        endedAt: endedAt ?? this.endedAt,
-        minimumSessionsPerCondition: minimumSessionsPerCondition,
-        status: status ?? this.status,
-        workoutNameFilter: workoutNameFilter,
-        exerciseFilter: exerciseFilter,
-        exclusionNotes: exclusionNotes,
-        createdAt: createdAt,
-        updatedAt: updatedAt ?? this.updatedAt,
-      );
+  }) => LabExperiment(
+    id: id,
+    name: name ?? this.name,
+    template: template,
+    metric: metric,
+    conditionA: conditionA,
+    conditionB: conditionB,
+    startedAt: startedAt,
+    endedAt: endedAt ?? this.endedAt,
+    minimumSessionsPerCondition: minimumSessionsPerCondition,
+    status: status ?? this.status,
+    workoutNameFilter: workoutNameFilter,
+    exerciseFilter: exerciseFilter,
+    exclusionNotes: exclusionNotes,
+    createdAt: createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'id': id,
-        'name': name,
-        'template': template.name,
-        'metric': metric.name,
-        'conditionA': conditionA.toJson(),
-        'conditionB': conditionB.toJson(),
-        'startedAt': startedAt.toUtc().toIso8601String(),
-        if (endedAt != null) 'endedAt': endedAt!.toUtc().toIso8601String(),
-        'minimumSessionsPerCondition': minimumSessionsPerCondition,
-        'status': status.name,
-        if (workoutNameFilter != null) 'workoutNameFilter': workoutNameFilter,
-        if (exerciseFilter != null) 'exerciseFilter': exerciseFilter,
-        if (exclusionNotes.isNotEmpty) 'exclusionNotes': exclusionNotes,
-        if (createdAt != null) 'createdAt': createdAt!.toUtc().toIso8601String(),
-        if (updatedAt != null) 'updatedAt': updatedAt!.toUtc().toIso8601String(),
-      };
+    'id': id,
+    'name': name,
+    'template': template.name,
+    'metric': metric.name,
+    'conditionA': conditionA.toJson(),
+    'conditionB': conditionB.toJson(),
+    'startedAt': startedAt.toUtc().toIso8601String(),
+    if (endedAt != null) 'endedAt': endedAt!.toUtc().toIso8601String(),
+    'minimumSessionsPerCondition': minimumSessionsPerCondition,
+    'status': status.name,
+    if (workoutNameFilter != null) 'workoutNameFilter': workoutNameFilter,
+    if (exerciseFilter != null) 'exerciseFilter': exerciseFilter,
+    if (exclusionNotes.isNotEmpty) 'exclusionNotes': exclusionNotes,
+    if (createdAt != null) 'createdAt': createdAt!.toUtc().toIso8601String(),
+    if (updatedAt != null) 'updatedAt': updatedAt!.toUtc().toIso8601String(),
+  };
 
   factory LabExperiment.fromJson(Map<String, dynamic> value) {
     T enumByName<T extends Enum>(List<T> values, Object? raw, T fallback) =>
@@ -247,18 +246,18 @@ class LabExperimentResult {
   bool get sufficient => confidence != LabExperimentConfidence.insufficient;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'experimentId': experiment.id,
-        'sampleCountA': samplesA.length,
-        'sampleCountB': samplesB.length,
-        if (meanA != null) 'meanA': meanA,
-        if (meanB != null) 'meanB': meanB,
-        if (difference != null) 'difference': difference,
-        if (percentDifference != null) 'percentDifference': percentDifference,
-        if (effectSize != null) 'effectSize': effectSize,
-        'confidence': confidence.name,
-        'summary': summary,
-        'confounders': confounders,
-      };
+    'experimentId': experiment.id,
+    'sampleCountA': samplesA.length,
+    'sampleCountB': samplesB.length,
+    if (meanA != null) 'meanA': meanA,
+    if (meanB != null) 'meanB': meanB,
+    if (difference != null) 'difference': difference,
+    if (percentDifference != null) 'percentDifference': percentDifference,
+    if (effectSize != null) 'effectSize': effectSize,
+    'confidence': confidence.name,
+    'summary': summary,
+    'confounders': confounders,
+  };
 }
 
 class WeeklyLabReview {
@@ -291,103 +290,105 @@ class WeeklyLabReview {
 
 abstract final class LabExperimentTemplates {
   static LabExperiment caffeineTiming({DateTime? start}) => LabExperiment(
-        id: _id('caffeine'),
-        name: 'Caffeine timing and workout performance',
-        template: LabExperimentTemplate.caffeineTiming,
-        metric: LabExperimentMetric.estimatedStrength,
-        conditionA: const LabExperimentCondition(
-          id: 'caffeine-window',
-          label: '100–300 mg, 30–120 minutes before training',
-          kind: 'caffeineBeforeWorkout',
-          minimum: 100,
-          maximum: 300,
-          windowMinutes: 120,
-          metadata: <String, dynamic>{'minimumLeadMinutes': 30},
-        ),
-        conditionB: const LabExperimentCondition(
-          id: 'no-caffeine-window',
-          label: 'No caffeine in the prior 4 hours',
-          kind: 'caffeineBeforeWorkout',
-          maximum: 0,
-          windowMinutes: 240,
-        ),
-        startedAt: start ?? DateTime.now().toUtc(),
-        minimumSessionsPerCondition: 6,
-        status: LabExperimentStatus.active,
-      );
+    id: _id('caffeine'),
+    name: 'Caffeine timing and workout performance',
+    template: LabExperimentTemplate.caffeineTiming,
+    metric: LabExperimentMetric.estimatedStrength,
+    conditionA: const LabExperimentCondition(
+      id: 'caffeine-window',
+      label: '100–300 mg, 30–120 minutes before training',
+      kind: 'caffeineBeforeWorkout',
+      minimum: 100,
+      maximum: 300,
+      windowMinutes: 120,
+      metadata: <String, dynamic>{'minimumLeadMinutes': 30},
+    ),
+    conditionB: const LabExperimentCondition(
+      id: 'no-caffeine-window',
+      label: 'No caffeine in the prior 4 hours',
+      kind: 'caffeineBeforeWorkout',
+      maximum: 0,
+      windowMinutes: 240,
+    ),
+    startedAt: start ?? DateTime.now().toUtc(),
+    minimumSessionsPerCondition: 6,
+    status: LabExperimentStatus.active,
+  );
 
   static LabExperiment creatineConsistency({DateTime? start}) => LabExperiment(
-        id: _id('creatine'),
-        name: 'Creatine consistency and strength trend',
-        template: LabExperimentTemplate.creatineConsistency,
-        metric: LabExperimentMetric.estimatedStrength,
-        conditionA: const LabExperimentCondition(
-          id: 'creatine-consistent',
-          label: 'Creatine logged on at least 6 of 7 days',
-          kind: 'supplementAdherence',
-          minimum: 6,
-          rollingDays: 7,
-          metadata: <String, dynamic>{'supplement': 'creatine'},
-        ),
-        conditionB: const LabExperimentCondition(
-          id: 'creatine-inconsistent',
-          label: 'Creatine logged on 3 or fewer of 7 days',
-          kind: 'supplementAdherence',
-          maximum: 3,
-          rollingDays: 7,
-          metadata: <String, dynamic>{'supplement': 'creatine'},
-        ),
-        startedAt: start ?? DateTime.now().toUtc(),
-        minimumSessionsPerCondition: 8,
-        status: LabExperimentStatus.active,
-      );
+    id: _id('creatine'),
+    name: 'Creatine consistency and strength trend',
+    template: LabExperimentTemplate.creatineConsistency,
+    metric: LabExperimentMetric.estimatedStrength,
+    conditionA: const LabExperimentCondition(
+      id: 'creatine-consistent',
+      label: 'Creatine logged on at least 6 of 7 days',
+      kind: 'supplementAdherence',
+      minimum: 6,
+      rollingDays: 7,
+      metadata: <String, dynamic>{'supplement': 'creatine'},
+    ),
+    conditionB: const LabExperimentCondition(
+      id: 'creatine-inconsistent',
+      label: 'Creatine logged on 3 or fewer of 7 days',
+      kind: 'supplementAdherence',
+      maximum: 3,
+      rollingDays: 7,
+      metadata: <String, dynamic>{'supplement': 'creatine'},
+    ),
+    startedAt: start ?? DateTime.now().toUtc(),
+    minimumSessionsPerCondition: 8,
+    status: LabExperimentStatus.active,
+  );
 
   static LabExperiment mealTiming({DateTime? start}) => LabExperiment(
-        id: _id('meal'),
-        name: 'Pre-workout meal timing and session energy',
-        template: LabExperimentTemplate.preWorkoutMealTiming,
-        metric: LabExperimentMetric.sessionEnergy,
-        conditionA: const LabExperimentCondition(
-          id: 'meal-60-180',
-          label: 'Meal 60–180 minutes before training',
-          kind: 'mealBeforeWorkout',
-          windowMinutes: 180,
-          metadata: <String, dynamic>{'minimumLeadMinutes': 60},
-        ),
-        conditionB: const LabExperimentCondition(
-          id: 'no-recent-meal',
-          label: 'No meal in the prior 3 hours',
-          kind: 'mealBeforeWorkout',
-          maximum: 0,
-          windowMinutes: 180,
-        ),
-        startedAt: start ?? DateTime.now().toUtc(),
-        minimumSessionsPerCondition: 5,
-        status: LabExperimentStatus.active,
-      );
+    id: _id('meal'),
+    name: 'Pre-workout meal timing and session energy',
+    template: LabExperimentTemplate.preWorkoutMealTiming,
+    metric: LabExperimentMetric.sessionEnergy,
+    conditionA: const LabExperimentCondition(
+      id: 'meal-60-180',
+      label: 'Meal 60–180 minutes before training',
+      kind: 'mealBeforeWorkout',
+      windowMinutes: 180,
+      metadata: <String, dynamic>{'minimumLeadMinutes': 60},
+    ),
+    conditionB: const LabExperimentCondition(
+      id: 'no-recent-meal',
+      label: 'No meal in the prior 3 hours',
+      kind: 'mealBeforeWorkout',
+      maximum: 0,
+      windowMinutes: 180,
+    ),
+    startedAt: start ?? DateTime.now().toUtc(),
+    minimumSessionsPerCondition: 5,
+    status: LabExperimentStatus.active,
+  );
 
-  static LabExperiment sleepTarget({DateTime? start, double targetHours = 7.5}) =>
-      LabExperiment(
-        id: _id('sleep'),
-        name: 'Sleep target and workout performance',
-        template: LabExperimentTemplate.sleepTarget,
-        metric: LabExperimentMetric.estimatedStrength,
-        conditionA: LabExperimentCondition(
-          id: 'sleep-target',
-          label: 'At least ${targetHours.toStringAsFixed(1)} hours of sleep',
-          kind: 'previousNightSleep',
-          minimum: targetHours,
-        ),
-        conditionB: LabExperimentCondition(
-          id: 'below-sleep-target',
-          label: 'Less than ${targetHours.toStringAsFixed(1)} hours of sleep',
-          kind: 'previousNightSleep',
-          maximum: targetHours - 0.01,
-        ),
-        startedAt: start ?? DateTime.now().toUtc(),
-        minimumSessionsPerCondition: 6,
-        status: LabExperimentStatus.active,
-      );
+  static LabExperiment sleepTarget({
+    DateTime? start,
+    double targetHours = 7.5,
+  }) => LabExperiment(
+    id: _id('sleep'),
+    name: 'Sleep target and workout performance',
+    template: LabExperimentTemplate.sleepTarget,
+    metric: LabExperimentMetric.estimatedStrength,
+    conditionA: LabExperimentCondition(
+      id: 'sleep-target',
+      label: 'At least ${targetHours.toStringAsFixed(1)} hours of sleep',
+      kind: 'previousNightSleep',
+      minimum: targetHours,
+    ),
+    conditionB: LabExperimentCondition(
+      id: 'below-sleep-target',
+      label: 'Less than ${targetHours.toStringAsFixed(1)} hours of sleep',
+      kind: 'previousNightSleep',
+      maximum: targetHours - 0.01,
+    ),
+    startedAt: start ?? DateTime.now().toUtc(),
+    minimumSessionsPerCondition: 6,
+    status: LabExperimentStatus.active,
+  );
 
   static String _id(String prefix) =>
       'experiment-$prefix-${DateTime.now().microsecondsSinceEpoch}';
@@ -410,8 +411,9 @@ abstract final class LabExperimentAnalyzer {
       final sample = LabExperimentSample(
         sessionId: session.id,
         occurredAt: session.occurredAt,
-        conditionId:
-            conditionA ? experiment.conditionA.id : experiment.conditionB.id,
+        conditionId: conditionA
+            ? experiment.conditionA.id
+            : experiment.conditionB.id,
         value: value,
         workoutName: session.workoutName,
         confounders: _confounders(session, state),
@@ -422,7 +424,9 @@ abstract final class LabExperimentAnalyzer {
     final meanA = _mean(samplesA.map((sample) => sample.value));
     final meanB = _mean(samplesB.map((sample) => sample.value));
     final difference = meanA == null || meanB == null ? null : meanA - meanB;
-    final percent = difference == null || meanB == 0 ? null : difference / meanB * 100;
+    final percent = difference == null || meanB == null || meanB == 0
+        ? null
+        : difference / meanB * 100.0;
     final effect = _cohensD(
       samplesA.map((sample) => sample.value).toList(),
       samplesB.map((sample) => sample.value).toList(),
@@ -436,8 +440,7 @@ abstract final class LabExperimentAnalyzer {
     final confounders = <String>{
       for (final sample in <LabExperimentSample>[...samplesA, ...samplesB])
         ...sample.confounders,
-    }.toList()
-      ..sort();
+    }.toList()..sort();
 
     return LabExperimentResult(
       experiment: experiment,
@@ -466,42 +469,30 @@ abstract final class LabExperimentAnalyzer {
   }) {
     final end = (ending ?? DateTime.now()).toUtc();
     final start = end.subtract(const Duration(days: 7));
-    final workoutHistory = _maps(state['workoutHistory']).where(
-      (item) {
-        final date = _date(item['loggedAt'] ?? item['date']);
-        return date != null && !date.isBefore(start) && !date.isAfter(end);
-      },
-    ).toList();
-    final athleticHistory = _maps(state['athleticHistory']).where(
-      (item) {
-        final date = _date(item['completedAt'] ?? item['date']);
-        return date != null && !date.isBefore(start) && !date.isAfter(end);
-      },
-    ).toList();
-    final logs = _maps(state['logs']).where(
-      (item) {
-        final date = _date(item['d'] ?? item['date']);
-        return date != null && !date.isBefore(start) && !date.isAfter(end);
-      },
-    ).toList();
-    final responses = _maps(state['workoutResponses']).where(
-      (item) {
-        final date = _date(item['recordedAt']);
-        return date != null && !date.isBefore(start) && !date.isAfter(end);
-      },
-    ).toList();
-    final recovery = _maps(state['recoveryCheckIns']).where(
-      (item) {
-        final date = _date(item['localDate']);
-        return date != null && !date.isBefore(start) && !date.isAfter(end);
-      },
-    ).toList();
-    final supplements = _maps(state['supplementEvents']).where(
-      (item) {
-        final date = _date(item['takenAt']);
-        return date != null && !date.isBefore(start) && !date.isAfter(end);
-      },
-    ).toList();
+    final workoutHistory = _maps(state['workoutHistory']).where((item) {
+      final date = _date(item['loggedAt'] ?? item['date']);
+      return date != null && !date.isBefore(start) && !date.isAfter(end);
+    }).toList();
+    final athleticHistory = _maps(state['athleticHistory']).where((item) {
+      final date = _date(item['completedAt'] ?? item['date']);
+      return date != null && !date.isBefore(start) && !date.isAfter(end);
+    }).toList();
+    final logs = _maps(state['logs']).where((item) {
+      final date = _date(item['d'] ?? item['date']);
+      return date != null && !date.isBefore(start) && !date.isAfter(end);
+    }).toList();
+    final responses = _maps(state['workoutResponses']).where((item) {
+      final date = _date(item['recordedAt']);
+      return date != null && !date.isBefore(start) && !date.isAfter(end);
+    }).toList();
+    final recovery = _maps(state['recoveryCheckIns']).where((item) {
+      final date = _date(item['localDate']);
+      return date != null && !date.isBefore(start) && !date.isAfter(end);
+    }).toList();
+    final supplements = _maps(state['supplementEvents']).where((item) {
+      final date = _date(item['takenAt']);
+      return date != null && !date.isBefore(start) && !date.isAfter(end);
+    }).toList();
     final creatineDays = supplements
         .where((item) => '${item['name']}'.toLowerCase().contains('creatine'))
         .map((item) => _dateOnly(_date(item['takenAt'])!))
@@ -522,7 +513,9 @@ abstract final class LabExperimentAnalyzer {
       signals.add('${athleticHistory.length} Athletic sessions completed.');
     }
     if (creatineDays >= 6) {
-      signals.add('Creatine logging was consistent on $creatineDays of 7 days.');
+      signals.add(
+        'Creatine logging was consistent on $creatineDays of 7 days.',
+      );
     }
     final averageSleep = _mean(sleep);
     if (averageSleep != null) {
@@ -562,15 +555,18 @@ abstract final class LabExperimentAnalyzer {
       final status = '${item['status']}';
       if (status.isNotEmpty && status != 'completed') continue;
       final occurredAt = _date(item['loggedAt'] ?? item['date']);
-      if (occurredAt == null || occurredAt.isBefore(experiment.startedAt)) continue;
-      if (experiment.endedAt != null && occurredAt.isAfter(experiment.endedAt!)) {
+      if (occurredAt == null || occurredAt.isBefore(experiment.startedAt))
+        continue;
+      if (experiment.endedAt != null &&
+          occurredAt.isAfter(experiment.endedAt!)) {
         continue;
       }
       final workoutName = '${item['workout'] ?? item['name'] ?? 'Workout'}';
       if (experiment.workoutNameFilter case final String filter) {
         if (!workoutName.toLowerCase().contains(filter.toLowerCase())) continue;
       }
-      final sessionId = '${item['sessionId'] ?? '${occurredAt.microsecondsSinceEpoch}-$workoutName'}';
+      final sessionId =
+          '${item['sessionId'] ?? '${occurredAt.microsecondsSinceEpoch}-$workoutName'}';
       sessions.add(
         _Session(
           id: sessionId,
@@ -599,31 +595,34 @@ abstract final class LabExperimentAnalyzer {
           _dateOnly(date) == _dateOnly(session.occurredAt) &&
           workout == session.workoutName;
     }).toList();
-    final responses = _maps(state['workoutResponses']).where(
-      (item) => '${item['workoutSessionId']}' == session.id,
-    );
+    final responses = _maps(
+      state['workoutResponses'],
+    ).where((item) => '${item['workoutSessionId']}' == session.id);
     return switch (metric) {
       LabExperimentMetric.estimatedStrength => _maxDouble(
-          sessionLogs.map((item) {
-            final weight = (item['w'] ?? item['weight']) as num?;
-            final reps = (item['r'] ?? item['reps']) as num?;
-            if (weight == null || reps == null || weight <= 0 || reps <= 0) {
-              return null;
-            }
-            return weight.toDouble() * (1 + reps.toDouble() / 30);
-          }),
-        ),
-      LabExperimentMetric.totalVolume => sessionLogs.fold<double>(0, (total, item) {
-          final weight = ((item['w'] ?? item['weight']) as num?)?.toDouble() ?? 0;
-          final reps = ((item['r'] ?? item['reps']) as num?)?.toDouble() ?? 0;
-          return total + weight * reps;
+        sessionLogs.map((item) {
+          final weight = (item['w'] ?? item['weight']) as num?;
+          final reps = (item['r'] ?? item['reps']) as num?;
+          if (weight == null || reps == null || weight <= 0 || reps <= 0) {
+            return null;
+          }
+          return weight.toDouble() * (1 + reps.toDouble() / 30);
         }),
+      ),
+      LabExperimentMetric.totalVolume => sessionLogs.fold<double>(0, (
+        total,
+        item,
+      ) {
+        final weight = ((item['w'] ?? item['weight']) as num?)?.toDouble() ?? 0;
+        final reps = ((item['r'] ?? item['reps']) as num?)?.toDouble() ?? 0;
+        return total + weight * reps;
+      }),
       LabExperimentMetric.topSetRepetitions => _maxDouble(
-          sessionLogs.map(
-            (item) => ((item['r'] ?? item['reps']) as num?)?.toDouble(),
-          ),
+        sessionLogs.map(
+          (item) => ((item['r'] ?? item['reps']) as num?)?.toDouble(),
         ),
-      LabExperimentMetric.workoutCompletion => 1,
+      ),
+      LabExperimentMetric.workoutCompletion => 1.0,
       LabExperimentMetric.sessionEnergy => _firstMetric(responses, 'energy'),
       LabExperimentMetric.sessionFocus => _firstMetric(responses, 'focus'),
       LabExperimentMetric.athleticAssessment => null,
@@ -640,33 +639,46 @@ abstract final class LabExperimentAnalyzer {
       case 'caffeineBeforeWorkout':
         final window = Duration(minutes: condition.windowMinutes ?? 240);
         final minimumLead = Duration(
-          minutes: (condition.metadata['minimumLeadMinutes'] as num?)?.toInt() ?? 0,
+          minutes:
+              (condition.metadata['minimumLeadMinutes'] as num?)?.toInt() ?? 0,
         );
         final start = session.occurredAt.subtract(window);
         final end = session.occurredAt.subtract(minimumLead);
         value = _maps(state['supplementEvents'])
             .where((item) {
               final time = _date(item['takenAt']);
-              return time != null && !time.isBefore(start) && !time.isAfter(end);
+              return time != null &&
+                  !time.isBefore(start) &&
+                  !time.isAfter(end);
             })
             .fold<double>(
               0,
               (total, item) =>
                   total + ((item['caffeineMg'] as num?)?.toDouble() ?? 0),
             );
+        break;
       case 'mealBeforeWorkout':
         final window = Duration(minutes: condition.windowMinutes ?? 180);
         final minimumLead = Duration(
-          minutes: (condition.metadata['minimumLeadMinutes'] as num?)?.toInt() ?? 0,
+          minutes:
+              (condition.metadata['minimumLeadMinutes'] as num?)?.toInt() ?? 0,
         );
         final start = session.occurredAt.subtract(window);
         final end = session.occurredAt.subtract(minimumLead);
-        value = _maps(state['mealEvents']).where((item) {
-          final time = _date(item['occurredAt']);
-          return time != null && !time.isBefore(start) && !time.isAfter(end);
-        }).length.toDouble();
+        value = _maps(state['mealEvents'])
+            .where((item) {
+              final time = _date(item['occurredAt']);
+              return time != null &&
+                  !time.isBefore(start) &&
+                  !time.isAfter(end);
+            })
+            .length
+            .toDouble();
+        break;
       case 'previousNightSleep':
-        final targetDate = _dateOnly(session.occurredAt.subtract(const Duration(days: 1)));
+        final targetDate = _dateOnly(
+          session.occurredAt.subtract(const Duration(days: 1)),
+        );
         value = _maps(state['recoveryCheckIns'])
             .where((item) {
               final date = _date(item['localDate']);
@@ -675,8 +687,10 @@ abstract final class LabExperimentAnalyzer {
             .map((item) => (item['sleepHours'] as num?)?.toDouble())
             .whereType<double>()
             .firstOrNull;
+        break;
       case 'supplementAdherence':
-        final supplement = '${condition.metadata['supplement'] ?? ''}'.toLowerCase();
+        final supplement = '${condition.metadata['supplement'] ?? ''}'
+            .toLowerCase();
         final days = condition.rollingDays ?? 7;
         final start = _dateOnly(
           session.occurredAt.subtract(Duration(days: days - 1)),
@@ -684,7 +698,8 @@ abstract final class LabExperimentAnalyzer {
         final end = _dateOnly(session.occurredAt);
         value = _maps(state['supplementEvents'])
             .where((item) {
-              if (!'${item['name']}'.toLowerCase().contains(supplement)) return false;
+              if (!'${item['name']}'.toLowerCase().contains(supplement))
+                return false;
               final date = _date(item['takenAt']);
               return date != null &&
                   !_dateOnly(date).isBefore(start) &&
@@ -694,8 +709,10 @@ abstract final class LabExperimentAnalyzer {
             .toSet()
             .length
             .toDouble();
+        break;
       default:
         value = null;
+        break;
     }
     if (value == null) return false;
     if (condition.minimum != null && value < condition.minimum!) return false;
@@ -703,7 +720,10 @@ abstract final class LabExperimentAnalyzer {
     return true;
   }
 
-  static List<String> _confounders(_Session session, Map<String, dynamic> state) {
+  static List<String> _confounders(
+    _Session session,
+    Map<String, dynamic> state,
+  ) {
     final values = <String>[];
     final recovery = _maps(state['recoveryCheckIns']).where((item) {
       final date = _date(item['localDate']);
@@ -763,7 +783,8 @@ abstract final class LabExperimentAnalyzer {
     if (a.length < 2 || b.length < 2) return null;
     final meanA = _mean(a)!;
     final meanB = _mean(b)!;
-    double variance(List<double> values, double mean) => values
+    double variance(List<double> values, double mean) =>
+        values
             .map((value) => math.pow(value - mean, 2).toDouble())
             .reduce((left, right) => left + right) /
         (values.length - 1);
@@ -788,11 +809,13 @@ abstract final class LabExperimentAnalyzer {
     return items.reduce(math.max);
   }
 
-  static double? _firstMetric(Iterable<Map<String, dynamic>> values, String key) =>
-      values
-          .map((item) => (item[key] as num?)?.toDouble())
-          .whereType<double>()
-          .firstOrNull;
+  static double? _firstMetric(
+    Iterable<Map<String, dynamic>> values,
+    String key,
+  ) => values
+      .map((item) => (item[key] as num?)?.toDouble())
+      .whereType<double>()
+      .firstOrNull;
 
   static List<Map<String, dynamic>> _maps(Object? value) => value is List
       ? <Map<String, dynamic>>[

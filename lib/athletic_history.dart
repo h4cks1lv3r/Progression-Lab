@@ -67,10 +67,8 @@ class AthleticAssessment {
   Map<String, dynamic> toJson() => {
     'programRun': programRun,
     'recordedAt': recordedAt.toIso8601String(),
-    if (leftBalanceSeconds != null)
-      'leftBalanceSeconds': leftBalanceSeconds,
-    if (rightBalanceSeconds != null)
-      'rightBalanceSeconds': rightBalanceSeconds,
+    if (leftBalanceSeconds != null) 'leftBalanceSeconds': leftBalanceSeconds,
+    if (rightBalanceSeconds != null) 'rightBalanceSeconds': rightBalanceSeconds,
     if (broadJumpCentimeters != null)
       'broadJumpCentimeters': broadJumpCentimeters,
     if (sprint10MetersSeconds != null)

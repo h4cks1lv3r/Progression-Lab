@@ -30,27 +30,28 @@ abstract final class BrandColors {
 
 abstract final class ProgressionBrand {
   static ThemeData theme() {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: BrandColors.purple,
-      brightness: Brightness.dark,
-      primary: BrandColors.violet,
-      secondary: BrandColors.cyan,
-      tertiary: BrandColors.magenta,
-      surface: BrandColors.panel,
-      error: BrandColors.error,
-    ).copyWith(
-      onPrimary: Colors.white,
-      onSecondary: BrandColors.ink,
-      onTertiary: Colors.white,
-      onSurface: BrandColors.white,
-      outline: BrandColors.line,
-      outlineVariant: BrandColors.line.withValues(alpha: .65),
-      surfaceContainerLowest: BrandColors.ink,
-      surfaceContainerLow: BrandColors.inkRaised,
-      surfaceContainer: BrandColors.panel,
-      surfaceContainerHigh: BrandColors.panelHigh,
-      surfaceContainerHighest: BrandColors.panelSoft,
-    );
+    final scheme =
+        ColorScheme.fromSeed(
+          seedColor: BrandColors.purple,
+          brightness: Brightness.dark,
+          primary: BrandColors.violet,
+          secondary: BrandColors.cyan,
+          tertiary: BrandColors.magenta,
+          surface: BrandColors.panel,
+          error: BrandColors.error,
+        ).copyWith(
+          onPrimary: Colors.white,
+          onSecondary: BrandColors.ink,
+          onTertiary: Colors.white,
+          onSurface: BrandColors.white,
+          outline: BrandColors.line,
+          outlineVariant: BrandColors.line.withValues(alpha: .65),
+          surfaceContainerLowest: BrandColors.ink,
+          surfaceContainerLow: BrandColors.inkRaised,
+          surfaceContainer: BrandColors.panel,
+          surfaceContainerHigh: BrandColors.panelHigh,
+          surfaceContainerHighest: BrandColors.panelSoft,
+        );
 
     final rounded = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(18),
@@ -643,17 +644,18 @@ class _LabGridPainter extends CustomPainter {
     }
 
     final glow = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          BrandColors.cyan.withValues(alpha: .07),
-          Colors.transparent,
-        ],
-      ).createShader(
-        Rect.fromCircle(
-          center: Offset(size.width * .82, size.height * .12),
-          radius: math.max(size.width, size.height) * .42,
-        ),
-      );
+      ..shader =
+          RadialGradient(
+            colors: [
+              BrandColors.cyan.withValues(alpha: .07),
+              Colors.transparent,
+            ],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(size.width * .82, size.height * .12),
+              radius: math.max(size.width, size.height) * .42,
+            ),
+          );
     canvas.drawRect(Offset.zero & size, glow);
   }
 

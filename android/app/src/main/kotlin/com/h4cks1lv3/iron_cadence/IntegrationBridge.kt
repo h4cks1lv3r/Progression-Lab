@@ -5,8 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.documentfile.provider.DocumentFile
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
@@ -18,6 +16,7 @@ import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.units.Mass
+import androidx.health.connect.client.units.Percentage
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import io.flutter.embedding.android.FlutterActivity
@@ -34,14 +33,28 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
-/** Platform services that must remain outside the Dart isolate. */
+/**
+ * Native services used by the optional integrations hub.
+ *
+ * This bridge deliberately uses startActivityForResult instead of AndroidX's
+ * registerForActivityResult API because FlutterActivity is not required to be
+ * a ComponentActivity. MainActivity forwards activity results and OAuth deep
+ * links into this class.
+ */
 class IntegrationBridge(
     private val activity: FlutterActivity,
     messenger: BinaryMessenger,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val preferences = activity.getSharedPreferences("progression_lab_integrations", Context.MODE_PRIVATE)
+    private val preferences = activity.getSharedPreferences(
+        "progression_lab_integrations",
+        Context.MODE_PRIVATE,
+    )
     private val healthClient by lazy { HealthConnectClient.getOrCreate(activity) }
+    private val healthPermissionContract by lazy {
+        PermissionController.createRequestPermissionResultContract()
+    }
+
     private var pendingHealthPermissionResult: MethodChannel.Result? = null
     private var pendingFolderResult: MethodChannel.Result? = null
     private var pendingFileResult: MethodChannel.Result? = null
@@ -55,61 +68,8 @@ class IntegrationBridge(
         HealthPermission.getReadPermission(WeightRecord::class),
         HealthPermission.getWritePermission(WeightRecord::class),
         HealthPermission.getReadPermission(BodyFatRecord::class),
+        HealthPermission.getWritePermission(BodyFatRecord::class),
     )
-
-    private val healthPermissionLauncher: ActivityResultLauncher<Set<String>> =
-        activity.registerForActivityResult(
-            PermissionController.createRequestPermissionResultContract()
-        ) { granted ->
-            val result = pendingHealthPermissionResult
-            pendingHealthPermissionResult = null
-            result?.success(granted.containsAll(healthPermissions))
-        }
-
-    private val folderLauncher = activity.registerForActivityResult(
-        ActivityResultContracts.OpenDocumentTree()
-    ) { uri ->
-        val result = pendingFolderResult
-        pendingFolderResult = null
-        if (uri == null) {
-            result?.success(null)
-            return@registerForActivityResult
-        }
-        try {
-            activity.contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-            )
-        } catch (_: SecurityException) {
-            // Some document providers grant access for the current app session
-            // without supporting a persistable permission.
-        }
-        preferences.edit().putString(KEY_CLOUD_TREE_URI, uri.toString()).apply()
-        result?.success(folderStatus(uri))
-    }
-
-    private val workoutFileLauncher = activity.registerForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        val result = pendingFileResult
-        pendingFileResult = null
-        if (uri == null) {
-            result?.success(null)
-            return@registerForActivityResult
-        }
-        try {
-            val bytes = activity.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                ?: throw IllegalStateException("The selected file could not be read.")
-            result?.success(
-                mapOf(
-                    "name" to displayName(uri),
-                    "bytes" to bytes,
-                )
-            )
-        } catch (error: Exception) {
-            result?.error("file_read_failed", error.message, null)
-        }
-    }
 
     private val encryptedPreferences by lazy {
         val masterKey = MasterKey.Builder(activity)
@@ -146,6 +106,10 @@ class IntegrationBridge(
         pendingFolderResult?.error("cancelled", "Activity closed.", null)
         pendingFileResult?.error("cancelled", "Activity closed.", null)
         pendingOAuthResult?.error("cancelled", "Activity closed.", null)
+        pendingHealthPermissionResult = null
+        pendingFolderResult = null
+        pendingFileResult = null
+        pendingOAuthResult = null
         scope.cancel()
     }
 
@@ -154,6 +118,7 @@ class IntegrationBridge(
         val pending = pendingOAuthResult ?: return false
         val expectedRedirect = expectedOAuthRedirect ?: return false
         if (!uri.toString().startsWith(expectedRedirect)) return false
+
         pendingOAuthResult = null
         expectedOAuthRedirect = null
         val state = uri.getQueryParameter("state")
@@ -174,20 +139,79 @@ class IntegrationBridge(
         return true
     }
 
+    fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
+        when (requestCode) {
+            REQUEST_HEALTH_PERMISSIONS -> {
+                val pending = pendingHealthPermissionResult ?: return false
+                pendingHealthPermissionResult = null
+                try {
+                    val granted = healthPermissionContract.parseResult(resultCode, data)
+                    pending.success(granted.containsAll(healthPermissions))
+                } catch (error: Exception) {
+                    pending.error("health_permission_failed", error.message, null)
+                }
+                return true
+            }
+            REQUEST_CLOUD_FOLDER -> {
+                val pending = pendingFolderResult ?: return false
+                pendingFolderResult = null
+                val uri = if (resultCode == Activity.RESULT_OK) data?.data else null
+                if (uri == null) {
+                    pending.success(null)
+                    return true
+                }
+                val flags = data?.flags?.and(
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                ) ?: 0
+                try {
+                    activity.contentResolver.takePersistableUriPermission(uri, flags)
+                } catch (_: SecurityException) {
+                    // Some providers grant only session-scoped access.
+                }
+                preferences.edit().putString(KEY_CLOUD_TREE_URI, uri.toString()).apply()
+                pending.success(folderStatus(uri))
+                return true
+            }
+            REQUEST_WORKOUT_FILE -> {
+                val pending = pendingFileResult ?: return false
+                pendingFileResult = null
+                val uri = if (resultCode == Activity.RESULT_OK) data?.data else null
+                if (uri == null) {
+                    pending.success(null)
+                    return true
+                }
+                try {
+                    val bytes = activity.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                        ?: throw IllegalStateException("The selected file could not be read.")
+                    pending.success(mapOf("name" to displayName(uri), "bytes" to bytes))
+                } catch (error: Exception) {
+                    pending.error("file_read_failed", error.message, null)
+                }
+                return true
+            }
+        }
+        return false
+    }
+
     private fun handleHealth(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "status" -> scope.launch {
-                val sdk = HealthConnectClient.getSdkStatus(activity)
-                if (sdk != HealthConnectClient.SDK_AVAILABLE) {
+                val sdkStatus = HealthConnectClient.getSdkStatus(activity)
+                if (sdkStatus != HealthConnectClient.SDK_AVAILABLE) {
                     result.success(
                         mapOf(
                             "platform" to "healthConnect",
                             "available" to false,
                             "authorization" to "unavailable",
-                            "message" to if (sdk == HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED)
+                            "message" to if (
+                                sdkStatus ==
+                                    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED
+                            ) {
                                 "Health Connect needs an update."
-                            else
-                                "Health Connect is not available on this device.",
+                            } else {
+                                "Health Connect is not available on this device."
+                            },
                         )
                     )
                     return@launch
@@ -198,10 +222,11 @@ class IntegrationBridge(
                         mapOf(
                             "platform" to "healthConnect",
                             "available" to true,
-                            "authorization" to if (granted.containsAll(healthPermissions))
+                            "authorization" to if (granted.containsAll(healthPermissions)) {
                                 "authorized"
-                            else
-                                "notDetermined",
+                            } else {
+                                "notDetermined"
+                            },
                         )
                     )
                 } catch (error: Exception) {
@@ -214,7 +239,13 @@ class IntegrationBridge(
                     return
                 }
                 pendingHealthPermissionResult = result
-                healthPermissionLauncher.launch(healthPermissions)
+                try {
+                    val intent = healthPermissionContract.createIntent(activity, healthPermissions)
+                    activity.startActivityForResult(intent, REQUEST_HEALTH_PERMISSIONS)
+                } catch (error: Exception) {
+                    pendingHealthPermissionResult = null
+                    result.error("health_permission_failed", error.message, null)
+                }
             }
             "readWorkouts" -> scope.launch {
                 try {
@@ -230,9 +261,9 @@ class IntegrationBridge(
                     result.success(
                         response.records.map { record ->
                             mapOf(
-                                "id" to (record.metadata.id.ifBlank {
+                                "id" to record.metadata.id.ifBlank {
                                     "health-${record.startTime.toEpochMilli()}"
-                                }),
+                                },
                                 "platform" to "healthConnect",
                                 "source" to record.metadata.dataOrigin.packageName,
                                 "title" to (record.title ?: "Health Connect Workout"),
@@ -303,13 +334,13 @@ class IntegrationBridge(
                         startZoneOffset = zone.rules.getOffset(start),
                         endTime = end,
                         endZoneOffset = zone.rules.getOffset(end),
-                        exerciseType = exerciseType(arguments["sport"] as? String),
-                        title = arguments["title"] as? String,
-                        notes = arguments["notes"] as? String,
                         metadata = Metadata.manualEntry(
                             clientRecordId = externalId,
                             clientRecordVersion = 1,
                         ),
+                        exerciseType = exerciseType(arguments["sport"] as? String),
+                        title = arguments["title"] as? String,
+                        notes = arguments["notes"] as? String,
                     )
                     healthClient.insertRecords(listOf(record))
                     result.success(true)
@@ -333,7 +364,8 @@ class IntegrationBridge(
                                 zoneOffset = zoneOffset,
                                 weight = Mass.kilograms(kilograms),
                                 metadata = Metadata.manualEntry(
-                                    clientRecordId = "progression-lab-weight-${time.toEpochMilli()}",
+                                    clientRecordId =
+                                        "progression-lab-weight-${time.toEpochMilli()}",
                                     clientRecordVersion = 1,
                                 ),
                             )
@@ -342,6 +374,35 @@ class IntegrationBridge(
                     result.success(true)
                 } catch (error: Exception) {
                     result.error("health_weight_write_failed", error.message, null)
+                }
+            }
+            "writeBodyFat" -> scope.launch {
+                try {
+                    val arguments = call.arguments as? Map<*, *>
+                        ?: throw IllegalArgumentException("Body-fat arguments are missing.")
+                    val time = Instant.parse(arguments["recordedAt"] as String)
+                    val raw = (arguments["value"] as Number).toDouble()
+                    require(raw in 0.0..100.0) {
+                        "Body-fat percentage must be between 0 and 100."
+                    }
+                    val zoneOffset: ZoneOffset = ZoneId.systemDefault().rules.getOffset(time)
+                    healthClient.insertRecords(
+                        listOf(
+                            BodyFatRecord(
+                                time = time,
+                                zoneOffset = zoneOffset,
+                                percentage = Percentage(raw),
+                                metadata = Metadata.manualEntry(
+                                    clientRecordId =
+                                        "progression-lab-body-fat-${time.toEpochMilli()}",
+                                    clientRecordVersion = 1,
+                                ),
+                            )
+                        )
+                    )
+                    result.success(true)
+                } catch (error: Exception) {
+                    result.error("health_body_fat_write_failed", error.message, null)
                 }
             }
             else -> result.notImplemented()
@@ -381,7 +442,15 @@ class IntegrationBridge(
                     return
                 }
                 pendingFolderResult = result
-                folderLauncher.launch(cloudTreeUri())
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                    addFlags(
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                            Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                            Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION,
+                    )
+                    cloudTreeUri()?.let { putExtra("android.provider.extra.INITIAL_URI", it) }
+                }
+                activity.startActivityForResult(intent, REQUEST_CLOUD_FOLDER)
             }
             "disconnectFolder" -> {
                 cloudTreeUri()?.let { uri ->
@@ -419,7 +488,8 @@ class IntegrationBridge(
                             .map { file ->
                                 mapOf(
                                     "name" to (file.name ?: "backup.plab"),
-                                    "modifiedAt" to Instant.ofEpochMilli(file.lastModified()).toString(),
+                                    "modifiedAt" to
+                                        Instant.ofEpochMilli(file.lastModified()).toString(),
                                     "size" to file.length(),
                                     "token" to file.uri.toString(),
                                 )
@@ -442,7 +512,9 @@ class IntegrationBridge(
                     activity.contentResolver.openOutputStream(file.uri, "w")?.use {
                         it.write(bytes)
                         it.flush()
-                    } ?: throw IllegalStateException("The provider did not open the backup file.")
+                    } ?: throw IllegalStateException(
+                        "The provider did not open the backup file."
+                    )
                     val syncedAt = Instant.now().toString()
                     preferences.edit().putString(KEY_LAST_SYNC, syncedAt).apply()
                     result.success(
@@ -483,15 +555,21 @@ class IntegrationBridge(
                     return
                 }
                 pendingFileResult = result
-                workoutFileLauncher.launch(
-                    arrayOf(
-                        "application/octet-stream",
-                        "application/vnd.ant.fit",
-                        "application/xml",
-                        "text/xml",
-                        "application/gpx+xml",
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "*/*"
+                    putExtra(
+                        Intent.EXTRA_MIME_TYPES,
+                        arrayOf(
+                            "application/octet-stream",
+                            "application/vnd.ant.fit",
+                            "application/xml",
+                            "text/xml",
+                            "application/gpx+xml",
+                        ),
                     )
-                )
+                }
+                activity.startActivityForResult(intent, REQUEST_WORKOUT_FILE)
             }
             else -> result.notImplemented()
         }
@@ -544,7 +622,9 @@ class IntegrationBridge(
 
     private fun handleIntegrationPreferences(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
-            "read" -> result.success(preferences.getString(KEY_INTEGRATION_PREFERENCES, null))
+            "read" -> result.success(
+                preferences.getString(KEY_INTEGRATION_PREFERENCES, null)
+            )
             "write" -> {
                 val value = call.arguments as? String ?: "{}"
                 preferences.edit().putString(KEY_INTEGRATION_PREFERENCES, value).apply()
@@ -557,7 +637,8 @@ class IntegrationBridge(
     private fun handleGuideState(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "read" -> {
-                val seen = preferences.getStringSet(KEY_GUIDES_SEEN, emptySet()) ?: emptySet()
+                val seen = preferences.getStringSet(KEY_GUIDES_SEEN, emptySet())
+                    ?: emptySet()
                 result.success(
                     mapOf(
                         "tipsEnabled" to preferences.getBoolean(KEY_GUIDES_ENABLED, true),
@@ -581,7 +662,8 @@ class IntegrationBridge(
         }
     }
 
-    private fun cloudTreeUri(): Uri? = preferences.getString(KEY_CLOUD_TREE_URI, null)?.let(Uri::parse)
+    private fun cloudTreeUri(): Uri? =
+        preferences.getString(KEY_CLOUD_TREE_URI, null)?.let(Uri::parse)
 
     private fun cloudDirectory(): DocumentFile? = cloudTreeUri()?.let { uri ->
         DocumentFile.fromTreeUri(activity, uri)
@@ -619,7 +701,8 @@ class IntegrationBridge(
             normalized.contains("walk") -> ExerciseSessionRecord.EXERCISE_TYPE_WALKING
             normalized.contains("cycle") || normalized.contains("bike") ->
                 ExerciseSessionRecord.EXERCISE_TYPE_BIKING
-            normalized.contains("swim") -> ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_POOL
+            normalized.contains("swim") ->
+                ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_POOL
             normalized.contains("row") -> ExerciseSessionRecord.EXERCISE_TYPE_ROWING
             normalized.contains("strength") || normalized.contains("weight") ->
                 ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING
@@ -644,6 +727,9 @@ class IntegrationBridge(
     }
 
     companion object {
+        private const val REQUEST_HEALTH_PERMISSIONS = 9041
+        private const val REQUEST_CLOUD_FOLDER = 9042
+        private const val REQUEST_WORKOUT_FILE = 9043
         private const val KEY_CLOUD_TREE_URI = "cloud_tree_uri"
         private const val KEY_AUTOMATIC_SYNC = "cloud_automatic_sync"
         private const val KEY_LAST_SYNC = "cloud_last_sync"
