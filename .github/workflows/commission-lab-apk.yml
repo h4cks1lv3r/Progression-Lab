@@ -26,9 +26,11 @@ jobs:
         run: |
           set -euo pipefail
           cat commission_lab_ci/source.b64.part00 commission_lab_ci/source.b64.part01 commission_lab_ci/source.b64.part02 commission_lab_ci/source.b64.part03.* commission_lab_ci/source.b64.part04 | base64 --decode > /tmp/commission_lab_source.tar.gz
-          tar -xzf /tmp/commission_lab_source.tar.gz
-          test -f pubspec.yaml
-          test -f lib/main.dart
+          rm -rf commission_lab_source
+          mkdir -p commission_lab_source
+          tar -xzf /tmp/commission_lab_source.tar.gz -C commission_lab_source
+          test -f commission_lab_source/pubspec.yaml
+          test -f commission_lab_source/lib/main.dart
 
       - name: Set up Java
         uses: actions/setup-java@v5
@@ -59,17 +61,17 @@ jobs:
             build_workspace
 
           rm -rf build_workspace/lib build_workspace/test
-          cp -R lib build_workspace/lib
-          cp -R test build_workspace/test
-          cp pubspec.yaml build_workspace/pubspec.yaml
+          cp -R commission_lab_source/lib build_workspace/lib
+          cp -R commission_lab_source/test build_workspace/test
+          cp commission_lab_source/pubspec.yaml build_workspace/pubspec.yaml
           rm -f build_workspace/analysis_options.yaml
 
-          cp branding/commission_lab_launcher.xml \
+          cp commission_lab_source/branding/commission_lab_launcher.xml \
             build_workspace/android/app/src/main/res/drawable/commission_lab_launcher.xml
-          cp branding/launch_background.xml \
+          cp commission_lab_source/branding/launch_background.xml \
             build_workspace/android/app/src/main/res/drawable/launch_background.xml
           if [ -d build_workspace/android/app/src/main/res/drawable-v21 ]; then
-            cp branding/launch_background.xml \
+            cp commission_lab_source/branding/launch_background.xml \
               build_workspace/android/app/src/main/res/drawable-v21/launch_background.xml
           fi
 
