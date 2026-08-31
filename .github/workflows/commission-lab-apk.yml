@@ -25,7 +25,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat commission_lab_ci/source.b64.part* | base64 --decode > /tmp/commission_lab_source.tar.gz
+          cat commission_lab_ci/source.b64.part00 commission_lab_ci/source.b64.part01 commission_lab_ci/source.b64.part02 commission_lab_ci/source.b64.part03.* commission_lab_ci/source.b64.part04 | base64 --decode > /tmp/commission_lab_source.tar.gz
           tar -xzf /tmp/commission_lab_source.tar.gz
           test -f pubspec.yaml
           test -f lib/main.dart
