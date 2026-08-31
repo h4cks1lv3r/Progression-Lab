@@ -1,0 +1,122 @@
+name: Build Commission Lab Release
+
+on:
+  push:
+    branches:
+      - commission-lab-build
+    paths:
+      - "commission_lab_ci/**"
+      - ".github/workflows/commission-lab-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Expand application source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat commission_lab_ci/source.b64.part* | base64 --decode > /tmp/commission_lab_source.tar.gz
+          tar -xzf /tmp/commission_lab_source.tar.gz
+          test -f pubspec.yaml
+          test -f lib/main.dart
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Show tool versions
+        run: |
+          flutter --version
+          java -version
+
+      - name: Create Android workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build_workspace
+          flutter create \
+            --platforms=android \
+            --org com.h4cks1lv3r \
+            --project-name commission_lab \
+            build_workspace
+
+          rm -rf build_workspace/lib build_workspace/test
+          cp -R lib build_workspace/lib
+          cp -R test build_workspace/test
+          cp pubspec.yaml build_workspace/pubspec.yaml
+          rm -f build_workspace/analysis_options.yaml
+
+          cp branding/commission_lab_launcher.xml \
+            build_workspace/android/app/src/main/res/drawable/commission_lab_launcher.xml
+          cp branding/launch_background.xml \
+            build_workspace/android/app/src/main/res/drawable/launch_background.xml
+          if [ -d build_workspace/android/app/src/main/res/drawable-v21 ]; then
+            cp branding/launch_background.xml \
+              build_workspace/android/app/src/main/res/drawable-v21/launch_background.xml
+          fi
+
+          python3 - <<'PY'
+          from pathlib import Path
+          manifest = Path('build_workspace/android/app/src/main/AndroidManifest.xml')
+          text = manifest.read_text()
+          text = text.replace('android:label="commission_lab"', 'android:label="Commission Lab"')
+          text = text.replace('android:icon="@mipmap/ic_launcher"', 'android:icon="@drawable/commission_lab_launcher"')
+          text = text.replace('android:roundIcon="@mipmap/ic_launcher_round"', 'android:roundIcon="@drawable/commission_lab_launcher"')
+          manifest.write_text(text)
+          PY
+
+      - name: Test and build
+        working-directory: build_workspace
+        run: |
+          flutter pub get
+          dart format lib test
+          flutter test
+          flutter analyze --no-fatal-warnings --no-fatal-infos
+          flutter build apk \
+            --release \
+            --target-platform android-arm64 \
+            --build-name 0.1.0 \
+            --build-number 1
+
+      - name: Stage release
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp build_workspace/build/app/outputs/flutter-apk/app-release.apk \
+            dist/Commission-Lab-0.1.0-arm64.apk
+          sha256sum dist/Commission-Lab-0.1.0-arm64.apk | tee dist/SHA256SUMS.txt
+
+      - name: Publish public release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="commission-lab-v0.1.0"
+          gh release delete "$tag" --cleanup-tag -y || true
+          gh release create "$tag" \
+            dist/Commission-Lab-0.1.0-arm64.apk \
+            dist/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Commission Lab 0.1.0" \
+            --notes "Android arm64 release build of Commission Lab."
