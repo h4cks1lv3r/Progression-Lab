@@ -1,9 +1,26 @@
 from pathlib import Path
 
 
-store = Path("lib/store.dart")
-text = store.read_text()
-old = """  Future<void> restoreState(Map<String, dynamic> source) async {
+def replace_if_missing(
+    path: str,
+    *,
+    marker: str,
+    old: str,
+    new: str,
+) -> None:
+    target = Path(path)
+    text = target.read_text()
+    if marker in text:
+        return
+    if old not in text:
+        raise RuntimeError(f"Expected source block was not found in {path}")
+    target.write_text(text.replace(old, new, 1))
+
+
+replace_if_missing(
+    "lib/store.dart",
+    marker="final previousIntegrationState = previous['integrationState'];",
+    old="""  Future<void> restoreState(Map<String, dynamic> source) async {
     final importedIntegrationState = source['integrationState'];
     integrationState = importedIntegrationState is Map
         ? Map<String, dynamic>.from(importedIntegrationState)
@@ -27,8 +44,8 @@ old = """  Future<void> restoreState(Map<String, dynamic> source) async {
     }
     notifyListeners();
   }
-"""
-new = """  Future<void> restoreState(Map<String, dynamic> source) async {
+""",
+    new="""  Future<void> restoreState(Map<String, dynamic> source) async {
     final sourceVersion = _readInt(source['schemaVersion']);
     if (sourceVersion != null && sourceVersion > schemaVersion) {
       throw StateError(
@@ -56,63 +73,61 @@ new = """  Future<void> restoreState(Map<String, dynamic> source) async {
     }
     notifyListeners();
   }
-"""
-if new not in text:
-    if old not in text:
-        raise RuntimeError("restoreState block was not found")
-    text = text.replace(old, new, 1)
+""",
+)
 
-old = """  Future<void> flushPendingSaves() => _saveTail;
-"""
-new = """  Future<void> flushPendingSaves() async {
+replace_if_missing(
+    "lib/store.dart",
+    marker="final pending = _saveTail;",
+    old="""  Future<void> flushPendingSaves() => _saveTail;
+""",
+    new="""  Future<void> flushPendingSaves() async {
     while (true) {
       final pending = _saveTail;
       await pending;
       if (identical(pending, _saveTail)) return;
     }
   }
-"""
-if new not in text:
-    if old not in text:
-        raise RuntimeError("flushPendingSaves block was not found")
-    text = text.replace(old, new, 1)
-store.write_text(text)
+""",
+)
 
-
-test = Path("test/persistence_onboarding_test.dart")
-text = test.read_text()
-old = """  String? storedState;
+replace_if_missing(
+    "test/persistence_onboarding_test.dart",
+    marker="Duration Function(Map<String, dynamic> state) writeDelay",
+    old="""  String? storedState;
   List<Object?> automaticBackups = const [];
 
   setUp(() {
-"""
-new = """  String? storedState;
+""",
+    new="""  String? storedState;
   List<Object?> automaticBackups = const [];
   Duration Function(Map<String, dynamic> state) writeDelay =
       (_) => const Duration(milliseconds: 20);
 
   setUp(() {
-"""
-if new not in text:
-    if old not in text:
-        raise RuntimeError("test state declarations were not found")
-    text = text.replace(old, new, 1)
-old = """    storedState = null;
+""",
+)
+
+replace_if_missing(
+    "test/persistence_onboarding_test.dart",
+    marker="writeDelay = (_) => const Duration(milliseconds: 20);",
+    old="""    storedState = null;
     automaticBackups = const [];
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-"""
-new = """    storedState = null;
+""",
+    new="""    storedState = null;
     automaticBackups = const [];
     writeDelay = (_) => const Duration(milliseconds: 20);
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-"""
-if new not in text:
-    if old not in text:
-        raise RuntimeError("test setup reset was not found")
-    text = text.replace(old, new, 1)
-old = """            case 'write':
+""",
+)
+
+replace_if_missing(
+    "test/persistence_onboarding_test.dart",
+    marker="await Future<void>.delayed(writeDelay(decoded));",
+    old="""            case 'write':
               writesInFlight++;
               maximumWritesInFlight = maximumWritesInFlight < writesInFlight
                   ? writesInFlight
@@ -121,8 +136,8 @@ old = """            case 'write':
               final encoded = call.arguments as String;
               storedState = encoded;
               writes.add(Map<String, dynamic>.from(jsonDecode(encoded) as Map));
-"""
-new = """            case 'write':
+""",
+    new="""            case 'write':
               final encoded = call.arguments as String;
               final decoded = Map<String, dynamic>.from(
                 jsonDecode(encoded) as Map,
@@ -134,14 +149,13 @@ new = """            case 'write':
               await Future<void>.delayed(writeDelay(decoded));
               storedState = encoded;
               writes.add(decoded);
-"""
-if new not in text:
-    if old not in text:
-        raise RuntimeError("mock write handler was not found")
-    text = text.replace(old, new, 1)
-marker = """  test('load reports existing meaningful device data', () async {
-"""
-addition = """  test('backup restore cannot be overwritten by an older queued save', () async {
+""",
+)
+
+path = Path("test/persistence_onboarding_test.dart")
+text = path.read_text()
+marker = "  test('load reports existing meaningful device data', () async {\n"
+restore_test = """  test('backup restore cannot be overwritten by an older queued save', () async {
     writeDelay = (state) =>
         state['logs'] is List && (state['logs'] as List).isNotEmpty
         ? const Duration(milliseconds: 5)
@@ -181,12 +195,12 @@ addition = """  test('backup restore cannot be overwritten by an older queued sa
   });
 
 """
-if addition not in text:
+if "backup restore cannot be overwritten by an older queued save" not in text:
     if marker not in text:
-        raise RuntimeError("restore test insertion marker was not found")
-    text = text.replace(marker, addition + marker, 1)
+        raise RuntimeError("Restore test insertion point was not found")
+    text = text.replace(marker, restore_test + marker, 1)
 
-addition = """  test('flush waits for writes appended while a flush is active', () async {
+flush_test = """  test('flush waits for writes appended while a flush is active', () async {
     writeDelay = (_) => const Duration(milliseconds: 40);
     final store = AppStore();
 
@@ -203,25 +217,22 @@ addition = """  test('flush waits for writes appended while a flush is active', 
   });
 
 """
-if addition not in text:
+if "flush waits for writes appended while a flush is active" not in text:
     if marker not in text:
-        raise RuntimeError("flush test insertion marker was not found")
-    text = text.replace(marker, addition + marker, 1)
-test.write_text(text)
+        raise RuntimeError("Flush test insertion point was not found")
+    text = text.replace(marker, flush_test + marker, 1)
+path.write_text(text)
 
-
-navigation = Path("test/navigation_widget_test.dart")
-text = navigation.read_text()
-old = """    final store = AppStore()
+replace_if_missing(
+    "test/navigation_widget_test.dart",
+    marker="..dataSetupVersionSeen = 1",
+    old="""    final store = AppStore()
       ..isLoaded = true
       ..onboardingVersionSeen = 1;
-"""
-new = """    final store = AppStore()
+""",
+    new="""    final store = AppStore()
       ..isLoaded = true
       ..dataSetupVersionSeen = 1
       ..onboardingVersionSeen = 1;
-"""
-if new not in text:
-    if old not in text:
-        raise RuntimeError("navigation test store fixture was not found")
-    navigation.write_text(text.replace(old, new, 1))
+""",
+)
