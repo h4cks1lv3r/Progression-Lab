@@ -736,7 +736,13 @@ class AppStore extends ChangeNotifier {
     return operation;
   }
 
-  Future<void> flushPendingSaves() => _saveTail;
+  Future<void> flushPendingSaves() async {
+    while (true) {
+      final pending = _saveTail;
+      await pending;
+      if (identical(pending, _saveTail)) return;
+    }
+  }
 
   Future<void> _writeAutomaticBackup(
     Map<String, dynamic> state, {

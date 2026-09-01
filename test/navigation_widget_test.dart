@@ -238,6 +238,7 @@ void main() {
     usePhoneSurface(tester);
     final store = AppStore()
       ..isLoaded = true
+      ..dataSetupVersionSeen = 1
       ..onboardingVersionSeen = 1;
 
     await tester.pumpWidget(

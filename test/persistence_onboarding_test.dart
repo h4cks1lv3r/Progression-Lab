@@ -141,6 +141,22 @@ void main() {
     },
   );
 
+  test('flush waits for writes appended while a flush is active', () async {
+    writeDelay = (_) => const Duration(milliseconds: 40);
+    final store = AppStore();
+
+    final first = store.setPreferredTrack(TrainingTrack.athletic);
+    final flush = store.flushPendingSaves();
+    await Future<void>.delayed(Duration.zero);
+    final second = store.markDataSetupSeen(1);
+
+    await flush;
+
+    expect(writes, hasLength(2));
+    expect(writes.last['dataSetupVersionSeen'], 1);
+    await Future.wait([first, second]);
+  });
+
   test('load reports existing meaningful device data', () async {
     storedState = jsonEncode({
       'schemaVersion': 15,
