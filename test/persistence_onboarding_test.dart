@@ -19,6 +19,8 @@ void main() {
   var maximumWritesInFlight = 0;
   String? storedState;
   List<Object?> automaticBackups = const [];
+  Duration Function(Map<String, dynamic> state) writeDelay = (_) =>
+      const Duration(milliseconds: 20);
 
   setUp(() {
     writes.clear();
@@ -26,6 +28,7 @@ void main() {
     maximumWritesInFlight = 0;
     storedState = null;
     automaticBackups = const [];
+    writeDelay = (_) => const Duration(milliseconds: 20);
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(storageChannel, (call) async {
@@ -33,14 +36,17 @@ void main() {
             case 'read':
               return storedState;
             case 'write':
+              final encoded = call.arguments as String;
+              final decoded = Map<String, dynamic>.from(
+                jsonDecode(encoded) as Map,
+              );
               writesInFlight++;
               maximumWritesInFlight = maximumWritesInFlight < writesInFlight
                   ? writesInFlight
                   : maximumWritesInFlight;
-              await Future<void>.delayed(const Duration(milliseconds: 20));
-              final encoded = call.arguments as String;
+              await Future<void>.delayed(writeDelay(decoded));
               storedState = encoded;
-              writes.add(Map<String, dynamic>.from(jsonDecode(encoded) as Map));
+              writes.add(decoded);
               writesInFlight--;
               return true;
             default:
@@ -92,6 +98,48 @@ void main() {
     expect(writes.last['preferredTrack'], 'athletic');
     expect(writes.last['dataSetupVersionSeen'], 1);
   });
+
+  test(
+    'backup restore cannot be overwritten by an older queued save',
+    () async {
+      writeDelay = (state) =>
+          state['logs'] is List && (state['logs'] as List).isNotEmpty
+          ? const Duration(milliseconds: 5)
+          : const Duration(milliseconds: 80);
+      final store = AppStore();
+
+      final olderSave = store.setPreferredTrack(TrainingTrack.athletic);
+      final restore = store.restoreState({
+        'schemaVersion': AppStore.schemaVersion,
+        'days': 4,
+        'week': 1,
+        'workout': 0,
+        'unit': 'lb',
+        'logs': [
+          {
+            'e': 'Barbell Bench Press',
+            'w': 205,
+            'r': 4,
+            'd': DateTime(2026, 9, 1).toIso8601String(),
+            'o': 'Upper Body A',
+            'n': 'Restored history',
+          },
+        ],
+        'integrationState': {'restored': true},
+      });
+
+      await Future.wait([olderSave, restore]);
+      await store.flushPendingSaves();
+
+      final persisted = Map<String, dynamic>.from(
+        jsonDecode(storedState!) as Map,
+      );
+      expect(maximumWritesInFlight, 1);
+      expect(persisted['logs'], hasLength(1));
+      expect((persisted['integrationState'] as Map)['restored'], isTrue);
+      expect(store.logs.single.notes, 'Restored history');
+    },
+  );
 
   test('load reports existing meaningful device data', () async {
     storedState = jsonEncode({

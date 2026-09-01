@@ -629,10 +629,6 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> restoreState(Map<String, dynamic> source) async {
-    final importedIntegrationState = source['integrationState'];
-    integrationState = importedIntegrationState is Map
-        ? Map<String, dynamic>.from(importedIntegrationState)
-        : <String, dynamic>{};
     final sourceVersion = _readInt(source['schemaVersion']);
     if (sourceVersion != null && sourceVersion > schemaVersion) {
       throw StateError(
@@ -643,9 +639,17 @@ class AppStore extends ChangeNotifier {
     final previous = exportState();
     try {
       final migrated = _migrate(Map<String, dynamic>.from(source));
+      final importedIntegrationState = migrated['integrationState'];
+      integrationState = importedIntegrationState is Map
+          ? Map<String, dynamic>.from(importedIntegrationState)
+          : <String, dynamic>{};
       _applyStateData(migrated);
-      await _channel.invokeMethod('write', jsonEncode(exportState()));
+      await _enqueueStateWrite(jsonEncode(exportState()));
     } on Object {
+      final previousIntegrationState = previous['integrationState'];
+      integrationState = previousIntegrationState is Map
+          ? Map<String, dynamic>.from(previousIntegrationState)
+          : <String, dynamic>{};
       _applyStateData(previous);
       notifyListeners();
       rethrow;
