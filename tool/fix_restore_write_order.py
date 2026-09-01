@@ -60,7 +60,23 @@ new = """  Future<void> restoreState(Map<String, dynamic> source) async {
 if new not in text:
     if old not in text:
         raise RuntimeError("restoreState block was not found")
-    store.write_text(text.replace(old, new, 1))
+    text = text.replace(old, new, 1)
+
+old = """  Future<void> flushPendingSaves() => _saveTail;
+"""
+new = """  Future<void> flushPendingSaves() async {
+    while (true) {
+      final pending = _saveTail;
+      await pending;
+      if (identical(pending, _saveTail)) return;
+    }
+  }
+"""
+if new not in text:
+    if old not in text:
+        raise RuntimeError("flushPendingSaves block was not found")
+    text = text.replace(old, new, 1)
+store.write_text(text)
 
 
 test = Path("test/persistence_onboarding_test.dart")
@@ -126,7 +142,8 @@ if new not in text:
 marker = """  test('load reports existing meaningful device data', () async {
 """
 addition = """  test('backup restore cannot be overwritten by an older queued save', () async {
-    writeDelay = (state) => state['logs'] is List && (state['logs'] as List).isNotEmpty
+    writeDelay = (state) =>
+        state['logs'] is List && (state['logs'] as List).isNotEmpty
         ? const Duration(milliseconds: 5)
         : const Duration(milliseconds: 80);
     final store = AppStore();
@@ -148,9 +165,7 @@ addition = """  test('backup restore cannot be overwritten by an older queued sa
           'n': 'Restored history',
         },
       ],
-      'integrationState': {
-        'restored': true,
-      },
+      'integrationState': {'restored': true},
     });
 
     await Future.wait([olderSave, restore]);
@@ -161,16 +176,52 @@ addition = """  test('backup restore cannot be overwritten by an older queued sa
     );
     expect(maximumWritesInFlight, 1);
     expect(persisted['logs'], hasLength(1));
-    expect(
-      (persisted['integrationState'] as Map)['restored'],
-      isTrue,
-    );
+    expect((persisted['integrationState'] as Map)['restored'], isTrue);
     expect(store.logs.single.notes, 'Restored history');
   });
 
 """
 if addition not in text:
     if marker not in text:
-        raise RuntimeError("test insertion marker was not found")
+        raise RuntimeError("restore test insertion marker was not found")
+    text = text.replace(marker, addition + marker, 1)
+
+addition = """  test('flush waits for writes appended while a flush is active', () async {
+    writeDelay = (_) => const Duration(milliseconds: 40);
+    final store = AppStore();
+
+    final first = store.setPreferredTrack(TrainingTrack.athletic);
+    final flush = store.flushPendingSaves();
+    await Future<void>.delayed(Duration.zero);
+    final second = store.markDataSetupSeen(1);
+
+    await flush;
+
+    expect(writes, hasLength(2));
+    expect(writes.last['dataSetupVersionSeen'], 1);
+    await Future.wait([first, second]);
+  });
+
+"""
+if addition not in text:
+    if marker not in text:
+        raise RuntimeError("flush test insertion marker was not found")
     text = text.replace(marker, addition + marker, 1)
 test.write_text(text)
+
+
+navigation = Path("test/navigation_widget_test.dart")
+text = navigation.read_text()
+old = """    final store = AppStore()
+      ..isLoaded = true
+      ..onboardingVersionSeen = 1;
+"""
+new = """    final store = AppStore()
+      ..isLoaded = true
+      ..dataSetupVersionSeen = 1
+      ..onboardingVersionSeen = 1;
+"""
+if new not in text:
+    if old not in text:
+        raise RuntimeError("navigation test store fixture was not found")
+    navigation.write_text(text.replace(old, new, 1))
