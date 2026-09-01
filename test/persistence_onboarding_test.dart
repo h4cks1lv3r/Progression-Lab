@@ -40,9 +40,7 @@ void main() {
               await Future<void>.delayed(const Duration(milliseconds: 20));
               final encoded = call.arguments as String;
               storedState = encoded;
-              writes.add(
-                Map<String, dynamic>.from(jsonDecode(encoded) as Map),
-              );
+              writes.add(Map<String, dynamic>.from(jsonDecode(encoded) as Map));
               writesInFlight--;
               return true;
             default:
@@ -146,6 +144,16 @@ void main() {
     expect(find.text('CHOOSE AN EXPORT FILE'), findsOneWidget);
     expect(find.text('SKIP TOUR'), findsNothing);
 
+    final setupScrollable = find.descendant(
+      of: find.byType(FirstLaunchDataSetupScreen),
+      matching: find.byType(Scrollable),
+    );
+    expect(setupScrollable, findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('NOT NOW'),
+      420,
+      scrollable: setupScrollable,
+    );
     await tester.tap(find.text('NOT NOW'));
     await tester.pump(const Duration(milliseconds: 250));
     await tester.pumpAndSettle();

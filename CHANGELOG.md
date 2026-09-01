@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.2.0+16 — 2026-09-01
+
+### Added
+
+- Added a first-open data setup that checks for existing Progression Lab state and recoverable automatic backups before the visual app tour.
+- Added guided first-open import for Strong, Hevy, FitNotes, generic CSV/ZIP, Health Connect, and Apple Health sources.
+- Added a clear existing-data summary so upgrades do not look like empty installations.
+
+### Changed
+
+- Moved primary Android state from asynchronous SharedPreferences writes to an app-private `AtomicFile` with legacy migration.
+- Moved primary iOS state from UserDefaults to an atomically replaced Application Support file with legacy migration.
+- Serialized Dart persistence writes so concurrent mutations cannot complete out of order.
+- Added app-lifecycle flushing for queued local writes.
+
+### Corrected
+
+- Prevented the visual app tour from opening over the first-launch recovery and import decision.
+- Preserved the first-launch data-setup decision in exact backups and schema migration.
+
 ## 2.1.1+15 — 2026-08-22
 
 ### Corrected

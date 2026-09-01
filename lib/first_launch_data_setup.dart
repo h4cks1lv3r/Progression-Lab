@@ -353,9 +353,8 @@ class _FirstLaunchDataSetupScreenState
               TextButton(
                 onPressed: _busy
                     ? null
-                    : () => unawaited(
-                        _finish(status: 'Import skipped for now.'),
-                      ),
+                    : () =>
+                          unawaited(_finish(status: 'Import skipped for now.')),
                 child: const Text('NOT NOW'),
               ),
               const Text(

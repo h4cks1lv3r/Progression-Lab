@@ -4,11 +4,13 @@ import android.app.Activity
 import android.content.ClipData
 import android.content.ContentValues
 import android.content.Intent
+import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.provider.OpenableColumns
+import android.util.AtomicFile
 import androidx.core.content.FileProvider
 import com.google.mlkit.genai.common.FeatureStatus
 import com.google.mlkit.genai.prompt.Generation
@@ -20,6 +22,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.io.FileOutputStream
 import java.security.MessageDigest
 import java.util.Calendar
 import kotlinx.coroutines.CancellationException
@@ -33,6 +36,7 @@ import kotlinx.coroutines.launch
 
 class MainActivity : FlutterActivity() {
     private var integrationBridge: IntegrationBridge? = null
+    private val stateLock = Any()
 
     private val aiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var generativeModel: GenerativeModel? = null
@@ -51,10 +55,12 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "iron_cadence/storage")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
-                    "read" -> result.success(preferences.getString("state", null))
+                    "read" -> result.success(readLocalState(preferences))
                     "write" -> {
-                        preferences.edit().putString("state", call.arguments as? String ?: "{}").apply()
-                        result.success(null)
+                        val encoded = call.arguments as? String ?: "{}"
+                        writeLocalState(encoded)
+                        preferences.edit().remove("state").commit()
+                        result.success(true)
                     }
                     else -> result.notImplemented()
                 }
@@ -70,6 +76,38 @@ class MainActivity : FlutterActivity() {
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "progression_lab/gemini")
             .setMethodCallHandler { call, result -> handleGeminiCall(call, result) }
+    }
+
+    private fun progressionStateFile(): AtomicFile {
+        val directory = File(filesDir, "progression_lab_state").apply { mkdirs() }
+        return AtomicFile(File(directory, "state.json"))
+    }
+
+    private fun readLocalState(preferences: SharedPreferences): String? = synchronized(stateLock) {
+        val stateFile = progressionStateFile()
+        if (stateFile.baseFile.exists()) {
+            return@synchronized String(stateFile.readFully(), Charsets.UTF_8)
+        }
+        val legacy = preferences.getString("state", null)?.takeIf { it.isNotBlank() }
+        if (legacy != null) {
+            writeLocalState(legacy)
+            preferences.edit().remove("state").commit()
+        }
+        legacy
+    }
+
+    private fun writeLocalState(encoded: String): Boolean = synchronized(stateLock) {
+        val stateFile = progressionStateFile()
+        val output: FileOutputStream = stateFile.startWrite()
+        try {
+            output.write(encoded.toByteArray(Charsets.UTF_8))
+            output.flush()
+            stateFile.finishWrite(output)
+            true
+        } catch (error: Exception) {
+            stateFile.failWrite(output)
+            throw error
+        }
     }
 
     private fun handleShareImageCall(call: MethodCall, result: MethodChannel.Result) {

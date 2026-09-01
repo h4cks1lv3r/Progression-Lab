@@ -2,7 +2,7 @@
 
 Progression Lab is an original, local-first strength, bodybuilding, and athletic-training application for Android and iOS.
 
-Current version: **2.1.1+15**
+Current version: **2.2.0+16**
 
 The product combines a 48-week Strength program, a 12-week Athletic Functional Training program, a structured exercise library, Daily Inputs and recovery tracking, deterministic performance analysis, optional on-device Gemini narration, data portability, health and wearable integrations, personal experiments, and branded workout sharing.
 
@@ -70,6 +70,8 @@ See [External integrations](docs/EXTERNAL_INTEGRATIONS.md) for architecture, con
 
 Progression Lab supports:
 
+- atomic app-private state writes after every committed workout or settings mutation
+- serialized save ordering so an older asynchronous write cannot overwrite a newer change
 - versioned `.plab` backup and restore
 - automatic rolling backups
 - safety backups before import and restore
@@ -89,7 +91,9 @@ The primary navigation is:
 - Progress
 - More
 
-A skippable first-launch tour uses a branded guide to highlight the live interface. It can be replayed from **More → Help & Guides → App Tour**. Integration-specific coach marks can be replayed or reset from **Connections & Experiments**.
+Before the visual tour, a first-open data setup checks whether existing Progression Lab state was loaded, looks for app-local automatic backups, and offers guided import from Strong, Hevy, FitNotes, generic CSV/ZIP, Health Connect, or Apple Health. Other apps' private databases are never read directly; the user selects an export file or grants health-platform access.
+
+A skippable first-launch tour then uses a branded guide to highlight the live interface. It can be replayed from **More → Help & Guides → App Tour**. Integration-specific coach marks can be replayed or reset from **Connections & Experiments**.
 
 Shared safe-layout components keep primary actions above Android gesture or three-button navigation, the iOS home indicator, display cutouts, and the software keyboard.
 

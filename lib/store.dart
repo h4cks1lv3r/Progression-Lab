@@ -373,9 +373,14 @@ class DraftSetInput {
 class AppStore extends ChangeNotifier {
   Map<String, dynamic> integrationState = <String, dynamic>{};
   static const _channel = MethodChannel('iron_cadence/storage');
-  static const int schemaVersion = 15;
+  static const int schemaVersion = 16;
   static const double poundsToKilograms = 0.45359237;
+
+  Future<void> _saveTail = Future<void>.value();
   bool isLoaded = false;
+  bool hadStoredStateAtLaunch = false;
+  DateTime? lastSavedAt;
+  Object? lastSaveError;
   int days = 4;
   int week = 1;
   int workoutIndex = 0;
@@ -396,6 +401,7 @@ class AppStore extends ChangeNotifier {
   List<AthleticSessionRecord> athleticHistory = [];
   List<AthleticAssessment> athleticAssessments = [];
   int onboardingVersionSeen = 0;
+  int dataSetupVersionSeen = 0;
   TrainingTrack preferredTrack = TrainingTrack.strength;
   bool automaticBackupsEnabled = true;
   List<ImportedWorkoutRecord> importedWorkouts = [];
@@ -411,11 +417,35 @@ class AppStore extends ChangeNotifier {
   Set<LabDataDomain> labDataDomains = Set.of(LabDataDomain.values);
   List<LabMessage> labMessages = [];
 
+  bool get hasMeaningfulData =>
+      logs.isNotEmpty ||
+      workoutHistory.isNotEmpty ||
+      drafts.isNotEmpty ||
+      draft != null ||
+      customExercises.isNotEmpty ||
+      athleticHistory.isNotEmpty ||
+      athleticAssessments.isNotEmpty ||
+      importedWorkouts.isNotEmpty ||
+      importHistory.isNotEmpty ||
+      supplementEvents.isNotEmpty ||
+      mealEvents.isNotEmpty ||
+      hydrationEvents.isNotEmpty ||
+      recoveryCheckIns.isNotEmpty ||
+      workoutResponses.isNotEmpty ||
+      labMessages.isNotEmpty ||
+      integrationState.isNotEmpty ||
+      week != 1 ||
+      workoutIndex != 0 ||
+      athleticWeek != 1 ||
+      athleticSessionIndex != 0;
+
   Future<void> load() async {
     try {
       final raw = await _channel.invokeMethod<String>('read');
-      if (raw != null && raw.isNotEmpty) {
-        final decoded = jsonDecode(raw);
+      final stored = raw?.trim();
+      hadStoredStateAtLaunch = stored != null && stored.isNotEmpty;
+      if (stored != null && stored.isNotEmpty) {
+        final decoded = jsonDecode(stored);
         if (decoded is Map) {
           final original = Map<String, dynamic>.from(decoded);
           final originalVersion = _readInt(original['schemaVersion']) ?? 1;
@@ -428,7 +458,7 @@ class AppStore extends ChangeNotifier {
           _applyStateData(data);
           if (originalVersion < schemaVersion) {
             try {
-              await _channel.invokeMethod('write', jsonEncode(exportState()));
+              await _enqueueStateWrite(jsonEncode(exportState()));
             } on PlatformException {
               // The in-memory migration is still usable; retry on next save.
             }
@@ -518,6 +548,9 @@ class AppStore extends ChangeNotifier {
               .toList()
         : [];
     onboardingVersionSeen = (_readInt(data['onboardingVersionSeen']) ?? 0)
+        .clamp(0, 1000000)
+        .toInt();
+    dataSetupVersionSeen = (_readInt(data['dataSetupVersionSeen']) ?? 0)
         .clamp(0, 1000000)
         .toInt();
     preferredTrack = data['preferredTrack'] == 'athletic'
@@ -648,6 +681,7 @@ class AppStore extends ChangeNotifier {
         .map((assessment) => assessment.toJson())
         .toList(),
     'onboardingVersionSeen': onboardingVersionSeen,
+    'dataSetupVersionSeen': dataSetupVersionSeen,
     'preferredTrack': preferredTrack.name,
     'automaticBackupsEnabled': automaticBackupsEnabled,
     'importedWorkouts': importedWorkouts.map((item) => item.toJson()).toList(),
@@ -667,7 +701,7 @@ class AppStore extends ChangeNotifier {
 
   Future<void> save({bool createAutomaticBackup = true}) async {
     final state = exportState();
-    await _channel.invokeMethod('write', jsonEncode(state));
+    await _enqueueStateWrite(jsonEncode(state));
     if (automaticBackupsEnabled && createAutomaticBackup) {
       await _writeAutomaticBackup(
         state,
@@ -676,6 +710,29 @@ class AppStore extends ChangeNotifier {
       );
     }
   }
+
+  Future<void> _enqueueStateWrite(String encoded) {
+    final previous = _saveTail;
+    final operation = () async {
+      try {
+        await previous;
+      } on Object {
+        // A later complete snapshot must still be allowed to repair storage.
+      }
+      try {
+        await _channel.invokeMethod<void>('write', encoded);
+        lastSavedAt = DateTime.now();
+        lastSaveError = null;
+      } on Object catch (error) {
+        lastSaveError = error;
+        rethrow;
+      }
+    }();
+    _saveTail = operation.catchError((Object _) {});
+    return operation;
+  }
+
+  Future<void> flushPendingSaves() => _saveTail;
 
   Future<void> _writeAutomaticBackup(
     Map<String, dynamic> state, {
@@ -741,6 +798,20 @@ class AppStore extends ChangeNotifier {
       await save(createAutomaticBackup: false);
     } on Object {
       onboardingVersionSeen = previous;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> markDataSetupSeen(int version) async {
+    if (version <= dataSetupVersionSeen) return;
+    final previous = dataSetupVersionSeen;
+    dataSetupVersionSeen = version;
+    notifyListeners();
+    try {
+      await save(createAutomaticBackup: false);
+    } on Object {
+      dataSetupVersionSeen = previous;
       notifyListeners();
       rethrow;
     }
@@ -2619,6 +2690,11 @@ class AppStore extends ChangeNotifier {
       data['schemaVersion'] = version;
     }
     data.putIfAbsent('integrationState', () => <String, dynamic>{});
+    if (version < 16) {
+      data.putIfAbsent('dataSetupVersionSeen', () => 0);
+      version = 16;
+      data['schemaVersion'] = version;
+    }
     data['schemaVersion'] = schemaVersion;
     return data;
   }
