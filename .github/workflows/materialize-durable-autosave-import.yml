@@ -26,7 +26,11 @@ jobs:
           fetch-depth: 0
 
       - name: Apply direct-source changes
-        run: python3 tool/materialize_durable_autosave_import.py
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tool/materialize_durable_autosave_import.py
+          python3 tool/fix_durable_autosave_nullability.py
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
