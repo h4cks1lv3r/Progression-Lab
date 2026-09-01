@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feature/durable-autosave-first-launch-import
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
