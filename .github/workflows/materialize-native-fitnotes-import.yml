@@ -26,8 +26,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base64 --decode tool/add_fitnotes_backup_import.py.gz.b64 \
-            | gzip --decompress > /tmp/add_fitnotes_backup_import.py
+          cat tool/fitnotes_import_payload/part* > /tmp/add_fitnotes_backup_import.py
+          echo '293d8dcf309b064e00fa4da7e616de282c713880dc7ecaec69a301da41445f2c  /tmp/add_fitnotes_backup_import.py' \
+            | sha256sum --check --strict
           python3 -m py_compile /tmp/add_fitnotes_backup_import.py
           python3 /tmp/add_fitnotes_backup_import.py
 
