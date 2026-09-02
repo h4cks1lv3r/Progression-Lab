@@ -1,0 +1,166 @@
+rainingTable);
+    final exerciseColumns = _tableColumns(database, exerciseTable);
+    _requireColumns(
+      trainingTable,
+      trainingColumns,
+      const <String>['_id', 'date', 'exercise_id', 'metric_weight', 'reps'],
+    );
+    _requireColumns(
+      exerciseTable,
+      exerciseColumns,
+      const <String>['_id', 'name'],
+    );
+
+    final count = _asInt(
+      database
+          .select(
+            'SELECT COUNT(*) AS row_count FROM '
+            '${_quoteIdentifier(trainingTable)};',
+          )
+          .first['row_count'],
+    );
+    if (count > maximumTrainingRows) {
+      return <String, Object?>{
+        'error':
+            'The .fitnotes backup contains more than '
+            '$maximumTrainingRows training rows and is too large to import safely.',
+      };
+    }
+
+    final exercises = _readExercises(
+      database,
+      exerciseTable,
+      exerciseColumns,
+    );
+    final workoutGroups = _readWorkoutGroups(database, tables);
+    final workoutTimes = _readWorkoutTimes(database, tables);
+    final setComments = _readSetComments(database, tables);
+    final workoutComments = _readWorkoutComments(database, tables);
+    final rows = _readTrainingRows(
+      database,
+      table: trainingTable,
+      columns: trainingColumns,
+      exercises: exercises,
+      workoutGroups: workoutGroups,
+      workoutTimes: workoutTimes,
+      setComments: setComments,
+      workoutComments: workoutComments,
+    );
+    return <String, Object?>{'rows': rows};
+  } on FormatException catch (error) {
+    return <String, Object?>{'error': '${error.message}'};
+  } on FileSystemException {
+    return const <String, Object?>{
+      'error': 'Progression Lab could not stage the .fitnotes backup for import.',
+    };
+  } on SqliteException {
+    return const <String, Object?>{
+      'error': 'The selected .fitnotes backup is not a readable FitNotes database.',
+    };
+  } on Object {
+    return const <String, Object?>{
+      'error': 'The selected .fitnotes backup could not be decoded.',
+    };
+  } finally {
+    try {
+      database?.close();
+    } on Object {
+      // The temporary database is read-only and is deleted below.
+    }
+    try {
+      workspace?.deleteSync(recursive: true);
+    } on Object {
+      // The operating system can remove an abandoned temporary directory later.
+    }
+  }
+}
+
+Map<String, String> _fitNotesTables(Database database) {
+  final tables = <String, String>{};
+  for (final row in database.select(
+    "SELECT name FROM sqlite_master WHERE type = 'table';",
+  )) {
+    final name = _asText(row['name']).trim();
+    if (name.isEmpty || name.toLowerCase().startsWith('sqlite_')) continue;
+    tables[name.toLowerCase()] = name;
+  }
+  return tables;
+}
+
+Set<String> _tableColumns(Database database, String table) => <String>{
+  for (final row in database.select(
+    'PRAGMA table_info(${_quoteIdentifier(table)});',
+  ))
+    if (_asText(row['name']).trim().isNotEmpty)
+      _asText(row['name']).trim().toLowerCase(),
+};
+
+void _requireColumns(
+  String table,
+  Set<String> available,
+  List<String> required,
+) {
+  final missing = required.where((column) => !available.contains(column));
+  if (missing.isNotEmpty) {
+    throw FormatException(
+      'The FitNotes table $table is missing required fields: '
+      '${missing.join(', ')}.',
+    );
+  }
+}
+
+Map<int, _FitNotesExercise> _readExercises(
+  Database database,
+  String table,
+  Set<String> columns,
+) {
+  final typeColumn = _optionalColumn(
+    columns,
+    'exercise_type_id',
+    fallback: '0',
+  );
+  final values = <int, _FitNotesExercise>{};
+  final sql = 'SELECT ${_quoteIdentifier('_id')} AS ${_quoteIdentifier('_id')}, '
+      '${_quoteIdentifier('name')} AS ${_quoteIdentifier('name')}, '
+      '$typeColumn FROM ${_quoteIdentifier(table)};';
+  for (final row in database.select(sql)) {
+    final id = _asInt(row['_id']);
+    final name = _asText(row['name']).trim();
+    if (id <= 0 || name.isEmpty) continue;
+    values[id] = _FitNotesExercise(
+      name: name,
+      type: _asInt(row['exercise_type_id']),
+    );
+  }
+  return values;
+}
+
+Map<int, String> _readWorkoutGroups(
+  Database database,
+  Map<String, String> tables,
+) {
+  final table = tables['workoutgroup'];
+  if (table == null) return const <int, String>{};
+  final columns = _tableColumns(database, table);
+  if (!columns.containsAll(const <String>['_id', 'name'])) {
+    return const <int, String>{};
+  }
+  return <int, String>{
+    for (final row in database.select(
+      'SELECT ${_quoteIdentifier('_id')}, ${_quoteIdentifier('name')} '
+      'FROM ${_quoteIdentifier(table)};',
+    ))
+      if (_asInt(row['_id']) > 0)
+        _asInt(row['_id']): _asText(row['name']).trim(),
+  };
+}
+
+Map<String, _FitNotesWorkoutTime> _readWorkoutTimes(
+  Database database,
+  Map<String, String> tables,
+) {
+  final table = tables['workouttime'];
+  if (table == null) return const <String, _FitNotesWorkoutTime>{};
+  final columns = _tableColumns(database, table);
+  if (!columns.contains('date')) {
+    return const 
