@@ -1,0 +1,101 @@
+name: Materialize Native FitNotes Import
+
+on:
+  push:
+    branches:
+      - feature/durable-autosave-first-launch-import
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v5
+        with:
+          ref: feature/durable-autosave-first-launch-import
+          fetch-depth: 0
+
+      - name: Apply native FitNotes import changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode tool/add_fitnotes_backup_import.py.gz.b64 \
+            | gzip --decompress > /tmp/add_fitnotes_backup_import.py
+          python3 -m py_compile /tmp/add_fitnotes_backup_import.py
+          python3 /tmp/add_fitnotes_backup_import.py
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve, format, analyze, and test
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          dart format \
+            lib/fitnotes_backup_import.dart \
+            lib/data_portability.dart \
+            lib/data_portability_bridge.dart \
+            lib/data_management_screen.dart \
+            lib/first_launch_data_setup.dart \
+            test/fitnotes_backup_import_test.dart
+          git diff --check
+          flutter analyze --no-fatal-infos
+          flutter test test/fitnotes_backup_import_test.dart --reporter expanded
+          flutter test test/data_portability_test.dart --reporter expanded
+          flutter test test/persistence_onboarding_test.dart --reporter expanded
+
+      - name: Verify source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q '^version: 2.2.1+17$' pubspec.yaml
+          grep -q 'versionCode = 17' android/app/build.gradle.kts
+          grep -q 'versionName = "2.2.1"' android/app/build.gradle.kts
+          grep -q 'sqlite3: \^3.5.2' pubspec.yaml
+          grep -q "lower.endsWith('.fitnotes')" lib/data_portability.dart
+          grep -q "OpenMode.readOnly" lib/fitnotes_backup_import.dart
+          grep -q "PRAGMA quick_check" lib/fitnotes_backup_import.dart
+          grep -q "native .fitnotes SQLite backup enters the workout import pipeline" test/fitnotes_backup_import_test.dart
+
+      - name: Commit materialized source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            CHANGELOG.md \
+            README.md \
+            android/app/build.gradle.kts \
+            android/app/src/main/kotlin/com/h4cks1lv3/iron_cadence/MainActivity.kt \
+            lib/data_management_screen.dart \
+            lib/data_portability.dart \
+            lib/data_portability_bridge.dart \
+            lib/data_portability_core.dart \
+            lib/first_launch_data_setup.dart \
+            lib/fitnotes_backup_import.dart \
+            pubspec.yaml \
+            pubspec.lock \
+            test/fitnotes_backup_import_test.dart
+          if ! git diff --cached --quiet; then
+            git commit -m 'Import native FitNotes SQLite backups'
+            git push origin HEAD:feature/durable-autosave-first-launch-import
+          fi
