@@ -1,0 +1,163 @@
+end ?? '',
+      'Workout': workoutName == null || workoutName.isEmpty
+          ? 'FitNotes Workout'
+          : workoutName,
+      'Exercise': exercise.name,
+      'Set': '$setOrder',
+      'Weight (kg)': _formatNumber(_asDouble(row['metric_weight'])),
+      'Reps': '${_asInt(row['reps'])}',
+      'Kind': _exerciseKind(exercise.type),
+      'Notes': setComments[trainingId] ?? '',
+      'Workout Notes': workoutComments[dateKey] ?? '',
+      'Duration Seconds': durationSeconds > 0 ? '$durationSeconds' : '',
+      'Distance Meters': distanceMeters > 0
+          ? _formatNumber(distanceMeters)
+          : '',
+      'Source ID': 'fitnotes:$sessionKey',
+    });
+  }
+  return rows;
+}
+
+String _requiredColumn(String name) =>
+    '${_quoteIdentifier(name)} AS ${_quoteIdentifier(name)}';
+
+String _optionalColumn(
+  Set<String> columns,
+  String name, {
+  required String fallback,
+}) =>
+    columns.contains(name.toLowerCase())
+    ? _requiredColumn(name)
+    : '$fallback AS ${_quoteIdentifier(name)}';
+
+String _quoteIdentifier(String value) =>
+    '"${value.replaceAll('"', '""')}"';
+
+String _dateKey(String raw) {
+  final value = raw.trim();
+  if (value.isEmpty) return '';
+  final parsed = DateTime.tryParse(value.replaceFirst(' ', 'T'));
+  if (parsed != null) {
+    return '${parsed.year.toString().padLeft(4, '0')}-'
+        '${parsed.month.toString().padLeft(2, '0')}-'
+        '${parsed.day.toString().padLeft(2, '0')}';
+  }
+  return value.length >= 10 ? value.substring(0, 10) : value;
+}
+
+String _exerciseKind(int type) => switch (type) {
+  0 => 'Weight and repetitions',
+  1 => 'Distance and time',
+  3 => 'Time',
+  _ => 'Workout set',
+};
+
+String _formatNumber(double value) {
+  if (!value.isFinite) return '';
+  if (value == value.roundToDouble()) return value.round().toString();
+  return value
+      .toStringAsFixed(6)
+      .replaceFirst(RegExp(r'0+$'), '')
+      .replaceFirst(RegExp(r'\.$'), '');
+}
+
+int _asInt(Object? value) => switch (value) {
+  int item => item,
+  double item => item.toInt(),
+  num item => item.toInt(),
+  String item => int.tryParse(item) ?? 0,
+  _ => 0,
+};
+
+double _asDouble(Object? value) => switch (value) {
+  double item => item,
+  int item => item.toDouble(),
+  num item => item.toDouble(),
+  String item => double.tryParse(item) ?? 0,
+  _ => 0,
+};
+
+String _asText(Object? value) => value is String ? value : '${value ?? ''}';
+
+class _FitNotesExercise {
+  const _FitNotesExercise({required this.name, required this.type});
+
+  final String name;
+  final int type;
+}
+
+class _FitNotesWorkoutTime {
+  const _FitNotesWorkoutTime({required this.start, required this.end});
+
+  final String start;
+  final String end;
+}
+'''
+
+
+FITNOTES_TEST = r"""import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:progression_lab/data_portability_core.dart';
+import 'package:progression_lab/fitnotes_backup_import.dart';
+import 'package:sqlite3/sqlite3.dart';
+
+void main() {
+  test('native .fitnotes SQLite backup enters the workout import pipeline', (
+    ) async {
+    final bytes = _fixtureBackup();
+
+    final inspection = await FitNotesBackupImporter.inspect(bytes);
+
+    expect(inspection.source, WorkoutImportSource.fitNotes);
+    expect(inspection.suggestedMapping, isNotNull);
+    expect(inspection.rows, hasLength(4));
+    expect(inspection.rows.first['Exercise'], 'Barbell Bench Press');
+    expect(inspection.rows.first['Weight (kg)'], '100');
+    expect(inspection.rows.first['Notes'], 'Paused first rep');
+
+    final plan = WorkoutCsvImporter.buildPlan(
+      inspection: inspection,
+      mapping: inspection.suggestedMapping!,
+      fileName: 'FitNotes_Backup.fitnotes',
+      fileBytes: bytes,
+      targetUnit: 'lb',
+      defaultSourceWeightUnit: 'kg',
+      knownSignatures: const <String>{},
+      knownExercises: const <String>{
+        'Barbell Bench Press',
+        'Plank',
+        'Outdoor Run',
+      },
+    );
+
+    expect(plan.source, WorkoutImportSource.fitNotes);
+    expect(plan.sourceWeightUnit, 'kg');
+    expect(plan.workouts, hasLength(1));
+    expect(plan.invalidRows, 0);
+    expect(plan.unknownExercises, isEmpty);
+
+    final workout = plan.workouts.single;
+    expect(workout.name, 'Push & Conditioning');
+    expect(workout.sourceId, 'fitnotes:2026-08-31:7');
+    expect(workout.startedAt, DateTime(2026, 8, 31, 18));
+    expect(workout.durationSeconds, 2700);
+    expect(workout.notes, 'Strong session');
+    expect(workout.sets, hasLength(4));
+
+    final benchSets = workout.sets
+        .where((set) => set.exercise == 'Barbell Bench Press')
+        .toList();
+    expect(benchSets, hasLength(2));
+    expect(benchSets.first.setOrder, 1);
+    expect(benchSets.last.setOrder, 2);
+    expect(benchSets.first.weight, closeTo(220.462, 0.01));
+    expect(benchSets.first.notes, 'Paused first rep');
+
+    final plank = workout.sets.singleWhere((set) => set.exercise == 'Plank');
+    expect(plank.reps, 0);
+    expect(plank.durationSeconds, 60);
+
+    final run = workout.sets.singleWhe

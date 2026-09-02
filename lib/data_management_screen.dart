@@ -10,9 +10,16 @@ import 'data_portability_core.dart';
 import 'store.dart';
 
 class DataManagementScreen extends StatefulWidget {
-  const DataManagementScreen({super.key, required this.store});
+  const DataManagementScreen({
+    super.key,
+    required this.store,
+    this.startImportOnOpen = false,
+    this.closeAfterImport = false,
+  });
 
   final AppStore store;
+  final bool startImportOnOpen;
+  final bool closeAfterImport;
 
   @override
   State<DataManagementScreen> createState() => _DataManagementScreenState();
@@ -28,6 +35,11 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
     super.initState();
     controller = DataPortabilityController(widget.store);
     _refreshBackups();
+    if (widget.startImportOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_pickImport());
+      });
+    }
   }
 
   void _refreshBackups() {
@@ -66,16 +78,20 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
   Future<void> _pickImport() async {
     if (_busy) return;
     setState(() => _busy = true);
+    var completed = false;
     try {
       final candidate = await controller.pickImportFile();
       if (!mounted || candidate == null) return;
       switch (candidate) {
         case BackupImportCandidate():
-          await _confirmRestore(candidate);
+          completed = await _confirmRestore(candidate);
           break;
         case CsvImportCandidate():
-          await _configureCsvImport(candidate);
+          completed = await _configureCsvImport(candidate);
           break;
+      }
+      if (completed && widget.closeAfterImport && mounted) {
+        Navigator.of(context).pop(true);
       }
     } on PlatformException catch (error) {
       if (mounted) {
@@ -88,7 +104,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
     }
   }
 
-  Future<void> _confirmRestore(BackupImportCandidate candidate) async {
+  Future<bool> _confirmRestore(BackupImportCandidate candidate) async {
     final state = candidate.document.state;
     final logCount = state['logs'] is List ? (state['logs'] as List).length : 0;
     final importedCount = state['importedWorkouts'] is List
@@ -115,15 +131,16 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
         ],
       ),
     );
-    if (confirmed != true || !mounted) return;
+    if (confirmed != true || !mounted) return false;
     await controller.restoreDocument(candidate.document);
-    if (!mounted) return;
+    if (!mounted) return false;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Backup restored successfully.')),
     );
+    return true;
   }
 
-  Future<void> _configureCsvImport(CsvImportCandidate candidate) async {
+  Future<bool> _configureCsvImport(CsvImportCandidate candidate) async {
     var mapping = candidate.inspection.suggestedMapping;
     if (mapping == null) {
       mapping = await Navigator.push<CsvImportMapping>(
@@ -133,7 +150,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
         ),
       );
     }
-    if (mapping == null || !mounted) return;
+    if (mapping == null || !mounted) return false;
     var sourceWeightUnit = widget.store.unit;
     if (WorkoutCsvImporter.needsWeightUnitChoice(
       candidate.inspection.source,
@@ -142,7 +159,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
       final selected = await _chooseSourceWeightUnit(
         candidate.inspection.source,
       );
-      if (selected == null || !mounted) return;
+      if (selected == null || !mounted) return false;
       sourceWeightUnit = selected;
     }
     final plan = controller.buildImportPlan(
@@ -156,7 +173,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
         builder: (_) => ImportPreviewScreen(controller: controller, plan: plan),
       ),
     );
-    if (imported == null || !mounted) return;
+    if (imported == null || !mounted) return false;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -164,6 +181,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
         ),
       ),
     );
+    return true;
   }
 
   Future<String?> _chooseSourceWeightUnit(WorkoutImportSource source) =>

@@ -1,0 +1,168 @@
+re(
+      (set) => set.exercise == 'Outdoor Run',
+    );
+    expect(run.reps, 0);
+    expect(run.durationSeconds, 1500);
+    expect(run.distanceMeters, closeTo(5000, 0.001));
+  });
+
+  test('renamed non-SQLite data fails closed as an invalid .fitnotes backup', (
+    ) async {
+    await expectLater(
+      FitNotesBackupImporter.inspect(Uint8List.fromList(<int>[1, 2, 3, 4])),
+      throwsA(
+        isA<FormatException>().having(
+          (error) => '${error.message}',
+          'message',
+          contains('SQLite FitNotes backup'),
+        ),
+      ),
+    );
+  });
+}
+
+Uint8List _fixtureBackup() {
+  final directory = Directory.systemTemp.createTempSync(
+    'progression_lab_fitnotes_fixture_',
+  );
+  final file = File(
+    '${directory.path}${Platform.pathSeparator}FitNotes_Backup.fitnotes',
+  );
+  final database = sqlite3.open(file.path);
+  try {
+    database.execute('''
+      CREATE TABLE exercise (
+        _id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        exercise_type_id INTEGER NOT NULL DEFAULT 0,
+        category_id INTEGER
+      );
+    ''');
+    database.execute('''
+      CREATE TABLE training_log (
+        _id INTEGER PRIMARY KEY,
+        date TEXT NOT NULL,
+        exercise_id INTEGER NOT NULL,
+        metric_weight REAL NOT NULL DEFAULT 0,
+        reps INTEGER NOT NULL DEFAULT 0,
+        unit INTEGER NOT NULL DEFAULT 0,
+        distance INTEGER NOT NULL DEFAULT 0,
+        duration_seconds INTEGER NOT NULL DEFAULT 0,
+        workout_group_id INTEGER,
+        is_complete INTEGER NOT NULL DEFAULT 1
+      );
+    ''');
+    database.execute('''
+      CREATE TABLE WorkoutGroup (
+        _id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        colour INTEGER NOT NULL DEFAULT 0,
+        date TEXT NOT NULL
+      );
+    ''');
+    database.execute('''
+      CREATE TABLE WorkoutTime (
+        _id INTEGER PRIMARY KEY,
+        date TEXT NOT NULL,
+        start_date_time TEXT,
+        end_date_time TEXT
+      );
+    ''');
+    database.execute('''
+      CREATE TABLE Comment (
+        _id INTEGER PRIMARY KEY,
+        owner_type_id INTEGER NOT NULL,
+        owner_id INTEGER NOT NULL,
+        text TEXT NOT NULL
+      );
+    ''');
+    database.execute('''
+      CREATE TABLE WorkoutComment (
+        _id INTEGER PRIMARY KEY,
+        date TEXT NOT NULL,
+        comment TEXT NOT NULL
+      );
+    ''');
+
+    database.execute(
+      'INSERT INTO exercise '
+      '(_id, name, exercise_type_id, category_id) VALUES (?, ?, ?, ?);',
+      <Object?>[1, 'Barbell Bench Press', 0, 1],
+    );
+    database.execute(
+      'INSERT INTO exercise '
+      '(_id, name, exercise_type_id, category_id) VALUES (?, ?, ?, ?);',
+      <Object?>[2, 'Plank', 3, 7],
+    );
+    database.execute(
+      'INSERT INTO exercise '
+      '(_id, name, exercise_type_id, category_id) VALUES (?, ?, ?, ?);',
+      <Object?>[3, 'Outdoor Run', 1, 9],
+    );
+    database.execute(
+      'INSERT INTO WorkoutGroup (_id, name, colour, date) '
+      'VALUES (?, ?, ?, ?);',
+      <Object?>[7, 'Push & Conditioning', 0, '2026-08-31'],
+    );
+    database.execute(
+      'INSERT INTO WorkoutTime '
+      '(_id, date, start_date_time, end_date_time) VALUES (?, ?, ?, ?);',
+      <Object?>[
+        1,
+        '2026-08-31',
+        '2026-08-31 18:00:00',
+        '2026-08-31 18:45:00',
+      ],
+    );
+    database.execute(
+      'INSERT INTO WorkoutComment (_id, date, comment) VALUES (?, ?, ?);',
+      <Object?>[1, '2026-08-31', 'Strong session'],
+    );
+
+    database.execute(
+      'INSERT INTO training_log '
+      '(_id, date, exercise_id, metric_weight, reps, unit, distance, '
+      'duration_seconds, workout_group_id, is_complete) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
+      <Object?>[1, '2026-08-31', 1, 100.0, 5, 0, 0, 0, 7, 1],
+    );
+    database.execute(
+      'INSERT INTO training_log '
+      '(_id, date, exercise_id, metric_weight, reps, unit, distance, '
+      'duration_seconds, workout_group_id, is_complete) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
+      <Object?>[2, '2026-08-31', 1, 102.5, 4, 0, 0, 0, 7, 1],
+    );
+    database.execute(
+      'INSERT INTO training_log '
+      '(_id, date, exercise_id, metric_weight, reps, unit, distance, '
+      'duration_seconds, workout_group_id, is_complete) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
+      <Object?>[3, '2026-08-31', 2, 0.0, 0, 0, 0, 60, 7, 1],
+    );
+    database.execute(
+      'INSERT INTO training_log '
+      '(_id, date, exercise_id, metric_weight, reps, unit, distance, '
+      'duration_seconds, workout_group_id, is_complete) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
+      <Object?>[4, '2026-08-31', 3, 0.0, 0, 0, 5000000, 1500, 7, 1],
+    );
+    database.execute(
+      'INSERT INTO Comment (_id, owner_type_id, owner_id, text) '
+      'VALUES (?, ?, ?, ?);',
+      <Object?>[1, 1, 1, 'Paused first rep'],
+    );
+  } finally {
+    database.close();
+  }
+
+  try {
+    return file.readAsBytesSync();
+  } finally {
+    directory.deleteSync(recursive: true);
+  }
+}
+"""
+
+
+write

@@ -36,15 +36,35 @@ import UniformTypeIdentifiers
       name: "iron_cadence/storage",
       binaryMessenger: messenger
     )
-    storageChannel.setMethodCallHandler { call, result in
-      switch call.method {
-      case "read":
-        result(UserDefaults.standard.string(forKey: "progression_lab_state"))
-      case "write":
-        UserDefaults.standard.set(call.arguments as? String ?? "{}", forKey: "progression_lab_state")
-        result(nil)
-      default:
-        result(FlutterMethodNotImplemented)
+    storageChannel.setMethodCallHandler { [weak self] call, result in
+      guard let self else {
+        result(
+          FlutterError(
+            code: "storage_unavailable",
+            message: "Progression Lab storage is unavailable.",
+            details: nil
+          )
+        )
+        return
+      }
+      do {
+        switch call.method {
+        case "read":
+          result(try self.readLocalState())
+        case "write":
+          try self.writeLocalState(call.arguments as? String ?? "{}")
+          result(true)
+        default:
+          result(FlutterMethodNotImplemented)
+        }
+      } catch {
+        result(
+          FlutterError(
+            code: "storage_failed",
+            message: error.localizedDescription,
+            details: nil
+          )
+        )
       }
     }
 
@@ -63,6 +83,44 @@ import UniformTypeIdentifiers
     portabilityChannel.setMethodCallHandler { [weak self] call, result in
       self?.handleDataPortability(call: call, result: result)
     }
+  }
+
+  private func localStateURL() throws -> URL {
+    let applicationSupport = try FileManager.default.url(
+      for: .applicationSupportDirectory,
+      in: .userDomainMask,
+      appropriateFor: nil,
+      create: true
+    )
+    let directory = applicationSupport.appendingPathComponent(
+      "ProgressionLab",
+      isDirectory: true
+    )
+    try FileManager.default.createDirectory(
+      at: directory,
+      withIntermediateDirectories: true
+    )
+    return directory.appendingPathComponent("state.json")
+  }
+
+  private func readLocalState() throws -> String? {
+    let url = try localStateURL()
+    if FileManager.default.fileExists(atPath: url.path) {
+      return try String(contentsOf: url, encoding: .utf8)
+    }
+    let legacyKey = "progression_lab_state"
+    guard let legacy = UserDefaults.standard.string(forKey: legacyKey),
+          !legacy.isEmpty else {
+      return nil
+    }
+    try writeLocalState(legacy)
+    UserDefaults.standard.removeObject(forKey: legacyKey)
+    return legacy
+  }
+
+  private func writeLocalState(_ encoded: String) throws {
+    let data = Data(encoded.utf8)
+    try data.write(to: localStateURL(), options: .atomic)
   }
 
   private func handleShareImage(call: FlutterMethodCall, result: @escaping FlutterResult) {

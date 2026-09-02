@@ -11,6 +11,7 @@ import 'daily_inputs_screen.dart';
 import 'data_management_screen.dart';
 import 'exercise_library.dart';
 import 'exercise_library_screen.dart';
+import 'first_launch_data_setup.dart';
 import 'lab_screen.dart';
 import 'logged_sets.dart';
 import 'program.dart';
@@ -39,13 +40,15 @@ class ProgressionLabApp extends StatefulWidget {
   State<ProgressionLabApp> createState() => _ProgressionLabAppState();
 }
 
-class _ProgressionLabAppState extends State<ProgressionLabApp> {
+class _ProgressionLabAppState extends State<ProgressionLabApp>
+    with WidgetsBindingObserver {
   CloudBackupSyncService? _automaticCloudSync;
 
   final store = AppStore();
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _automaticCloudSync = CloudBackupSyncService.shared(store);
     unawaited(_automaticCloudSync!.initialize());
     unawaited(store.load());
@@ -53,9 +56,20 @@ class _ProgressionLabAppState extends State<ProgressionLabApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _automaticCloudSync?.dispose();
     store.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      unawaited(store.flushPendingSaves());
+    }
   }
 
   @override
@@ -94,6 +108,7 @@ class _ShellState extends State<Shell> {
 
   int index = 0;
   int? _tourStep;
+  bool _dataSetupHandled = false;
   bool _autoTourHandled = false;
 
   List<NavigationDestination> get _destinations => [
@@ -154,9 +169,9 @@ class _ShellState extends State<Shell> {
   @override
   void initState() {
     super.initState();
-    widget.store.addListener(_maybeStartAutomaticTour);
+    widget.store.addListener(_maybeStartAutomaticOnboarding);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _maybeStartAutomaticTour();
+      _maybeStartAutomaticOnboarding();
     });
   }
 
@@ -164,21 +179,47 @@ class _ShellState extends State<Shell> {
   void didUpdateWidget(covariant Shell oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.store != widget.store) {
-      oldWidget.store.removeListener(_maybeStartAutomaticTour);
-      widget.store.addListener(_maybeStartAutomaticTour);
+      oldWidget.store.removeListener(_maybeStartAutomaticOnboarding);
+      widget.store.addListener(_maybeStartAutomaticOnboarding);
+      _dataSetupHandled = false;
       _autoTourHandled = false;
-      _maybeStartAutomaticTour();
+      _maybeStartAutomaticOnboarding();
     }
   }
 
   @override
   void dispose() {
-    widget.store.removeListener(_maybeStartAutomaticTour);
+    widget.store.removeListener(_maybeStartAutomaticOnboarding);
     super.dispose();
+  }
+
+  void _maybeStartAutomaticOnboarding() {
+    if (!mounted || !widget.store.isLoaded) return;
+    if (!_dataSetupHandled &&
+        widget.store.dataSetupVersionSeen <
+            FirstLaunchDataSetupScreen.currentVersion) {
+      _dataSetupHandled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        await Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => FirstLaunchDataSetupScreen(store: widget.store),
+          ),
+        );
+        if (mounted) _maybeStartAutomaticTour();
+      });
+      return;
+    }
+    _maybeStartAutomaticTour();
   }
 
   void _maybeStartAutomaticTour() {
     if (!mounted || _autoTourHandled || !widget.store.isLoaded) return;
+    if (widget.store.dataSetupVersionSeen <
+        FirstLaunchDataSetupScreen.currentVersion) {
+      return;
+    }
     _autoTourHandled = true;
     if (widget.store.onboardingVersionSeen < _tourVersion) {
       WidgetsBinding.instance.addPostFrameCallback((_) {

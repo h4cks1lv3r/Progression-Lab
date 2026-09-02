@@ -1,0 +1,115 @@
+_text("lib/fitnotes_backup_import.dart", FITNOTES_IMPORTER)
+write_text("test/fitnotes_backup_import_test.dart", FITNOTES_TEST)
+
+replace_once(
+    "pubspec.yaml",
+    "  crypto: ^3.0.6\n",
+    "  crypto: ^3.0.6\n  sqlite3: ^3.5.2\n",
+)
+replace_once(
+    "pubspec.yaml",
+    "version: 2.2.0+16",
+    "version: 2.2.1+17",
+)
+replace_once(
+    "android/app/build.gradle.kts",
+    '        versionCode = 16\n        versionName = "2.2.0"',
+    '        versionCode = 17\n        versionName = "2.2.1"',
+)
+replace_once(
+    "lib/data_portability_core.dart",
+    "const String progressionAppVersion = '2.2.0';",
+    "const String progressionAppVersion = '2.2.1';",
+)
+replace_once(
+    "lib/data_portability.dart",
+    "import 'data_portability_core.dart';\nimport 'store.dart';",
+    "import 'data_portability_core.dart';\nimport 'fitnotes_backup_import.dart';\nimport 'store.dart';",
+)
+replace_once(
+    "lib/data_portability.dart",
+    """    if (lower.endsWith('.csv')) {
+      return CsvImportCandidate(file, WorkoutCsvImporter.inspect(file.bytes));
+    }
+""",
+    """    if (lower.endsWith('.fitnotes')) {
+      return CsvImportCandidate(
+        file,
+        await FitNotesBackupImporter.inspect(file.bytes),
+      );
+    }
+    if (lower.endsWith('.csv')) {
+      return CsvImportCandidate(file, WorkoutCsvImporter.inspect(file.bytes));
+    }
+""",
+)
+replace_once(
+    "lib/data_portability.dart",
+    "Choose a Progression Lab .plab backup, portable CSV ZIP, or UTF-8 CSV file.",
+    "Choose a Progression Lab .plab backup, FitNotes .fitnotes backup, portable CSV ZIP, or UTF-8 CSV file.",
+)
+replace_once(
+    "lib/data_portability_bridge.dart",
+    "List<String> extensions = const ['plab', 'csv', 'zip'],",
+    "List<String> extensions = const ['plab', 'fitnotes', 'csv', 'zip'],",
+)
+replace_once(
+    "android/app/src/main/kotlin/com/h4cks1lv3/iron_cadence/MainActivity.kt",
+    '                "zip", "plab" -> listOf("application/zip", "application/octet-stream")',
+    '                "zip", "plab" -> listOf("application/zip", "application/octet-stream")\n                "fitnotes" -> listOf("application/vnd.sqlite3", "application/x-sqlite3", "application/octet-stream")',
+)
+replace_once(
+    "lib/data_management_screen.dart",
+    "Open a .plab backup, portable CSV ZIP, or a Strong, Hevy, FitNotes, or generic CSV.",
+    "Open a .plab backup, native FitNotes .fitnotes backup, portable CSV ZIP, or a Strong, Hevy, FitNotes, or generic CSV.",
+)
+replace_once(
+    "lib/first_launch_data_setup.dart",
+    "Export your history from the source app, then choose that CSV or ZIP here. The importer detects supported formats, previews workouts, maps exercises, and skips duplicates by default.",
+    "For FitNotes, choose the native .fitnotes backup or a CSV export. For other supported apps, choose their CSV or ZIP export. The importer previews workouts, maps exercises, and skips duplicates by default.",
+)
+replace_once(
+    "lib/first_launch_data_setup.dart",
+    "Android and iOS do not let Progression Lab read another app’s private database. Import uses a file you select or health records you explicitly authorize.",
+    "Android and iOS do not let Progression Lab read another app’s live private storage. Import uses a backup or export file you select, including FitNotes .fitnotes SQLite backups, or health records you explicitly authorize.",
+)
+replace_once(
+    "README.md",
+    "Current version: **2.2.0+16**",
+    "Current version: **2.2.1+17**",
+)
+replace_once(
+    "README.md",
+    "- Strong, Hevy, FitNotes, portable ZIP, and generic CSV import",
+    "- native FitNotes `.fitnotes` SQLite backup import\n- Strong, Hevy, FitNotes CSV, portable ZIP, and generic CSV import",
+)
+replace_once(
+    "README.md",
+    "offers guided import from Strong, Hevy, FitNotes, generic CSV/ZIP, Health Connect, or Apple Health.",
+    "offers guided import from native FitNotes `.fitnotes` backups, Strong, Hevy, FitNotes CSV, generic CSV/ZIP, Health Connect, or Apple Health.",
+)
+
+changelog = Path("CHANGELOG.md")
+text = changelog.read_text()
+entry = """## 2.2.1+17 — 2026-09-02
+
+### Added
+
+- Added direct read-only import of native FitNotes `.fitnotes` SQLite backups.
+- Added FitNotes database validation, workout grouping, set comments, workout comments, workout times, timed sets, and distance-set conversion through the existing import preview.
+
+### Changed
+
+- Added `.fitnotes` to the Android document picker and first-launch import guidance.
+- Kept native FitNotes imports inside the existing mapping, duplicate detection, safety backup, and undo workflow.
+
+### Corrected
+
+- Corrected the FitNotes importer claim: Progression Lab previously accepted FitNotes CSV exports but rejected FitNotes' normal `.fitnotes` backup format.
+
+"""
+if entry not in text:
+    marker = "# Changelog\n\n"
+    if marker not in text:
+        raise RuntimeError("CHANGELOG heading was not found")
+    changelog.write_text(text.replace(marker, marker + entry, 1))
