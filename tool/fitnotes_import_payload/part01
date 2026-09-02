@@ -1,0 +1,179 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+
+def replace_once(path: str, old: str, new: str) -> None:
+    target = Path(path)
+    text = target.read_text()
+    if new in text:
+        return
+    if old not in text:
+        raise RuntimeError(f"Expected text was not found in {path}: {old[:120]!r}")
+    target.write_text(text.replace(old, new, 1))
+
+
+def write_text(path: str, content: str) -> None:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists() and target.read_text() == content:
+        return
+    target.write_text(content)
+
+
+FITNOTES_IMPORTER = r'''import 'dart:io';
+import 'dart:isolate';
+import 'dart:typed_data';
+
+import 'package:sqlite3/sqlite3.dart';
+
+import 'data_portability_core.dart';
+
+/// Reads the native FitNotes Android backup format.
+///
+/// A `.fitnotes` file is a complete SQLite database, not a CSV export. The
+/// database is opened read-only in a worker isolate and normalized into the
+/// existing import-preview pipeline so mapping, duplicate detection, safety
+/// backup, and undo behavior stay identical to the other import formats.
+abstract final class FitNotesBackupImporter {
+  static const int _maximumTrainingRows = 1000000;
+
+  static const List<String> _headers = <String>[
+    'Date',
+    'End Time',
+    'Workout',
+    'Exercise',
+    'Set',
+    'Weight (kg)',
+    'Reps',
+    'Kind',
+    'Notes',
+    'Workout Notes',
+    'Duration Seconds',
+    'Distance Meters',
+    'Source ID',
+  ];
+
+  static const CsvImportMapping _mapping = CsvImportMapping(
+    date: 'Date',
+    endDate: 'End Time',
+    workout: 'Workout',
+    exercise: 'Exercise',
+    setOrder: 'Set',
+    weight: 'Weight (kg)',
+    reps: 'Reps',
+    notes: 'Notes',
+    workoutNotes: 'Workout Notes',
+    setDuration: 'Duration Seconds',
+    distance: 'Distance Meters',
+    sourceId: 'Source ID',
+  );
+
+  static Future<CsvInspection> inspect(Uint8List bytes) async {
+    if (!_looksLikeSqlite(bytes)) {
+      throw const FormatException(
+        'The selected .fitnotes file is not a SQLite FitNotes backup.',
+      );
+    }
+
+    final transferable = TransferableTypedData.fromList(<Uint8List>[bytes]);
+    final result = await Isolate.run<Map<String, Object?>>(
+      () => _readFitNotesDatabase(
+        transferable,
+        maximumTrainingRows: _maximumTrainingRows,
+      ),
+    );
+    final error = result['error'];
+    if (error is String && error.isNotEmpty) {
+      throw FormatException(error);
+    }
+    final rawRows = result['rows'];
+    if (rawRows is! List) {
+      throw const FormatException(
+        'The selected .fitnotes backup could not be decoded.',
+      );
+    }
+    final rows = <Map<String, String>>[
+      for (final row in rawRows)
+        if (row is Map) Map<String, String>.from(row),
+    ];
+    if (rows.isEmpty) {
+      throw const FormatException(
+        'The .fitnotes backup does not contain importable workout sets.',
+      );
+    }
+
+    return CsvInspection(
+      headers: List<String>.unmodifiable(_headers),
+      rows: List<Map<String, String>>.unmodifiable(rows),
+      source: WorkoutImportSource.fitNotes,
+      suggestedMapping: _mapping,
+    );
+  }
+
+  static bool _looksLikeSqlite(Uint8List bytes) {
+    const magic = <int>[
+      0x53,
+      0x51,
+      0x4c,
+      0x69,
+      0x74,
+      0x65,
+      0x20,
+      0x66,
+      0x6f,
+      0x72,
+      0x6d,
+      0x61,
+      0x74,
+      0x20,
+      0x33,
+      0x00,
+    ];
+    if (bytes.length < 100) return false;
+    for (var index = 0; index < magic.length; index++) {
+      if (bytes[index] != magic[index]) return false;
+    }
+    return true;
+  }
+}
+
+Map<String, Object?> _readFitNotesDatabase(
+  TransferableTypedData transferable, {
+  required int maximumTrainingRows,
+}) {
+  final bytes = transferable.materialize().asUint8List();
+  Directory? workspace;
+  Database? database;
+  try {
+    workspace = Directory.systemTemp.createTempSync(
+      'progression_lab_fitnotes_',
+    );
+    final source = File(
+      '${workspace.path}${Platform.pathSeparator}FitNotes_Backup.fitnotes',
+    );
+    source.writeAsBytesSync(bytes, flush: true);
+
+    database = sqlite3.open(source.path, mode: OpenMode.readOnly);
+    database.execute('PRAGMA query_only = ON;');
+    database.execute('PRAGMA trusted_schema = OFF;');
+    database.execute('PRAGMA cell_size_check = ON;');
+
+    final quickCheck = database.select('PRAGMA quick_check(1);');
+    if (quickCheck.isEmpty || '${quickCheck.first.columnAt(0)}' != 'ok') {
+      return const <String, Object?>{
+        'error': 'The selected .fitnotes database is damaged.',
+      };
+    }
+
+    final tables = _fitNotesTables(database);
+    final trainingTable = tables['training_log'];
+    final exerciseTable = tables['exercise'];
+    if (trainingTable == null || exerciseTable == null) {
+      return const <String, Object?>{
+        'error':
+            'The SQLite file does not contain the FitNotes workout tables.',
+      };
+    }
+
+    final trainingColumns = _tableColumns(database, t
