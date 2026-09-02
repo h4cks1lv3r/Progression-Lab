@@ -1,0 +1,143 @@
+ <String, _FitNotesWorkoutTime>{};
+  }
+  final startColumn = _optionalColumn(
+    columns,
+    'start_date_time',
+    fallback: "''",
+  );
+  final endColumn = _optionalColumn(
+    columns,
+    'end_date_time',
+    fallback: "''",
+  );
+  final orderColumn = columns.contains('_id')
+      ? ' ORDER BY ${_quoteIdentifier('_id')} ASC'
+      : '';
+  final times = <String, _FitNotesWorkoutTime>{};
+  final sql = 'SELECT ${_quoteIdentifier('date')} AS ${_quoteIdentifier('date')}, '
+      '$startColumn, $endColumn FROM ${_quoteIdentifier(table)}$orderColumn;';
+  for (final row in database.select(sql)) {
+    final key = _dateKey(_asText(row['date']));
+    if (key.isEmpty || times.containsKey(key)) continue;
+    times[key] = _FitNotesWorkoutTime(
+      start: _asText(row['start_date_time']).trim(),
+      end: _asText(row['end_date_time']).trim(),
+    );
+  }
+  return times;
+}
+
+Map<int, String> _readSetComments(
+  Database database,
+  Map<String, String> tables,
+) {
+  final table = tables['comment'];
+  if (table == null) return const <int, String>{};
+  final columns = _tableColumns(database, table);
+  if (!columns.containsAll(
+    const <String>['owner_type_id', 'owner_id', 'text'],
+  )) {
+    return const <int, String>{};
+  }
+  final comments = <int, String>{};
+  final orderColumn = columns.contains('_id')
+      ? ' ORDER BY ${_quoteIdentifier('_id')} ASC'
+      : '';
+  final sql = 'SELECT ${_quoteIdentifier('owner_id')}, '
+      '${_quoteIdentifier('text')} FROM ${_quoteIdentifier(table)} '
+      'WHERE ${_quoteIdentifier('owner_type_id')} = 1$orderColumn;';
+  for (final row in database.select(sql)) {
+    final owner = _asInt(row['owner_id']);
+    final text = _asText(row['text']).trim();
+    if (owner <= 0 || text.isEmpty) continue;
+    comments.update(owner, (current) => '$current\n$text', ifAbsent: () => text);
+  }
+  return comments;
+}
+
+Map<String, String> _readWorkoutComments(
+  Database database,
+  Map<String, String> tables,
+) {
+  final table = tables['workoutcomment'];
+  if (table == null) return const <String, String>{};
+  final columns = _tableColumns(database, table);
+  if (!columns.containsAll(const <String>['date', 'comment'])) {
+    return const <String, String>{};
+  }
+  final comments = <String, String>{};
+  final orderColumn = columns.contains('_id')
+      ? ' ORDER BY ${_quoteIdentifier('_id')} ASC'
+      : '';
+  final sql = 'SELECT ${_quoteIdentifier('date')}, '
+      '${_quoteIdentifier('comment')} FROM ${_quoteIdentifier(table)}'
+      '$orderColumn;';
+  for (final row in database.select(sql)) {
+    final key = _dateKey(_asText(row['date']));
+    final text = _asText(row['comment']).trim();
+    if (key.isEmpty || text.isEmpty) continue;
+    comments.update(key, (current) => '$current\n$text', ifAbsent: () => text);
+  }
+  return comments;
+}
+
+List<Map<String, String>> _readTrainingRows(
+  Database database, {
+  required String table,
+  required Set<String> columns,
+  required Map<int, _FitNotesExercise> exercises,
+  required Map<int, String> workoutGroups,
+  required Map<String, _FitNotesWorkoutTime> workoutTimes,
+  required Map<int, String> setComments,
+  required Map<String, String> workoutComments,
+}) {
+  final selected = <String>[
+    _requiredColumn('_id'),
+    _requiredColumn('date'),
+    _requiredColumn('exercise_id'),
+    _requiredColumn('metric_weight'),
+    _requiredColumn('reps'),
+    _optionalColumn(columns, 'distance', fallback: '0'),
+    _optionalColumn(columns, 'duration_seconds', fallback: '0'),
+    _optionalColumn(columns, 'workout_group_id', fallback: '0'),
+  ];
+  final order = <String>[
+    _quoteIdentifier('date'),
+    if (columns.contains('workout_group_id'))
+      _quoteIdentifier('workout_group_id'),
+    _quoteIdentifier('exercise_id'),
+    _quoteIdentifier('_id'),
+  ];
+  final sql = 'SELECT ${selected.join(', ')} FROM '
+      '${_quoteIdentifier(table)} ORDER BY ${order.join(', ')};';
+
+  final rows = <Map<String, String>>[];
+  final setOrders = <String, int>{};
+  for (final row in database.select(sql)) {
+    final trainingId = _asInt(row['_id']);
+    final exerciseId = _asInt(row['exercise_id']);
+    final exercise = exercises[exerciseId];
+    final rawDate = _asText(row['date']).trim();
+    final dateKey = _dateKey(rawDate);
+    if (trainingId <= 0 ||
+        exercise == null ||
+        rawDate.isEmpty ||
+        dateKey.isEmpty) {
+      continue;
+    }
+
+    final groupId = _asInt(row['workout_group_id']);
+    final sessionKey = '$dateKey:$groupId';
+    final counterKey = '$sessionKey:$exerciseId';
+    final setOrder = (setOrders[counterKey] ?? 0) + 1;
+    setOrders[counterKey] = setOrder;
+
+    final workoutTime = workoutTimes[dateKey];
+    final workoutName = workoutGroups[groupId]?.trim();
+    final durationSeconds = _asInt(row['duration_seconds']);
+    final distanceMeters = _asDouble(row['distance']) / 1000.0;
+    rows.add(<String, String>{
+      'Date': workoutTime?.start.isNotEmpty == true
+          ? workoutTime!.start
+          : rawDate,
+      'End Time': workoutTime?.
