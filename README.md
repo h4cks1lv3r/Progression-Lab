@@ -11,7 +11,7 @@ The product combines a 48-week Strength program, a 12-week Athletic Functional T
 ### Strength Program
 
 - Three phases and 48 authored cycles
-- 3-, 4-, and 5-day cadences
+- 3-, 4-, and 5-day plans
 - Safe cadence switching without losing the active cycle
 - User-selected phase, cycle, next workout, and schedule anchor
 - Separate numbered program runs
