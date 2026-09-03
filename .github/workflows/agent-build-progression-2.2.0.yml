@@ -46,8 +46,8 @@ jobs:
           base64 --decode /tmp/progression-data-upgrade.patch.gz.b64 \
             | gzip --decompress > /tmp/progression-data-upgrade.patch
           echo "6cbc33eaf7cfc5900fe3ed1e3dea87f1490ba8f6b83d88c33eceb7fc7dd48bf5  /tmp/progression-data-upgrade.patch" | sha256sum --check
-          git apply --check /tmp/progression-data-upgrade.patch
-          git apply /tmp/progression-data-upgrade.patch
+          git apply --unidiff-zero --check /tmp/progression-data-upgrade.patch
+          git apply --unidiff-zero /tmp/progression-data-upgrade.patch
           git diff --check
 
       - name: Format changed Dart source
