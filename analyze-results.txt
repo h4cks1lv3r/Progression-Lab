@@ -1,0 +1,494 @@
+Resolving dependencies...
+Downloading packages...
+  archive 3.6.1 (4.2.0 available)
+  clock 1.1.2 (1.1.3 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.12 (0.7.14 available)
+  vm_service 15.2.0 (15.3.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing Progression-Lab...                                    
+
+   info • The import of 'dart:typed_data' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/foundation.dart'. Try removing the import directive • lib/cloud_sync.dart:2:8 • unnecessary_import
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/cloud_sync.dart:264:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/cloud_sync.dart:278:9 • curly_braces_in_flow_control_structures
+   info • Use an initializing formal to assign a parameter to a field. Try using an initialing formal ('this._store') to initialize the field • lib/contextual_guides.dart:37:7 • prefer_initializing_formals
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/daily_inputs_screen.dart:537:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/daily_inputs_screen.dart:935:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/daily_inputs_screen.dart:1049:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/daily_inputs_screen.dart:1218:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/daily_inputs_screen.dart:1299:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/daily_inputs_screen.dart:1433:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/daily_inputs_screen.dart:1747:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/daily_inputs_screen.dart:1764:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/daily_inputs_screen.dart:1796:7 • curly_braces_in_flow_control_structures
+   info • The 'if' statement could be replaced by a null-aware assignment. Try using the '??=' operator to conditionally assign a value • lib/data_management_screen.dart:127:5 • prefer_conditional_assignment
+   info • The import of 'dart:typed_data' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/services.dart'. Try removing the import directive • lib/data_portability_bridge.dart:1:8 • unnecessary_import
+   info • Unnecessary use of string interpolation. Try replacing the string literal with the variable name • lib/data_portability_core.dart:710:22 • unnecessary_string_interpolations
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:10:14 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:11:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:30:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:38:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:48:14 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:49:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:59:14 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:60:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:68:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:76:14 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:77:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:87:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:97:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:107:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:117:14 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:118:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:126:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:134:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:142:14 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:143:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:153:14 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:154:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:168:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:179:14 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:180:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:190:14 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:191:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:200:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:210:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:221:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:231:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:241:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:251:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:261:14 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:262:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:272:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:282:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:292:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:302:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:312:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:322:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:332:14 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:333:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:343:14 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:344:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:352:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:422:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:430:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:438:23 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:456:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:464:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:472:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:488:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:496:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:513:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:521:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:541:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:550:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:559:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:569:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:579:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:589:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:607:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:617:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:625:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:633:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:642:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:650:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:658:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:668:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:676:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:684:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:692:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:700:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:708:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:718:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:728:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:736:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:744:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:770:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:778:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:788:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:802:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:812:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:820:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:832:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:844:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:853:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:862:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:874:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:882:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:890:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:898:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:923:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:932:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:941:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:950:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:959:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:967:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:984:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:994:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1003:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1015:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1025:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1033:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1045:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1056:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1064:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1072:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1080:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1088:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1096:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1104:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1112:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1120:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1135:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1143:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1151:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1159:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1167:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1177:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1185:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1200:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1210:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1218:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1226:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1250:16 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1251:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1259:16 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1264:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1275:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1291:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1299:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1317:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1331:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1345:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1353:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1364:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1382:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1393:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1402:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1412:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1421:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1444:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1453:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1461:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1469:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1479:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1489:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1513:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1524:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1532:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1540:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1555:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1566:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1576:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1593:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1604:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1613:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1642:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1658:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1667:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1675:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1685:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1693:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1701:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1709:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1717:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1727:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1744:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1752:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1760:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1768:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1778:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1786:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1796:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1806:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1814:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1825:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1833:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1841:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1849:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1866:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1880:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1890:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1899:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1907:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1922:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1930:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1940:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1955:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1979:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1988:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:1997:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2029:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2039:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2048:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2056:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2067:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2080:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2088:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2105:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2115:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2125:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2133:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2141:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2149:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2164:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2173:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2181:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2196:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2206:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2214:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2226:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2236:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2247:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2255:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2263:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2288:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2297:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2305:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2315:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2323:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2331:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2346:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2354:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2365:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2375:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2384:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2394:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2410:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2418:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2428:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2443:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2451:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2465:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2475:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2489:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2501:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2509:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2520:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2528:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2538:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2546:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2556:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2574:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2583:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2591:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2600:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2608:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2618:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2628:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2636:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2645:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2653:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2661:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2669:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2677:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2685:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2695:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2703:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2713:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2723:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2731:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2741:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2749:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2764:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2774:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2803:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2816:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2824:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2835:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2844:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2852:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2860:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2869:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2877:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2911:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2921:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2932:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2942:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2950:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2967:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2976:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:2985:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3005:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3013:16 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3014:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3022:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3032:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3042:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3050:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3060:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3070:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3081:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3091:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3099:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3115:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3123:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3133:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3143:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3153:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3167:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3181:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3189:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3197:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3205:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3213:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3228:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3237:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3245:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3253:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3263:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3271:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3280:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3288:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3296:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3306:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3314:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3324:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3335:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3343:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3352:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3360:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3376:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3386:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3396:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3404:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3412:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3424:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3440:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3450:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3460:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3468:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3476:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3484:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3495:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3507:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3522:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3539:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3549:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3564:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3574:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3599:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3608:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3616:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3624:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3633:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3641:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3650:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3667:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3678:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3689:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3698:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3707:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3718:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3737:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3755:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3765:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3774:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3785:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3794:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3805:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3825:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3835:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3845:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3854:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3862:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3874:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3886:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3894:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3904:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3921:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3929:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3939:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3949:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3957:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3967:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3977:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3985:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:3995:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4009:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4023:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4033:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4043:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4051:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4060:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4068:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4076:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4085:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4093:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4101:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4117:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4126:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4134:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4142:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4151:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4159:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4167:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4184:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4193:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4201:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4210:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4219:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4229:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4260:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4277:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4289:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4298:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4314:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4322:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4334:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4352:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4360:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4369:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4377:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4388:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4396:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4412:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4421:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4430:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4439:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4449:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4459:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4467:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4476:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4486:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4495:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4505:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4514:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4523:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4531:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4542:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4559:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4567:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4578:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4588:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4597:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4607:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4625:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4633:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4643:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4651:25 • unnecessary_const
+   info • Unnecessary 'const' keyword. Try removing the keyword • lib/exercise_catalog.dart:4661:25 • unnecessary_const
+   info • The import of 'dart:typed_data' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/services.dart'. Try removing the import directive • lib/integrations_hub.dart:2:8 • unnecessary_import
+   info • Use an initializing formal to assign a parameter to a field. Try using an initialing formal ('this._store') to initialize the field • lib/integrations_hub.dart:20:7 • prefer_initializing_formals
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/integrations_hub.dart:96:23 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/integrations_hub.dart:100:23 • curly_braces_in_flow_control_structures
+   info • Use the null-aware marker '?' rather than a null check via an 'if'. Try using '?' • lib/lab_analysis.dart:71:7 • use_null_aware_elements
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/lab_analysis.dart:174:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/lab_experiments.dart:559:9 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/lab_experiments.dart:702:17 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/lab_screen.dart:125:9 • curly_braces_in_flow_control_structures
+   info • 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/main.dart:2135:29 • deprecated_member_use
+   info • 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/main.dart:2138:29 • deprecated_member_use
+   info • 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/main.dart:2147:27 • deprecated_member_use
+   info • 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre. Try replacing the use of the deprecated member with the replacement • lib/main.dart:2155:27 • deprecated_member_use
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/share_options.dart:186:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/share_options.dart:717:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/store.dart:972:7 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block. Try wrapping the statement in a block • lib/store.dart:1550:7 • curly_braces_in_flow_control_structures
+   info • The 'child' argument should be last in widget constructor invocations. Try moving the argument to the end of the argument list • test/navigation_widget_test.dart:289:11 • sort_child_properties_last
+
+478 issues found. (ran in 8.9s)

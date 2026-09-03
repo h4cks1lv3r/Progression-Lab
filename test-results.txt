@@ -1,0 +1,276 @@
+=== Running test/daily_inputs_lab_test.dart ===
+Resolving dependencies...
+Downloading packages...
+  archive 3.6.1 (4.2.0 available)
+  clock 1.1.2 (1.1.3 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.12 (0.7.14 available)
+  vm_service 15.2.0 (15.3.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /home/runner/work/Progression-Lab/Progression-Lab/test/daily_inputs_lab_test.dart
+00:00 +0: daily inputs persistence seeds useful presets and does not double-count embedded caffeine
+00:00 +1: daily inputs persistence schema eight migrates additively to the current schema with AI disabled by default
+00:00 +2: daily inputs persistence recovery, workout response, and AI preferences round-trip
+00:00 +3: Lab Core analysis returns honest insufficient-data evidence for a new user
+00:00 +4: Lab Core analysis detects a preliminary caffeine association from matched sessions
+00:00 +5: daily inputs and Lab Core screens render with AI off
+00:01 +6: All tests passed!
+=== Running test/data_portability_test.dart ===
+Resolving dependencies...
+Downloading packages...
+  archive 3.6.1 (4.2.0 available)
+  clock 1.1.2 (1.1.3 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.12 (0.7.14 available)
+  vm_service 15.2.0 (15.3.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /home/runner/work/Progression-Lab/Progression-Lab/test/data_portability_test.dart
+00:00 +0: exact backup round-trips every current data domain
+00:00 +1: corrupted backups fail closed
+00:00 +2: portable export includes current tracking domains and metadata
+00:00 +3: portable ZIP is readable and excludes private Lab conversation text
+00:00 +4: flexible workout import reads tab-separated Strong-style exports
+00:00 +5: flexible workout import flattens nested JSON workout exports
+00:00 +6: flexible workout import accepts duration-only custom delimited rows without reps
+00:00 +7: flexible workout import rejects ZIP path traversal before parsing entries
+00:00 +8: All tests passed!
+=== Running test/exercise_catalog_test.dart ===
+Resolving dependencies...
+Downloading packages...
+  archive 3.6.1 (4.2.0 available)
+  clock 1.1.2 (1.1.3 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.12 (0.7.14 available)
+  vm_service 15.2.0 (15.3.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /home/runner/work/Progression-Lab/Progression-Lab/test/exercise_catalog_test.dart
+00:00 +0: Exercise Library 2.0 catalog contains a large reviewed catalog with stable unique identities
+00:00 +1: Exercise Library 2.0 catalog provides full Abs and Core coverage
+00:00 +2: Exercise Library 2.0 catalog Captain’s Chair Leg Lift is a bodyweight exercise with aliases
+00:00 +3: Exercise Library 2.0 catalog standard bodyweight exercises never require weight input
+00:00 +4: Exercise Library 2.0 catalog weighted and assisted bodyweight variants keep distinct semantics
+00:00 +5: Exercise Library 2.0 catalog search resolves common aliases and abbreviations
+00:00 +6: All tests passed!
+=== Running test/external_integrations_test.dart ===
+Resolving dependencies...
+Downloading packages...
+  archive 3.6.1 (4.2.0 available)
+  clock 1.1.2 (1.1.3 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.12 (0.7.14 available)
+  vm_service 15.2.0 (15.3.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /home/runner/work/Progression-Lab/Progression-Lab/test/external_integrations_test.dart
+00:00 +0: wearable workout formats parses GPX routes with sensor extensions
+00:00 +1: wearable workout formats parses TCX activity summaries and trackpoints
+00:00 +2: wearable workout formats rejects truncated FIT data without partial import
+00:00 +3: deterministic personal experiments requires enough matched sessions before drawing a conclusion
+00:00 +4: deterministic personal experiments weekly review reports signals and missing data honestly
+00:00 +5: share templates and privacy renders all branded aspect ratios as PNG
+00:01 +6: share templates and privacy completion-only captions do not reveal exact weights
+00:01 +7: provider adapters require protected broker configuration
+00:01 +8: All tests passed!
+=== Running test/functional_progress_test.dart ===
+Resolving dependencies...
+Downloading packages...
+  archive 3.6.1 (4.2.0 available)
+  clock 1.1.2 (1.1.3 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.12 (0.7.14 available)
+  vm_service 15.2.0 (15.3.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /home/runner/work/Progression-Lab/Progression-Lab/test/functional_progress_test.dart
+00:00 +0: functional progress exposes programmed drills without history
+00:01 +1: functional progress derives drill history from completed sessions
+00:01 +2: progress track switch keeps strength and functional views separate
+00:01 +3: All tests passed!
+=== Running test/health_sync_test.dart ===
+Resolving dependencies...
+Downloading packages...
+  archive 3.6.1 (4.2.0 available)
+  clock 1.1.2 (1.1.3 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.12 (0.7.14 available)
+  vm_service 15.2.0 (15.3.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /home/runner/work/Progression-Lab/Progression-Lab/test/health_sync_test.dart
+00:00 +0: requests only the health domains exposed by the app
+00:00 +1: writes body-fat percentages through the native bridge
+00:00 +2: rejects invalid body-fat values before invoking the platform
+00:00 +3: All tests passed!
+=== Running test/integration_state_migration_test.dart ===
+Resolving dependencies...
+Downloading packages...
+  archive 3.6.1 (4.2.0 available)
+  clock 1.1.2 (1.1.3 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.12 (0.7.14 available)
+  vm_service 15.2.0 (15.3.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /home/runner/work/Progression-Lab/Progression-Lab/test/integration_state_migration_test.dart
+00:00 +0: schema 13 data migrates additively to the 2.1 schema
+00:00 +1: integration state persists and survives an exact plab backup
+00:00 +2: All tests passed!
+=== Running test/navigation_widget_test.dart ===
+Resolving dependencies...
+Downloading packages...
+  archive 3.6.1 (4.2.0 available)
+  clock 1.1.2 (1.1.3 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.12 (0.7.14 available)
+  vm_service 15.2.0 (15.3.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /home/runner/work/Progression-Lab/Progression-Lab/test/navigation_widget_test.dart
+00:00 +0: cadence changes preserve the active cycle and exact next workout
+00:00 +1: strength and Athletic programs expose selectable starts
+00:01 +2: progress dashboard renders honest empty and populated states
+00:02 +3: logged sets change only after explicit save
+00:02 +4: exercise library searches the expanded built-in catalog
+00:05 +5: Athletic training opens the current coached session
+00:06 +6: primary navigation and replayable tour remain available
+00:06 +7: safe bottom actions clear a simulated system navigation inset
+00:06 +8: workout story cards render branded PNG data
+00:07 +9: All tests passed!
+=== Running test/program_test.dart ===
+Resolving dependencies...
+Downloading packages...
+  archive 3.6.1 (4.2.0 available)
+  clock 1.1.2 (1.1.3 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.12 (0.7.14 available)
+  vm_service 15.2.0 (15.3.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /home/runner/work/Progression-Lab/Progression-Lab/test/program_test.dart
+00:00 +0: program boundaries generates the verified 48-week, three-phase program
+00:00 +1: program boundaries exposes phase and microcycle helpers
+00:00 +2: program boundaries rejects unsupported cadences and non-authored weeks
+00:00 +3: program boundaries cadences produce the selected number of workouts
+00:00 +4: prescriptions volume deloads use verified primary and accessory targets
+00:00 +5: prescriptions microcycle 15 includes an AMRAP prescription
+00:00 +6: cadence mapping keeps equivalent push and pull sessions aligned
+00:00 +7: cadence mapping uses the anchor lift to break an exercise-overlap tie
+00:00 +8: cadence mapping maps the fifth session to its closest four-day equivalent
+00:00 +9: cadence mapping preview is pure and clamps an obsolete source index
+00:00 +10: store cadence changes and recovery default cadence switch preserves week and maps next workout
+00:00 +11: store cadence changes and recovery explicit next workout wins without resetting the microcycle
+00:00 +12: store cadence changes and recovery invalid switch inputs fail before state changes
+00:00 +13: store cadence changes and recovery load repairs cadence, week, workout, unit, and bad log rows
+00:00 +14: store cadence changes and recovery completion uses the current cadence and wraps after week 48
+00:00 +15: store cadence changes and recovery failed cadence persistence rolls back the in-memory switch
+00:00 +16: unit conversion switching units converts every historical weight exactly once
+00:00 +17: unit conversion invalid unit fails without relabeling or converting data
+00:00 +18: unit conversion failed unit persistence restores the original values
+00:00 +19: PR comparison recognizes higher estimated strength
+00:00 +20: workout log persistence migrates legacy logs additively and preserves their data
+00:00 +21: workout log persistence set edits commit only through update and persist notes
+00:00 +22: workout log persistence draft input round-trips through the existing store
+00:00 +23: workout log persistence skipping records status, clears the draft, and advances
+00:00 +24: workout log persistence retroactive completion preserves current position and metadata
+00:00 +25: workout log persistence slot dates and slot counts follow every supported cadence
+00:00 +26: workout log persistence set slot and substituted draft round-trip additively
+00:00 +27: workout log persistence retroactive draft does not replace the current workout draft
+00:00 +28: custom exercise library fresh install needs no custom rows for the complete default program
+00:00 +29: custom exercise library custom exercises add, rename, soft-delete, and persist separately
+00:00 +30: custom exercise library built-in and custom names cannot be shadowed
+00:00 +31: custom exercise library malformed custom rows cannot break the built-in program
+00:00 +32: exercise library covers every authored exercise
+00:00 +33: athletic functional program authors twelve weeks with four complete coached sessions each
+00:00 +34: athletic functional program completion advances independently from the strength program
+00:00 +35: athletic functional program the last session completes without silently wrapping
+00:00 +36: athletic functional program restart creates a new run while preserving prior history
+00:00 +37: athletic functional program field measures persist with the active athletic run
+00:00 +38: athletic functional program schema six migrates additively through the current schema
+00:00 +39: athletic functional program tour and preferred program choices persist locally
+00:00 +40: program starting positions a new strength run can begin at any authored phase and cycle
+00:00 +41: program starting positions moving within a run rejects an already-recorded target workout
+00:00 +42: program starting positions athletic training can start at a selected cycle and session
+00:00 +43: All tests passed!
+=== Running test/share_card_test.dart ===
+Resolving dependencies...
+Downloading packages...
+  archive 3.6.1 (4.2.0 available)
+  clock 1.1.2 (1.1.3 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.12 (0.7.14 available)
+  vm_service 15.2.0 (15.3.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /home/runner/work/Progression-Lab/Progression-Lab/test/share_card_test.dart
+00:00 +0: formats workout durations without dropping hour remainders
+00:00 +1: creates stable timestamped share file names
+00:00 +2: All tests passed!
+=== Running test/startup_data_flow_test.dart ===
+Resolving dependencies...
+Downloading packages...
+  archive 3.6.1 (4.2.0 available)
+  clock 1.1.2 (1.1.3 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.12 (0.7.14 available)
+  vm_service 15.2.0 (15.3.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /home/runner/work/Progression-Lab/Progression-Lab/test/startup_data_flow_test.dart
+00:00 +0: fresh install requires an explicit import or fresh-start choice
+00:00 +1: existing device state is kept and import remains optional
+00:00 +2: All tests passed!
+=== Running test/warmup_test.dart ===
+Resolving dependencies...
+Downloading packages...
+  archive 3.6.1 (4.2.0 available)
+  clock 1.1.2 (1.1.3 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  test_api 0.7.12 (0.7.14 available)
+  vm_service 15.2.0 (15.3.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /home/runner/work/Progression-Lab/Progression-Lab/test/warmup_test.dart
+00:00 +0: automatic compound warm-ups uses the 50-percent by 6 and 70-percent by 4 ramp
+00:00 +1: automatic compound warm-ups rounds kilogram recommendations to practical plate increments
+00:00 +2: automatic compound warm-ups does not recommend warm-ups for isolation or secondary work
+00:00 +3: automatic compound warm-ups shows the warm-up above the first compound working set
+00:01 +4: All tests passed!

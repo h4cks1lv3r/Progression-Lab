@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.2.0+16 — 2026-09-03
+
+### Added
+
+- Added a one-time startup data check that offers verified backup recovery, workout-history import, or an explicit fresh start.
+- Added native read-only import for FitNotes `.fitnotes` SQLite backups.
+- Added import support for CSV, TSV, semicolon- and pipe-delimited text, nested or flat JSON, and validated ZIP packages.
+- Added source recognition and guided field mapping for Strong, Hevy, FitNotes, Fitbod, JEFIT, and custom exports.
+
+### Data durability
+
+- Replaced asynchronous SharedPreferences state writes on Android with `AtomicFile` commits, file-descriptor synchronization, and validation before commit.
+- Preserved the former SharedPreferences state during migration and created verified backups before and after the schema upgrade.
+- Added explicit recovery for damaged primary state. A damaged file is quarantined before the user starts fresh or restores a backup.
+- Made automatic backup files synchronize to storage before their final rename.
+
+### Import safety
+
+- Retained preview, duplicate detection, exercise mapping, unit conversion, safety backups, rollback, and undo-last-import behavior.
+- Added ZIP path traversal, file-count, and expanded-size checks.
+
 ## 2.1.1+15 — 2026-08-22
 
 ### Corrected

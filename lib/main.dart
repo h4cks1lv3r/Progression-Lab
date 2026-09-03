@@ -11,6 +11,7 @@ import 'daily_inputs_screen.dart';
 import 'data_management_screen.dart';
 import 'exercise_library.dart';
 import 'exercise_library_screen.dart';
+import 'first_launch_data_flow.dart';
 import 'lab_screen.dart';
 import 'logged_sets.dart';
 import 'program.dart';
@@ -95,6 +96,7 @@ class _ShellState extends State<Shell> {
   int index = 0;
   int? _tourStep;
   bool _autoTourHandled = false;
+  bool _startupDataFlowHandled = false;
 
   List<NavigationDestination> get _destinations => [
     const NavigationDestination(icon: Icon(Icons.home_rounded), label: 'Home'),
@@ -122,40 +124,37 @@ class _ShellState extends State<Shell> {
     AppTourStep(
       targetKey: _homePrimaryKey,
       title: 'Start with the next session',
-      body:
-          'Home keeps one clear action in front of you. Switch between Strength and Athletic only when you need to.',
+      body: 'Home keeps one clear action in front of you. Switch between Strength and Athletic only when you need to.',
     ),
     AppTourStep(
       targetKey: _programsOverviewKey,
       title: 'Both programs live together',
-      body:
-          'Programs contains the 48-week Strength plan and 12-week Athletic plan. Each keeps its own progress.',
+      body: 'Programs contains the 48-week Strength plan and 12-week Athletic plan. Each keeps its own progress.',
     ),
     AppTourStep(
       targetKey: _progressNavKey,
       title: 'See what is changing',
-      body:
-          'Progress brings together logged sets, records, workout history, charts, and Athletic field assessments.',
+      body: 'Progress brings together logged sets, records, workout history, charts, and Athletic field assessments.',
     ),
     AppTourStep(
       targetKey: _moreNavKey,
       title: 'Tools stay out of the way',
-      body:
-          'More contains setup, the exercise library, help, and advanced controls so Home stays focused.',
+      body: 'More contains setup, the exercise library, help, and advanced controls so Home stays focused.',
     ),
     AppTourStep(
       targetKey: _helpGuidesKey,
       title: 'Replay this tour anytime',
-      body:
-          'Open More → Help & Guides → App Tour whenever you want this walkthrough again.',
+      body: 'Open More → Help & Guides → App Tour whenever you want this walkthrough again.',
     ),
   ];
 
   @override
   void initState() {
     super.initState();
+    widget.store.addListener(_maybeStartStartupDataFlow);
     widget.store.addListener(_maybeStartAutomaticTour);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeStartStartupDataFlow();
       _maybeStartAutomaticTour();
     });
   }
@@ -164,21 +163,45 @@ class _ShellState extends State<Shell> {
   void didUpdateWidget(covariant Shell oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.store != widget.store) {
+      oldWidget.store.removeListener(_maybeStartStartupDataFlow);
       oldWidget.store.removeListener(_maybeStartAutomaticTour);
+      widget.store.addListener(_maybeStartStartupDataFlow);
       widget.store.addListener(_maybeStartAutomaticTour);
+      _startupDataFlowHandled = false;
       _autoTourHandled = false;
+      _maybeStartStartupDataFlow();
       _maybeStartAutomaticTour();
     }
   }
 
   @override
   void dispose() {
+    widget.store.removeListener(_maybeStartStartupDataFlow);
     widget.store.removeListener(_maybeStartAutomaticTour);
     super.dispose();
   }
 
+  void _maybeStartStartupDataFlow() {
+    if (!mounted || _startupDataFlowHandled || !widget.store.isLoaded) return;
+    _startupDataFlowHandled = true;
+    if (widget.store.dataOnboardingVersionSeen >= FirstLaunchDataFlow.version) {
+      _maybeStartAutomaticTour();
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await FirstLaunchDataFlow.present(context, widget.store);
+      if (mounted) _maybeStartAutomaticTour();
+    });
+  }
+
   void _maybeStartAutomaticTour() {
-    if (!mounted || _autoTourHandled || !widget.store.isLoaded) return;
+    if (!mounted ||
+        _autoTourHandled ||
+        !widget.store.isLoaded ||
+        widget.store.dataOnboardingVersionSeen < FirstLaunchDataFlow.version) {
+      return;
+    }
     _autoTourHandled = true;
     if (widget.store.onboardingVersionSeen < _tourVersion) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -927,8 +950,7 @@ class ProgramsHubPage extends StatelessWidget {
           icon: Icons.fitness_center_rounded,
           eyebrow: '48-WEEK STRENGTH SYSTEM',
           title: 'Strength Program',
-          description:
-              'Periodized strength and hypertrophy with build, strength, and deload weeks.',
+          description: 'Periodized strength and hypertrophy with build, strength, and deload weeks.',
           progress: store.week / ProgramEngine.totalWeeks,
           position:
               'Week ${store.week} · Phase ${strengthWeek.phase} · ${store.days} days/week',
@@ -941,8 +963,7 @@ class ProgramsHubPage extends StatelessWidget {
           icon: Icons.directions_run_rounded,
           eyebrow: '12-WEEK ATHLETIC SYSTEM',
           title: 'Athletic Functional Training',
-          description:
-              'Gait, unilateral strength, rotation, elastic work, speed, and change of direction.',
+          description: 'Gait, unilateral strength, rotation, elastic work, speed, and change of direction.',
           progress: store.athleticProgress,
           position:
               'Week ${store.athleticWeek} · ${athleticWeek.cycleName} · Session ${store.athleticSessionIndex + 1}',
@@ -1345,9 +1366,8 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       caloriesValue: parsedCalories,
     );
     if (validation != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(validation)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(validation)));
       return;
     }
 

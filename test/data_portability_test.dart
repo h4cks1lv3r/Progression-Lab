@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -246,4 +247,125 @@ void main() {
       expect(names, isNot(contains('lab_messages.csv')));
     },
   );
+
+  group('flexible workout import', () {
+    test('reads tab-separated Strong-style exports', () {
+      final bytes = Uint8List.fromList(
+        utf8.encode(
+          'Date\tWorkout Name\tExercise Name\tSet Order\tWeight\tWeight Unit\tReps\n'
+          '2026-09-01 18:00\tUpper\tBench Press\t1\t100\tkg\t5\n'
+          '2026-09-01 18:00\tUpper\tBench Press\t2\t100\tkg\t5\n',
+        ),
+      );
+      final inspection = WorkoutCsvImporter.inspect(
+        bytes,
+        fileName: 'strong-export.tsv',
+      );
+      final mapping = inspection.suggestedMapping;
+      expect(mapping, isNotNull);
+      final plan = WorkoutCsvImporter.buildPlan(
+        inspection: inspection,
+        mapping: mapping!,
+        fileName: 'strong-export.tsv',
+        fileBytes: bytes,
+        targetUnit: 'kg',
+        defaultSourceWeightUnit: 'kg',
+        knownSignatures: const <String>{},
+        knownExercises: const <String>{'Bench Press'},
+      );
+      expect(plan.workouts, hasLength(1));
+      expect(plan.setCount, 2);
+      expect(plan.workouts.single.sets.first.weight, 100);
+    });
+
+    test('flattens nested JSON workout exports', () {
+      final bytes = Uint8List.fromList(
+        utf8.encode(
+          jsonEncode({
+            'workouts': [
+              {
+                'id': 'json-session-1',
+                'startedAt': '2026-09-01T18:00:00Z',
+                'title': 'Conditioning',
+                'exercises': [
+                  {
+                    'name': 'Farmer Carry',
+                    'sets': [
+                      {
+                        'weightKg': 40,
+                        'distance': 30,
+                        'distanceUnit': 'm',
+                        'durationSeconds': 45,
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }),
+        ),
+      );
+      final inspection = WorkoutCsvImporter.inspectJson(bytes);
+      final mapping = inspection.suggestedMapping;
+      expect(mapping, isNotNull);
+      final plan = WorkoutCsvImporter.buildPlan(
+        inspection: inspection,
+        mapping: mapping!,
+        fileName: 'custom.json',
+        fileBytes: bytes,
+        targetUnit: 'kg',
+        defaultSourceWeightUnit: 'kg',
+        knownSignatures: const <String>{},
+        knownExercises: const <String>{'Farmer Carry'},
+      );
+      expect(plan.workouts.single.name, 'Conditioning');
+      expect(plan.workouts.single.sets.single.durationSeconds, 45);
+      expect(plan.workouts.single.sets.single.distanceMeters, 30);
+    });
+
+    test('accepts duration-only custom delimited rows without reps', () {
+      final bytes = Uint8List.fromList(
+        utf8.encode(
+          'Date;Workout;Exercise;Seconds\n'
+          '2026-09-02;Mobility;Dead Hang;60\n',
+        ),
+      );
+      final inspection = WorkoutCsvImporter.inspect(
+        bytes,
+        fileName: 'custom.txt',
+      );
+      final mapping = inspection.suggestedMapping;
+      expect(mapping, isNotNull);
+      expect(mapping!.reps, isNull);
+      final plan = WorkoutCsvImporter.buildPlan(
+        inspection: inspection,
+        mapping: mapping,
+        fileName: 'custom.txt',
+        fileBytes: bytes,
+        targetUnit: 'lb',
+        defaultSourceWeightUnit: 'lb',
+        knownSignatures: const <String>{},
+        knownExercises: const <String>{'Dead Hang'},
+      );
+      expect(plan.setCount, 1);
+      expect(plan.workouts.single.sets.single.reps, 0);
+      expect(plan.workouts.single.sets.single.durationSeconds, 60);
+    });
+
+    test('rejects ZIP path traversal before parsing entries', () {
+      final archive = Archive()
+        ..addFile(
+          ArchiveFile(
+            '../sets.csv',
+            32,
+            utf8.encode('Date,Exercise,Reps\n2026-09-01,Row,8\n'),
+          ),
+        );
+      final encoded = ZipEncoder().encode(archive)!;
+      expect(
+        () => WorkoutCsvImporter.inspectArchive(Uint8List.fromList(encoded)),
+        throwsFormatException,
+      );
+    });
+  });
 }
