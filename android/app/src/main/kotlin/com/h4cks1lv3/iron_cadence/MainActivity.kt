@@ -20,6 +20,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.io.FileOutputStream
 import java.security.MessageDigest
 import java.util.Calendar
 import kotlinx.coroutines.CancellationException
@@ -33,6 +34,7 @@ import kotlinx.coroutines.launch
 
 class MainActivity : FlutterActivity() {
     private var integrationBridge: IntegrationBridge? = null
+    private lateinit var durableStateStore: DurableStateStore
 
     private val aiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var generativeModel: GenerativeModel? = null
@@ -47,16 +49,26 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         integrationBridge = IntegrationBridge(this, flutterEngine.dartExecutor.binaryMessenger)
-        val preferences = getSharedPreferences("iron_cadence", MODE_PRIVATE)
+        durableStateStore = DurableStateStore(this)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "iron_cadence/storage")
             .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "read" -> result.success(preferences.getString("state", null))
-                    "write" -> {
-                        preferences.edit().putString("state", call.arguments as? String ?: "{}").apply()
-                        result.success(null)
+                try {
+                    when (call.method) {
+                        "read" -> result.success(durableStateStore.read())
+                        "write" -> {
+                            durableStateStore.write(call.arguments as? String ?: "{}")
+                            result.success(null)
+                        }
+                        "status" -> result.success(durableStateStore.status())
+                        "quarantine" -> result.success(durableStateStore.quarantine())
+                        else -> result.notImplemented()
                     }
-                    else -> result.notImplemented()
+                } catch (error: Throwable) {
+                    result.error(
+                        "durable_storage_failed",
+                        error.message ?: "Progression Lab data storage failed.",
+                        null,
+                    )
                 }
             }
 
@@ -105,6 +117,14 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "saveFile" -> beginSaveFile(call, result)
                 "pickFile" -> beginPickFile(call, result)
+                "convertFitNotes" -> {
+                    val bytes = requiredBytes(call)
+                    val fileName = safeFileName(
+                        call.argument<String>("fileName"),
+                        "FitNotes-Backup.fitnotes",
+                    )
+                    result.success(FitNotesBackupReader.convert(this, bytes, fileName))
+                }
                 "shareFile" -> {
                     val bytes = requiredBytes(call)
                     val fileName = safeFileName(
@@ -341,10 +361,13 @@ class MainActivity : FlutterActivity() {
         val mimeTypes = extensions.flatMap { extension ->
             when (extension.lowercase()) {
                 "csv" -> listOf("text/csv", "text/comma-separated-values", "application/csv")
+                "tsv" -> listOf("text/tab-separated-values", "text/plain")
+                "txt" -> listOf("text/plain")
+                "json" -> listOf("application/json", "text/json", "text/plain")
                 "zip", "plab" -> listOf("application/zip", "application/octet-stream")
+                "fitnotes", "fit" -> listOf("application/octet-stream")
                 "gpx" -> listOf("application/gpx+xml", "text/xml", "application/xml")
                 "tcx" -> listOf("application/vnd.garmin.tcx+xml", "text/xml", "application/xml")
-                "fit" -> listOf("application/octet-stream")
                 else -> listOf("application/octet-stream")
             }
         }.distinct().toTypedArray()
@@ -509,10 +532,13 @@ class MainActivity : FlutterActivity() {
         }
         val destination = File(directory, fileName)
         val temporary = File(directory, ".${fileName}.tmp")
-        temporary.writeBytes(bytes)
-        if (destination.exists()) destination.delete()
+        writeFileDurably(temporary, bytes)
+        if (destination.exists() && !destination.delete()) {
+            temporary.delete()
+            throw IllegalStateException("Android could not replace the existing backup.")
+        }
         if (!temporary.renameTo(destination)) {
-            destination.writeBytes(bytes)
+            writeFileDurably(destination, bytes)
             temporary.delete()
         }
         val refreshed = directory.listFiles()
@@ -521,6 +547,15 @@ class MainActivity : FlutterActivity() {
             ?: emptyList()
         pruneAutomaticBackups(refreshed, retention)
         return destination.absolutePath
+    }
+
+
+    private fun writeFileDurably(file: File, bytes: ByteArray) {
+        FileOutputStream(file).use { stream ->
+            stream.write(bytes)
+            stream.flush()
+            stream.fd.sync()
+        }
     }
 
     private fun pruneAutomaticBackups(files: List<File>, retention: Int) {

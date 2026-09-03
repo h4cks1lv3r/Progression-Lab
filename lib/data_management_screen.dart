@@ -40,9 +40,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
     try {
       await action();
       if (!mounted || success == null) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(success)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(success)));
     } on PlatformException catch (error) {
       if (!mounted) return;
       _error(error.message ?? 'The file operation could not be completed.');
@@ -295,8 +294,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             _ActionTile(
               icon: Icons.save_alt_rounded,
               title: 'Export Progression Lab backup',
-              subtitle:
-                  'A complete .plab archive that restores programs, logs, drafts, assessments, settings, and imports.',
+              subtitle: 'A complete .plab archive that restores programs, logs, drafts, assessments, settings, and imports.',
               badge: 'FULL',
               onTap: _busy
                   ? null
@@ -307,8 +305,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             _ActionTile(
               icon: Icons.ios_share_rounded,
               title: 'Share full backup',
-              subtitle:
-                  'Send an exact .plab backup through the system share sheet without saving a second copy first.',
+              subtitle: 'Send an exact .plab backup through the system share sheet without saving a second copy first.',
               badge: 'SHARE',
               onTap: _busy
                   ? null
@@ -320,8 +317,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             _ActionTile(
               icon: Icons.restore_rounded,
               title: 'Restore or import a file',
-              subtitle:
-                  'Open a .plab backup, portable CSV ZIP, or a Strong, Hevy, FitNotes, or generic CSV.',
+              subtitle: 'Open a .plab backup, native .fitnotes backup, or a Strong, Hevy, Fitbod, JEFIT, CSV, TSV, JSON, TXT, or ZIP export.',
               badge: 'IMPORT',
               onTap: _busy ? null : _pickImport,
             ),
@@ -331,8 +327,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             _ActionTile(
               icon: Icons.folder_zip_rounded,
               title: 'Export portable CSV package',
-              subtitle:
-                  'Workouts, sets, custom exercises, Athletic sessions, and assessments in open UTF-8 CSV files.',
+              subtitle: 'Workouts, sets, custom exercises, Athletic sessions, and assessments in open UTF-8 CSV files.',
               badge: 'OPEN',
               onTap: _busy
                   ? null
@@ -343,8 +338,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             _ActionTile(
               icon: Icons.sync_alt_rounded,
               title: 'Export Strong-compatible CSV',
-              subtitle:
-                  'Creates a Strong-style workout CSV accepted by compatible apps such as Hevy.',
+              subtitle: 'Creates a Strong-style workout CSV accepted by compatible apps such as Hevy.',
               badge: 'MIGRATE',
               onTap: _busy
                   ? null
@@ -490,7 +484,7 @@ class _CsvMappingScreenState extends State<CsvMappingScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Map CSV columns')),
+    appBar: AppBar(title: const Text('Map workout fields')),
     body: BrandBackdrop(
       child: SafeArea(
         top: false,
@@ -503,7 +497,7 @@ class _CsvMappingScreenState extends State<CsvMappingScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Map the required fields. Optional fields can remain unmapped.',
+              'Map the workout date and exercise. Map repetitions, set duration, or distance as the recorded result.',
               style: TextStyle(color: BrandColors.muted),
             ),
             const SizedBox(height: 20),
@@ -519,7 +513,7 @@ class _CsvMappingScreenState extends State<CsvMappingScreen> {
               (value) => alternateWeight = value,
             ),
             _mapping('WEIGHT UNIT', weightUnit, (value) => weightUnit = value),
-            _mapping('REPETITIONS *', reps, (value) => reps = value),
+            _mapping('REPETITIONS', reps, (value) => reps = value),
             _mapping('SET NOTES', notes, (value) => notes = value),
             _mapping(
               'WORKOUT NOTES',
@@ -551,14 +545,17 @@ class _CsvMappingScreenState extends State<CsvMappingScreen> {
             GradientAction(
               label: 'PREVIEW IMPORT',
               icon: Icons.preview_rounded,
-              onPressed: date == null || exercise == null || reps == null
+              onPressed:
+                  date == null ||
+                      exercise == null ||
+                      (reps == null && setDuration == null && distance == null)
                   ? null
                   : () => Navigator.pop(
                       context,
                       CsvImportMapping(
                         date: date!,
                         exercise: exercise!,
-                        reps: reps!,
+                        reps: reps,
                         endDate: endDate,
                         workout: workout,
                         setOrder: setOrder,

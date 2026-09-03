@@ -373,9 +373,13 @@ class DraftSetInput {
 class AppStore extends ChangeNotifier {
   Map<String, dynamic> integrationState = <String, dynamic>{};
   static const _channel = MethodChannel('iron_cadence/storage');
-  static const int schemaVersion = 15;
+  static const int schemaVersion = 16;
   static const double poundsToKilograms = 0.45359237;
   bool isLoaded = false;
+  bool hadPersistedState = false;
+  bool primaryStateLoaded = false;
+  String? loadFailure;
+  String? storageWarning;
   int days = 4;
   int week = 1;
   int workoutIndex = 0;
@@ -396,6 +400,7 @@ class AppStore extends ChangeNotifier {
   List<AthleticSessionRecord> athleticHistory = [];
   List<AthleticAssessment> athleticAssessments = [];
   int onboardingVersionSeen = 0;
+  int dataOnboardingVersionSeen = 0;
   TrainingTrack preferredTrack = TrainingTrack.strength;
   bool automaticBackupsEnabled = true;
   List<ImportedWorkoutRecord> importedWorkouts = [];
@@ -412,35 +417,57 @@ class AppStore extends ChangeNotifier {
   List<LabMessage> labMessages = [];
 
   Future<void> load() async {
+    hadPersistedState = false;
+    primaryStateLoaded = false;
+    loadFailure = null;
+    storageWarning = null;
     try {
       final raw = await _channel.invokeMethod<String>('read');
       if (raw != null && raw.isNotEmpty) {
+        hadPersistedState = true;
         final decoded = jsonDecode(raw);
-        if (decoded is Map) {
-          final original = Map<String, dynamic>.from(decoded);
-          final originalVersion = _readInt(original['schemaVersion']) ?? 1;
-          final data = _migrate(original);
+        if (decoded is! Map) {
+          throw const FormatException('The saved state is not a JSON object.');
+        }
+        final original = Map<String, dynamic>.from(decoded);
+        final originalVersion = _readInt(original['schemaVersion']) ?? 1;
+        final data = _migrate(original);
 
-          final storedIntegrationState = data['integrationState'];
-          integrationState = storedIntegrationState is Map
-              ? Map<String, dynamic>.from(storedIntegrationState)
-              : <String, dynamic>{};
-          _applyStateData(data);
-          if (originalVersion < schemaVersion) {
-            try {
-              await _channel.invokeMethod('write', jsonEncode(exportState()));
-            } on PlatformException {
-              // The in-memory migration is still usable; retry on next save.
-            }
+        final storedIntegrationState = data['integrationState'];
+        integrationState = storedIntegrationState is Map
+            ? Map<String, dynamic>.from(storedIntegrationState)
+            : <String, dynamic>{};
+        _applyStateData(data);
+        primaryStateLoaded = true;
+        if (originalVersion < schemaVersion) {
+          await _writeAutomaticBackup(
+            original,
+            reason: 'before-storage-upgrade',
+            suppressErrors: true,
+          );
+          try {
+            await _channel.invokeMethod('write', jsonEncode(exportState()));
+            await _writeAutomaticBackup(
+              exportState(),
+              reason: 'after-storage-upgrade',
+              suppressErrors: true,
+            );
+          } on PlatformException catch (error) {
+            storageWarning =
+                error.message ??
+                'The durable storage upgrade will retry on the next save.';
           }
         }
       }
-    } on FormatException {
-      // Keep the last usable in-memory state if local JSON is incomplete.
-    } on PlatformException {
-      // Storage being temporarily unavailable must not prevent app startup.
-    } on Object {
-      // Ignore structurally invalid legacy state and keep usable defaults.
+    } on FormatException catch (error) {
+      loadFailure =
+          'The saved Progression Lab state is incomplete: ${error.message}';
+    } on PlatformException catch (error) {
+      loadFailure =
+          error.message ?? 'The saved Progression Lab state could not be read.';
+    } on Object catch (error) {
+      loadFailure =
+          'The saved Progression Lab state could not be validated: $error';
     }
     isLoaded = true;
     notifyListeners();
@@ -520,6 +547,10 @@ class AppStore extends ChangeNotifier {
     onboardingVersionSeen = (_readInt(data['onboardingVersionSeen']) ?? 0)
         .clamp(0, 1000000)
         .toInt();
+    dataOnboardingVersionSeen =
+        (_readInt(data['dataOnboardingVersionSeen']) ?? 0)
+            .clamp(0, 1000000)
+            .toInt();
     preferredTrack = data['preferredTrack'] == 'athletic'
         ? TrainingTrack.athletic
         : TrainingTrack.strength;
@@ -612,11 +643,39 @@ class AppStore extends ChangeNotifier {
       final migrated = _migrate(Map<String, dynamic>.from(source));
       _applyStateData(migrated);
       await _channel.invokeMethod('write', jsonEncode(exportState()));
+      hadPersistedState = true;
+      primaryStateLoaded = true;
+      loadFailure = null;
+      storageWarning = null;
     } on Object {
       _applyStateData(previous);
       notifyListeners();
       rethrow;
     }
+    notifyListeners();
+  }
+
+  Future<String?> quarantineDamagedState() async {
+    if (!hadPersistedState || primaryStateLoaded) return null;
+    try {
+      final path = await _channel.invokeMethod<String>('quarantine');
+      hadPersistedState = false;
+      return path;
+    } on PlatformException catch (error) {
+      throw StateError(
+        error.message ?? 'The damaged state could not be preserved.',
+      );
+    }
+  }
+
+  Future<void> startFreshDataState() async {
+    await quarantineDamagedState();
+    await save(createAutomaticBackup: false);
+    hadPersistedState = true;
+    primaryStateLoaded = true;
+    loadFailure = null;
+    storageWarning = null;
+    await createAutomaticBackup(reason: 'fresh-start');
     notifyListeners();
   }
 
@@ -648,6 +707,7 @@ class AppStore extends ChangeNotifier {
         .map((assessment) => assessment.toJson())
         .toList(),
     'onboardingVersionSeen': onboardingVersionSeen,
+    'dataOnboardingVersionSeen': dataOnboardingVersionSeen,
     'preferredTrack': preferredTrack.name,
     'automaticBackupsEnabled': automaticBackupsEnabled,
     'importedWorkouts': importedWorkouts.map((item) => item.toJson()).toList(),
@@ -727,6 +787,20 @@ class AppStore extends ChangeNotifier {
       await save(createAutomaticBackup: false);
     } on Object {
       preferredTrack = previous;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> markDataOnboardingSeen(int version) async {
+    if (version <= dataOnboardingVersionSeen) return;
+    final previous = dataOnboardingVersionSeen;
+    dataOnboardingVersionSeen = version;
+    notifyListeners();
+    try {
+      await save(createAutomaticBackup: false);
+    } on Object {
+      dataOnboardingVersionSeen = previous;
       notifyListeners();
       rethrow;
     }
@@ -2098,9 +2172,8 @@ class AppStore extends ChangeNotifier {
     athleticWeek = weekNumber;
     athleticSessionIndex = sessionIndex;
     const offsets = [0, 2, 4, 5];
-    athleticStartDate = _dateOnly(
-      nextSessionDate,
-    ).subtract(Duration(days: (weekNumber - 1) * 7 + offsets[sessionIndex]));
+    athleticStartDate = _dateOnly(nextSessionDate)
+        .subtract(Duration(days: (weekNumber - 1) * 7 + offsets[sessionIndex]));
 
     try {
       await save();
@@ -2616,6 +2689,11 @@ class AppStore extends ChangeNotifier {
         }
       }
       version = 13;
+      data['schemaVersion'] = version;
+    }
+    if (version < 16) {
+      data.putIfAbsent('dataOnboardingVersionSeen', () => 0);
+      version = 16;
       data['schemaVersion'] = version;
     }
     data.putIfAbsent('integrationState', () => <String, dynamic>{});

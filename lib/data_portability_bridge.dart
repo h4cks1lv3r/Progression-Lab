@@ -52,7 +52,15 @@ abstract final class DataPortabilityBridge {
   });
 
   static Future<PortablePickedFile?> pickFile({
-    List<String> extensions = const ['plab', 'csv', 'zip'],
+    List<String> extensions = const [
+      'plab',
+      'csv',
+      'tsv',
+      'json',
+      'txt',
+      'zip',
+      'fitnotes',
+    ],
   }) async {
     final raw = await _channel.invokeMethod<Object?>('pickFile', {
       'extensions': extensions,
@@ -69,6 +77,31 @@ abstract final class DataPortabilityBridge {
       name: '${raw['name'] ?? 'import'}',
       bytes: bytes,
       mimeType: '${raw['mimeType'] ?? 'application/octet-stream'}',
+    );
+  }
+
+  static Future<PortablePickedFile> convertFitNotes(
+    PortablePickedFile source,
+  ) async {
+    final raw = await _channel.invokeMethod<Object?>('convertFitNotes', {
+      'bytes': source.bytes,
+      'fileName': source.name,
+    });
+    if (raw is! Map || raw['bytes'] is! Uint8List) {
+      throw const FormatException(
+        'The FitNotes backup could not be converted.',
+      );
+    }
+    final bytes = raw['bytes']! as Uint8List;
+    if (bytes.isEmpty) {
+      throw const FormatException(
+        'The FitNotes backup contains no workout data.',
+      );
+    }
+    return PortablePickedFile(
+      name: '${raw['name'] ?? '${source.name}.csv'}',
+      bytes: bytes,
+      mimeType: '${raw['mimeType'] ?? 'text/csv'}',
     );
   }
 

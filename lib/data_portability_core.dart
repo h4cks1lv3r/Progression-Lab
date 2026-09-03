@@ -6,7 +6,7 @@ import 'package:crypto/crypto.dart';
 
 const String progressionBackupFormat = 'progression-lab-backup';
 const int progressionBackupSchemaVersion = 1;
-const String progressionAppVersion = '1.6.0';
+const String progressionAppVersion = '2.2.0';
 const int _maxBackupFiles = 64;
 const int _maxBackupUncompressedBytes = 128 * 1024 * 1024;
 
@@ -73,6 +73,7 @@ abstract final class ProgressionBackupCodec {
         'unit': state['unit'],
         'preferredTrack': state['preferredTrack'],
         'onboardingVersionSeen': state['onboardingVersionSeen'],
+        'dataOnboardingVersionSeen': state['dataOnboardingVersionSeen'],
         'automaticBackupsEnabled': state['automaticBackupsEnabled'],
       }),
       'import_history.json': _jsonBytes(_listValue(state['importHistory'])),
@@ -276,7 +277,47 @@ class CsvCodec {
     return buffer.toString();
   }
 
-  static List<List<String>> decode(String input) {
+  static String detectDelimiter(String input, {String? fileName}) {
+    final lower = fileName?.toLowerCase() ?? '';
+    if (lower.endsWith('.tsv')) return '\t';
+    final firstLine = input
+        .split(RegExp(r'\r?\n'))
+        .firstWhere((line) => line.trim().isNotEmpty, orElse: () => '');
+    const candidates = <String>[',', '\t', ';', '|'];
+    var selected = ',';
+    var highest = -1;
+    for (final candidate in candidates) {
+      var count = 0;
+      var quoted = false;
+      for (var index = 0; index < firstLine.length; index++) {
+        final character = firstLine[index];
+        if (character == '"') {
+          if (quoted &&
+              index + 1 < firstLine.length &&
+              firstLine[index + 1] == '"') {
+            index++;
+          } else {
+            quoted = !quoted;
+          }
+        } else if (!quoted && character == candidate) {
+          count++;
+        }
+      }
+      if (count > highest) {
+        highest = count;
+        selected = candidate;
+      }
+    }
+    return selected;
+  }
+
+  static List<List<String>> decode(String input, {String delimiter = ','}) {
+    if (delimiter.length != 1 ||
+        delimiter == '"' ||
+        delimiter == '\n' ||
+        delimiter == '\r') {
+      throw const FormatException('The field delimiter is invalid.');
+    }
     final rows = <List<String>>[];
     var row = <String>[];
     final cell = StringBuffer();
@@ -301,7 +342,7 @@ class CsvCodec {
       }
       if (char == '"' && cell.isEmpty) {
         quoted = true;
-      } else if (char == ',') {
+      } else if (char == delimiter) {
         row.add(cell.toString());
         cell.clear();
       } else if (char == '\n' || char == '\r') {
@@ -320,7 +361,9 @@ class CsvCodec {
       index++;
     }
     if (quoted) {
-      throw const FormatException('CSV contains an unterminated quote.');
+      throw const FormatException(
+        'Delimited text contains an unterminated quote.',
+      );
     }
     if (cell.isNotEmpty || row.isNotEmpty) {
       row.add(cell.toString());
@@ -330,13 +373,23 @@ class CsvCodec {
   }
 }
 
-enum WorkoutImportSource { strong, hevy, fitNotes, progressionLab, generic }
+enum WorkoutImportSource {
+  strong,
+  hevy,
+  fitNotes,
+  fitbod,
+  jefit,
+  progressionLab,
+  generic,
+}
 
 extension WorkoutImportSourceLabel on WorkoutImportSource {
   String get label => switch (this) {
     WorkoutImportSource.strong => 'Strong',
     WorkoutImportSource.hevy => 'Hevy',
     WorkoutImportSource.fitNotes => 'FitNotes',
+    WorkoutImportSource.fitbod => 'Fitbod',
+    WorkoutImportSource.jefit => 'JEFIT',
     WorkoutImportSource.progressionLab => 'Progression Lab CSV',
     WorkoutImportSource.generic => 'Generic CSV',
   };
@@ -346,7 +399,7 @@ class CsvImportMapping {
   const CsvImportMapping({
     required this.date,
     required this.exercise,
-    required this.reps,
+    this.reps,
     this.endDate,
     this.workout,
     this.setOrder,
@@ -368,7 +421,7 @@ class CsvImportMapping {
 
   final String date;
   final String exercise;
-  final String reps;
+  final String? reps;
   final String? endDate;
   final String? workout;
   final String? setOrder;
@@ -388,7 +441,9 @@ class CsvImportMapping {
   final String? sourceId;
 
   bool get isComplete =>
-      date.isNotEmpty && exercise.isNotEmpty && reps.isNotEmpty;
+      date.isNotEmpty &&
+      exercise.isNotEmpty &&
+      (reps != null || setDuration != null || distance != null);
 }
 
 class CsvInspection {
@@ -498,6 +553,9 @@ abstract final class WorkoutCsvImporter {
     'started at',
     'started_at',
     'timestamp',
+    'start date',
+    'startdate',
+    'performed at',
   ];
   static const _endDateAliases = <String>[
     'end time',
@@ -513,6 +571,9 @@ abstract final class WorkoutCsvImporter {
     'routine',
     'session',
     'category',
+    'session name',
+    'routine name',
+    'workout title',
   ];
   static const _exerciseAliases = <String>[
     'exercise name',
@@ -541,8 +602,15 @@ abstract final class WorkoutCsvImporter {
     'weight(kg)',
     'weight(lbs)',
     'load',
+    'weightkg',
+    'weightlbs',
   ];
-  static const _repsAliases = <String>['reps', 'repetitions', 'rep count'];
+  static const _repsAliases = <String>[
+    'reps',
+    'repetitions',
+    'rep count',
+    'rep_count',
+  ];
   static const _unitAliases = <String>['weight unit', 'weight_unit', 'unit'];
   static const _notesAliases = <String>[
     'notes',
@@ -566,6 +634,9 @@ abstract final class WorkoutCsvImporter {
     'duration_seconds',
     'seconds',
     'time',
+    'duration(s)',
+    'set duration',
+    'elapsed seconds',
   ];
   static const _distanceAliases = <String>[
     'distance',
@@ -577,12 +648,20 @@ abstract final class WorkoutCsvImporter {
     'distance_miles',
     'distance km',
     'distance_km',
+    'distance(m)',
+    'distance(km)',
   ];
   static const _distanceUnitAliases = <String>[
     'distance unit',
     'distance_unit',
   ];
-  static const _setTypeAliases = <String>['set type', 'set_type'];
+  static const _setTypeAliases = <String>[
+    'set type',
+    'set_type',
+    'kind',
+    'iswarmup',
+    'is warmup',
+  ];
   static const _rpeAliases = <String>['rpe'];
   static const _rirAliases = <String>['rir', 'reps in reserve'];
   static const _supersetAliases = <String>['superset id', 'superset_id'];
@@ -592,24 +671,139 @@ abstract final class WorkoutCsvImporter {
     'source id',
     'source_id',
     'id',
+    'workoutid',
+    'session id',
   ];
 
-  static CsvInspection inspect(Uint8List bytes) {
+  static CsvInspection inspect(Uint8List bytes, {String? fileName}) {
     String text;
     try {
       text = utf8.decode(bytes, allowMalformed: false);
     } on Object {
-      throw const FormatException('The selected CSV is not UTF-8 text.');
+      throw const FormatException('The selected file is not UTF-8 text.');
     }
-    final decoded = CsvCodec.decode(text);
+    final delimiter = CsvCodec.detectDelimiter(text, fileName: fileName);
+    return _inspectionFromDecoded(CsvCodec.decode(text, delimiter: delimiter));
+  }
+
+  static CsvInspection inspectJson(Uint8List bytes) {
+    Object? decoded;
+    try {
+      decoded = jsonDecode(utf8.decode(bytes, allowMalformed: false));
+    } on Object {
+      throw const FormatException(
+        'The selected JSON file is not valid UTF-8 JSON.',
+      );
+    }
+
+    final nested = _nestedJsonWorkoutRows(decoded);
+    if (nested.isNotEmpty) return _inspectionFromStringRows(nested);
+
+    final records = _jsonRecordList(decoded);
+    if (records.isEmpty) {
+      throw const FormatException('The JSON file contains no workout records.');
+    }
+    final headers = <String>[];
+    final seen = <String>{};
+    for (final record in records) {
+      for (final key in record.keys) {
+        final text = '$key'.trim();
+        if (text.isNotEmpty && seen.add(text)) headers.add(text);
+      }
+    }
+    final rows = <Map<String, String>>[
+      for (final record in records)
+        {
+          for (final header in headers)
+            header: _jsonText(record[header] ?? _mapValue(record, [header])),
+        },
+    ];
+    return _inspectionFromStringRows(rows, headers: headers);
+  }
+
+  static CsvInspection inspectPortableZip(Uint8List bytes) =>
+      inspectArchive(bytes);
+
+  static CsvInspection inspectArchive(Uint8List bytes) {
+    Archive archive;
+    try {
+      archive = ZipDecoder().decodeBytes(bytes, verify: true);
+    } on Object {
+      throw const FormatException('The selected ZIP could not be opened.');
+    }
+    if (archive.length > 64) {
+      throw const FormatException('The ZIP contains too many files.');
+    }
+    var expandedBytes = 0;
+    final candidates = <ArchiveFile>[];
+    for (final file in archive) {
+      if (!file.isFile) continue;
+      final name = file.name.replaceAll('\\', '/');
+      if (name.startsWith('/') || name.split('/').contains('..')) {
+        throw const FormatException('The ZIP contains an unsafe file path.');
+      }
+      expandedBytes += file.size;
+      if (expandedBytes > 128 * 1024 * 1024) {
+        throw const FormatException('The expanded ZIP is larger than 128 MB.');
+      }
+      final lower = name.toLowerCase();
+      if (lower.endsWith('.csv') ||
+          lower.endsWith('.tsv') ||
+          lower.endsWith('.json') ||
+          lower.endsWith('.txt')) {
+        candidates.add(file);
+      }
+    }
+    candidates.sort((a, b) {
+      int priority(ArchiveFile file) {
+        final name = file.name.toLowerCase().split('/').last;
+        if (name == 'sets.csv') return 0;
+        if (name.contains('workout') && name.endsWith('.csv')) return 1;
+        if (name.endsWith('.csv')) return 2;
+        if (name.endsWith('.tsv')) return 3;
+        if (name.endsWith('.json')) return 4;
+        return 5;
+      }
+
+      return priority(a).compareTo(priority(b));
+    });
+
+    Object? lastError;
+    for (final file in candidates) {
+      try {
+        final content = file.content;
+        final data = content is Uint8List
+            ? content
+            : content is List<int>
+            ? Uint8List.fromList(content)
+            : null;
+        if (data == null || data.isEmpty) continue;
+        return file.name.toLowerCase().endsWith('.json')
+            ? inspectJson(data)
+            : inspect(data, fileName: file.name);
+      } on Object catch (error) {
+        lastError = error;
+      }
+    }
+    if (lastError != null) {
+      throw FormatException(
+        'No supported workout file in the ZIP could be read: $lastError',
+      );
+    }
+    throw const FormatException(
+      'The ZIP does not contain a CSV, TSV, JSON, or text workout export.',
+    );
+  }
+
+  static CsvInspection _inspectionFromDecoded(List<List<String>> decoded) {
     if (decoded.length < 2) {
-      throw const FormatException('The CSV does not contain workout rows.');
+      throw const FormatException('The file does not contain workout rows.');
     }
     final headers = decoded.first
         .map((value) => value.trim().replaceFirst('\ufeff', ''))
         .toList();
     if (headers.every((value) => value.isEmpty)) {
-      throw const FormatException('The CSV header row is empty.');
+      throw const FormatException('The header row is empty.');
     }
     final rows = <Map<String, String>>[];
     for (final values in decoded.skip(1)) {
@@ -619,37 +813,265 @@ abstract final class WorkoutCsvImporter {
       }
       if (row.values.any((value) => value.isNotEmpty)) rows.add(row);
     }
+    return _inspectionFromStringRows(rows, headers: headers);
+  }
+
+  static CsvInspection _inspectionFromStringRows(
+    List<Map<String, String>> rows, {
+    List<String>? headers,
+  }) {
     if (rows.isEmpty) {
-      throw const FormatException('The CSV does not contain workout rows.');
+      throw const FormatException('The file does not contain workout rows.');
     }
+    final resolvedHeaders =
+        headers ??
+        <String>[for (final key in rows.expand((row) => row.keys).toSet()) key];
     final normalized = {
-      for (final header in headers) _normalize(header): header,
+      for (final header in resolvedHeaders) _normalize(header): header,
     };
     final source = _detectSource(normalized.keys.toSet());
     return CsvInspection(
-      headers: headers,
+      headers: resolvedHeaders,
       rows: rows,
       source: source,
       suggestedMapping: _suggestMapping(normalized, source),
     );
   }
 
-  static CsvInspection inspectPortableZip(Uint8List bytes) {
-    Archive archive;
-    try {
-      archive = ZipDecoder().decodeBytes(bytes, verify: true);
-    } on Object {
-      throw const FormatException('The selected ZIP could not be opened.');
+  static List<Map<String, Object?>> _jsonRecordList(Object? value) {
+    if (value is List) {
+      return value.whereType<Map>().map(Map<String, Object?>.from).toList();
     }
-    for (final file in archive) {
-      if (!file.isFile || file.name.split('/').last != 'sets.csv') continue;
-      final content = file.content;
-      if (content is Uint8List) return inspect(content);
-      if (content is List<int>) return inspect(Uint8List.fromList(content));
+    if (value is Map) {
+      final map = Map<String, Object?>.from(value);
+      for (final key in const [
+        'workouts',
+        'sessions',
+        'history',
+        'records',
+        'data',
+      ]) {
+        final candidate = _mapValue(map, [key]);
+        if (candidate is List) {
+          final records = candidate
+              .whereType<Map>()
+              .map(Map<String, Object?>.from)
+              .toList();
+          if (records.isNotEmpty) return records;
+        }
+        if (candidate is Map) {
+          final nested = _jsonRecordList(candidate);
+          if (nested.isNotEmpty) return nested;
+        }
+      }
+      return [map];
     }
-    throw const FormatException(
-      'The ZIP does not contain a portable sets.csv file.',
-    );
+    return const [];
+  }
+
+  static List<Map<String, String>> _nestedJsonWorkoutRows(Object? decoded) {
+    final workouts = _jsonRecordList(decoded);
+    final output = <Map<String, String>>[];
+    for (var workoutIndex = 0; workoutIndex < workouts.length; workoutIndex++) {
+      final workout = workouts[workoutIndex];
+      final exercises = _listMapValue(workout, const [
+        'exercises',
+        'movements',
+        'exerciseRecords',
+        'exercise_records',
+      ]);
+      if (exercises == null) continue;
+      final date = _jsonText(
+        _mapValue(workout, const [
+          'date',
+          'workoutDate',
+          'workout_date',
+          'startTime',
+          'start_time',
+          'startedAt',
+          'started_at',
+          'timestamp',
+        ]),
+      );
+      final workoutName = _jsonText(
+        _mapValue(workout, const [
+          'workoutName',
+          'workout_name',
+          'name',
+          'title',
+          'routine',
+          'session',
+        ]),
+      ).trim();
+      final workoutNotes = _jsonText(
+        _mapValue(workout, const [
+          'notes',
+          'workoutNotes',
+          'workout_notes',
+          'description',
+        ]),
+      );
+      final workoutId = _jsonText(
+        _mapValue(workout, const ['id', 'workoutId', 'workout_id', 'uuid']),
+      ).trim();
+      final sourceId = workoutId.isEmpty
+          ? 'json-workout-${workoutIndex + 1}'
+          : workoutId;
+
+      for (final exerciseRecord in exercises) {
+        final exerciseName = _jsonText(
+          _mapValue(exerciseRecord, const [
+            'exerciseName',
+            'exercise_name',
+            'exercise',
+            'name',
+            'title',
+            'movement',
+          ]),
+        ).trim();
+        final sets =
+            _listMapValue(exerciseRecord, const [
+              'sets',
+              'setRecords',
+              'set_records',
+              'entries',
+              'logs',
+            ]) ??
+            [exerciseRecord];
+        for (var setIndex = 0; setIndex < sets.length; setIndex++) {
+          final set = sets[setIndex];
+          final kg = _mapValue(set, const ['weightKg', 'weight_kg', 'kg']);
+          final lb = _mapValue(set, const [
+            'weightLb',
+            'weight_lbs',
+            'lbs',
+            'lb',
+          ]);
+          final rawWeight =
+              kg ?? lb ?? _mapValue(set, const ['weight', 'load']);
+          final explicitUnit = _jsonText(
+            _mapValue(set, const ['weightUnit', 'weight_unit', 'unit']),
+          );
+          final unit = kg != null
+              ? 'kg'
+              : lb != null
+              ? 'lb'
+              : explicitUnit;
+          final isWarmup = _mapValue(set, const [
+            'isWarmup',
+            'is_warmup',
+            'warmup',
+          ]);
+          final type = isWarmup == true
+              ? 'warmup'
+              : _jsonText(
+                  _mapValue(set, const ['setType', 'set_type', 'type']),
+                );
+          output.add({
+            'Date': date,
+            'Workout Name': workoutName.isEmpty
+                ? 'Imported Workout'
+                : workoutName,
+            'Exercise': exerciseName,
+            'Set Order':
+                _jsonText(
+                  _mapValue(set, const [
+                    'setOrder',
+                    'set_order',
+                    'set',
+                    'index',
+                  ]),
+                ).trim().isEmpty
+                ? '${setIndex + 1}'
+                : _jsonText(
+                    _mapValue(set, const [
+                      'setOrder',
+                      'set_order',
+                      'set',
+                      'index',
+                    ]),
+                  ),
+            'Weight': _jsonText(rawWeight),
+            'Weight Unit': unit,
+            'Reps':
+                _jsonText(
+                  _mapValue(set, const [
+                    'reps',
+                    'repetitions',
+                    'repCount',
+                    'rep_count',
+                  ]),
+                ).trim().isEmpty
+                ? '0'
+                : _jsonText(
+                    _mapValue(set, const [
+                      'reps',
+                      'repetitions',
+                      'repCount',
+                      'rep_count',
+                    ]),
+                  ),
+            'Notes': _jsonText(
+              _mapValue(set, const ['notes', 'note', 'comment']),
+            ),
+            'Workout Notes': workoutNotes,
+            'Duration Seconds': _jsonText(
+              _mapValue(set, const [
+                'durationSeconds',
+                'duration_seconds',
+                'seconds',
+                'duration',
+                'time',
+              ]),
+            ),
+            'Distance': _jsonText(
+              _mapValue(set, const [
+                'distance',
+                'distanceMeters',
+                'distance_meters',
+              ]),
+            ),
+            'Distance Unit': _jsonText(
+              _mapValue(set, const ['distanceUnit', 'distance_unit']),
+            ),
+            'Set Type': type,
+            'RPE': _jsonText(_mapValue(set, const ['rpe'])),
+            'RIR': _jsonText(_mapValue(set, const ['rir', 'repsInReserve'])),
+            'Source ID': sourceId,
+          });
+        }
+      }
+    }
+    return output;
+  }
+
+  static List<Map<String, Object?>>? _listMapValue(
+    Map<String, Object?> map,
+    List<String> aliases,
+  ) {
+    final value = _mapValue(map, aliases);
+    if (value is! List) return null;
+    final output = value
+        .whereType<Map>()
+        .map(Map<String, Object?>.from)
+        .toList();
+    return output.isEmpty ? null : output;
+  }
+
+  static Object? _mapValue(Map map, List<String> aliases) {
+    final normalizedAliases = aliases.map(_normalize).toSet();
+    for (final entry in map.entries) {
+      if (normalizedAliases.contains(_normalize('${entry.key}'))) {
+        return entry.value;
+      }
+    }
+    return null;
+  }
+
+  static String _jsonText(Object? value) {
+    if (value == null) return '';
+    if (value is String || value is num || value is bool) return '$value';
+    return jsonEncode(value);
   }
 
   static bool needsWeightUnitChoice(
@@ -678,7 +1100,7 @@ abstract final class WorkoutCsvImporter {
   }) {
     if (!mapping.isComplete) {
       throw const FormatException(
-        'Date, exercise, and repetitions must be mapped.',
+        'Map a date, an exercise, and at least one result field: repetitions, duration, or distance.',
       );
     }
     final normalizedSourceUnit = defaultSourceWeightUnit == 'kg' ? 'kg' : 'lb';
@@ -755,7 +1177,10 @@ abstract final class WorkoutCsvImporter {
           setOrder: setOrder,
           sequence: rowIndex,
           notes: _value(row, mapping.notes),
-          setType: _canonicalSetType(_value(row, mapping.setType)),
+          setType: _canonicalSetType(
+            _value(row, mapping.setType),
+            header: mapping.setType,
+          ),
           rpe: _boundedDouble(_value(row, mapping.rpe), 0, 10),
           rir: _boundedDouble(_value(row, mapping.rir), 0, 20),
           durationSeconds: setDuration,
@@ -847,6 +1272,15 @@ abstract final class WorkoutCsvImporter {
         (headers.contains('weight (kg)') || headers.contains('weight (lbs)'))) {
       return WorkoutImportSource.fitNotes;
     }
+    if (headers.contains('iswarmup') ||
+        headers.contains('duration(s)') ||
+        headers.contains('distance(m)')) {
+      return WorkoutImportSource.fitbod;
+    }
+    if (headers.contains('session name') &&
+        (headers.contains('exercise name') || headers.contains('exercise'))) {
+      return WorkoutImportSource.jefit;
+    }
     if (headers.contains('workout name') &&
         headers.contains('exercise name') &&
         headers.contains('set order')) {
@@ -875,7 +1309,13 @@ abstract final class WorkoutCsvImporter {
     final date = find(_dateAliases);
     final exercise = find(_exerciseAliases);
     final reps = find(_repsAliases);
-    if (date == null || exercise == null || reps == null) return null;
+    final setDuration = find(_setDurationAliases);
+    final distance = find(_distanceAliases);
+    if (date == null ||
+        exercise == null ||
+        (reps == null && setDuration == null && distance == null)) {
+      return null;
+    }
 
     final weightKg = normalized[_normalize('Weight (kg)')];
     final weightLb = normalized[_normalize('Weight (lbs)')];
@@ -904,8 +1344,8 @@ abstract final class WorkoutCsvImporter {
       workoutDuration: source == WorkoutImportSource.strong
           ? find(_workoutDurationAliases)
           : null,
-      setDuration: find(_setDurationAliases),
-      distance: find(_distanceAliases),
+      setDuration: setDuration,
+      distance: distance,
       distanceUnit: find(_distanceUnitAliases),
       setType: find(_setTypeAliases),
       rpe: find(_rpeAliases),
@@ -1089,8 +1529,14 @@ abstract final class WorkoutCsvImporter {
     return '';
   }
 
-  static String _canonicalSetType(String raw) {
+  static String _canonicalSetType(String raw, {String? header}) {
     final value = _normalize(raw);
+    final normalizedHeader = _normalize(header ?? '');
+    if (normalizedHeader == 'iswarmup' || normalizedHeader == 'is warmup') {
+      return value == 'true' || value == '1' || value == 'yes'
+          ? 'warmup'
+          : 'normal';
+    }
     return switch (value) {
       'warmup' || 'warm up' => 'warmup',
       'drop set' || 'dropset' => 'drop_set',

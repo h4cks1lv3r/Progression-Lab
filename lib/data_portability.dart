@@ -68,26 +68,41 @@ class DataPortabilityController {
   );
 
   Future<DataImportCandidate?> pickImportFile() async {
-    final file = await DataPortabilityBridge.pickFile();
+    var file = await DataPortabilityBridge.pickFile();
     if (file == null) return null;
-    final lower = file.name.toLowerCase();
+    var lower = file.name.toLowerCase();
     if (lower.endsWith('.plab')) {
       return BackupImportCandidate(
         file,
         ProgressionBackupCodec.decode(file.bytes),
       );
     }
-    if (lower.endsWith('.csv')) {
-      return CsvImportCandidate(file, WorkoutCsvImporter.inspect(file.bytes));
+    if (lower.endsWith('.fitnotes')) {
+      file = await DataPortabilityBridge.convertFitNotes(file);
+      lower = file.name.toLowerCase();
+    }
+    if (lower.endsWith('.json')) {
+      return CsvImportCandidate(
+        file,
+        WorkoutCsvImporter.inspectJson(file.bytes),
+      );
+    }
+    if (lower.endsWith('.csv') ||
+        lower.endsWith('.tsv') ||
+        lower.endsWith('.txt')) {
+      return CsvImportCandidate(
+        file,
+        WorkoutCsvImporter.inspect(file.bytes, fileName: file.name),
+      );
     }
     if (lower.endsWith('.zip')) {
       return CsvImportCandidate(
         file,
-        WorkoutCsvImporter.inspectPortableZip(file.bytes),
+        WorkoutCsvImporter.inspectArchive(file.bytes),
       );
     }
     throw const FormatException(
-      'Choose a Progression Lab .plab backup, portable CSV ZIP, or UTF-8 CSV file.',
+      'Choose a .plab backup, a native FitNotes .fitnotes backup, or a CSV, TSV, JSON, TXT, or ZIP workout export.',
     );
   }
 
