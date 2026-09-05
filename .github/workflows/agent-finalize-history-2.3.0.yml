@@ -1,0 +1,182 @@
+name: Finalize Progression Lab 2.3.0
+
+on:
+  push:
+    branches:
+      - feature/import-plan-matching-free-workouts
+    paths:
+      - .github/workflows/agent-finalize-history-2.3.0.yml
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  finalize:
+    if: github.event.head_commit.message == 'Add Progression Lab 2.3.0 finalization pipeline'
+    name: Reverify clean source, build APK, and open PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+
+    steps:
+      - name: Check out feature source
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Reject incomplete feature state
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q '^version: 2.3.0+17$' pubspec.yaml
+          test -s lib/strength_plan_matcher.dart
+          test -s lib/workout_history_models.dart
+          test -s lib/free_workout.dart
+          test -s lib/lab_progress_charts.dart
+          test -s test/strength_plan_matcher_test.dart
+          test -s test/free_workout_history_test.dart
+          grep -q 'Free Workout' lib/main.dart
+          grep -q 'unifiedWorkoutTimeline' lib/store.dart
+          grep -q 'previewImportedPlanAlignment' lib/store.dart
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Verify formatting and source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          dart format --output=none --set-exit-if-changed lib test
+          git diff --check
+
+      - name: Analyze source
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter analyze --no-fatal-infos 2>&1 | tee /tmp/final-analyze-results.txt
+
+      - name: Run complete test suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -o pipefail
+          for test_file in test/*_test.dart; do
+            echo "=== Running ${test_file} ==="
+            timeout --signal=INT --kill-after=10s 240s \
+              flutter test "${test_file}" --reporter expanded
+          done 2>&1 | tee /tmp/final-test-results.txt
+
+      - name: Build and verify release APK
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter build apk --release \
+            --build-name 2.3.0 \
+            --build-number 17 2>&1 | tee /tmp/final-build-results.txt
+          unzip -tq build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Prepare verified distributable
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/final-dist
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            /tmp/final-dist/Progression-Lab-2.3.0.apk
+          (cd /tmp/final-dist && sha256sum Progression-Lab-2.3.0.apk \
+            > Progression-Lab-2.3.0.apk.sha256)
+
+      - name: Remove temporary staging and commit clean branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm -r .github/agent-history-patch-final
+          git rm .github/workflows/agent-build-history-2.3.0.yml
+          git rm .github/workflows/agent-finalize-history-2.3.0.yml
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Remove temporary Progression Lab 2.3.0 build staging"
+          git push origin HEAD:feature/import-plan-matching-free-workouts
+          git rev-parse HEAD > /tmp/final-dist/BUILD-COMMIT.txt
+          git diff --stat origin/main...HEAD \
+            > /tmp/final-dist/SOURCE-CHANGES.txt
+
+      - name: Open implementation pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/pr-body.md <<'EOF'
+          ## Summary
+
+          - evaluate imported strength sessions against authored Progression Lab prescriptions
+          - fill only defensible, unoccupied plan slots and preview every match before placement
+          - preserve unmatched imports as ordinary workout history instead of fabricating plan completion
+          - advance to the next authored slot only after confirmed alignment
+          - add a Free Workout entry on Home with arbitrary exercise and set logging
+          - add unified plan, imported, free, functional, and endurance history with repeat-workout support
+          - add unified Lab activity and exercise-progress charts
+          - expose unified workout context to deterministic Lab analysis
+          - attach meals and supplements directly to historical workout sessions
+          - make import alignment and its plan-position changes reversible through undo and backups
+
+          ## Safety model
+
+          Matching requires anchor movements plus near-complete exercise coverage, sufficient set and repetition coverage, chronological consistency, and an unused destination slot. Low-confidence sessions remain imported history and do not advance the plan.
+
+          ## Validation
+
+          The clean feature source passed Dart formatting, Flutter analysis, the complete Flutter test suite, APK compilation, and APK archive verification in GitHub Actions.
+          EOF
+          existing="$(gh pr list --repo "$GITHUB_REPOSITORY" \
+            --head feature/import-plan-matching-free-workouts \
+            --base main --state open --json number --jq '.[0].number // empty')"
+          if [[ -z "$existing" ]]; then
+            gh pr create --repo "$GITHUB_REPOSITORY" \
+              --base main \
+              --head feature/import-plan-matching-free-workouts \
+              --title 'Unify workout history and align imported Strength sessions' \
+              --body-file /tmp/pr-body.md
+          else
+            gh pr edit "$existing" --repo "$GITHUB_REPOSITORY" \
+              --title 'Unify workout history and align imported Strength sessions' \
+              --body-file /tmp/pr-body.md
+          fi
+
+      - name: Upload verified APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Progression-Lab-2.3.0-build-17-final
+          path: |
+            /tmp/final-dist/Progression-Lab-2.3.0.apk
+            /tmp/final-dist/Progression-Lab-2.3.0.apk.sha256
+            /tmp/final-dist/BUILD-COMMIT.txt
+            /tmp/final-dist/SOURCE-CHANGES.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload final validation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Progression-Lab-2.3.0-final-validation-${{ github.sha }}
+          path: |
+            /tmp/final-analyze-results.txt
+            /tmp/final-test-results.txt
+            /tmp/final-build-results.txt
+          if-no-files-found: warn
+          retention-days: 7
