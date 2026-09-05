@@ -1,0 +1,138 @@
+name: Build Progression Lab 2.3.0
+
+on:
+  push:
+    branches:
+      - feature/import-plan-matching-free-workouts
+    paths:
+      - .github/workflows/agent-build-history-2.3.0.yml
+      - .github/agent-history-patch-final/**
+
+permissions:
+  contents: write
+
+jobs:
+  verify-build-and-commit:
+    if: github.event.head_commit.message == 'Add verified Progression Lab 2.3.0 build pipeline'
+    name: Verify, build, and commit unified workout history
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+
+    steps:
+      - name: Check out exact branch state
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Reconstruct, verify, and apply source patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/agent-history-patch-final/part-* > /tmp/progression-history.patch.xz.b64
+          echo "7273da7805548b15b4b3a40b20146a467f90e4433de2dc3d31b12c6bdea9d04c  /tmp/progression-history.patch.xz.b64" | sha256sum --check
+          base64 --decode /tmp/progression-history.patch.xz.b64 \
+            | xz --decompress > /tmp/progression-history.patch
+          echo "1245555127d89863db18448f062fca54b0ace39fd945abaaf1ba10d34d321cb8  /tmp/progression-history.patch" | sha256sum --check
+          git apply --check /tmp/progression-history.patch
+          git apply /tmp/progression-history.patch
+          git diff --check
+
+      - name: Format changed Dart source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t dart_files < <(git diff --name-only --diff-filter=ACM | grep -E '\.dart$' || true)
+          if ((${#dart_files[@]})); then
+            dart format "${dart_files[@]}"
+          fi
+          git diff --check
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze source
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter analyze --no-fatal-infos 2>&1 | tee /tmp/analyze-results.txt
+
+      - name: Run complete test suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -o pipefail
+          for test_file in test/*_test.dart; do
+            echo "=== Running ${test_file} ==="
+            timeout --signal=INT --kill-after=10s 240s \
+              flutter test "${test_file}" --reporter expanded
+          done 2>&1 | tee /tmp/test-results.txt
+
+      - name: Build release APK
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter build apk --release \
+            --build-name 2.3.0 \
+            --build-number 17 2>&1 | tee /tmp/build-results.txt
+          unzip -tq build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Commit the exact verified source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Unify workout history and align imported plan sessions"
+          git push origin HEAD:feature/import-plan-matching-free-workouts
+
+      - name: Prepare verified distributable
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/dist
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            /tmp/dist/Progression-Lab-2.3.0.apk
+          (cd /tmp/dist && sha256sum Progression-Lab-2.3.0.apk \
+            > Progression-Lab-2.3.0.apk.sha256)
+          git rev-parse HEAD > /tmp/dist/BUILD-COMMIT.txt
+          git show --stat --oneline --summary HEAD \
+            > /tmp/dist/SOURCE-CHANGES.txt
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Progression-Lab-2.3.0-build-17
+          path: |
+            /tmp/dist/Progression-Lab-2.3.0.apk
+            /tmp/dist/Progression-Lab-2.3.0.apk.sha256
+            /tmp/dist/BUILD-COMMIT.txt
+            /tmp/dist/SOURCE-CHANGES.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload validation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Progression-Lab-2.3.0-validation-${{ github.sha }}
+          path: |
+            /tmp/analyze-results.txt
+            /tmp/test-results.txt
+            /tmp/build-results.txt
+          if-no-files-found: warn
+          retention-days: 7
