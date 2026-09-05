@@ -1,0 +1,216 @@
+name: Publish Progression Lab 2.3.0 Workout History
+
+on:
+  push:
+    branches:
+      - feature/import-plan-matching-free-workouts
+    paths:
+      - lib/**
+      - android/**
+      - test/**
+      - pubspec.yaml
+      - CHANGELOG.md
+      - README.md
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  publish:
+    name: Reverify committed source and publish APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out committed source
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Flutter stable
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Confirm clean source and version
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -d .github/agent-history-patch-final
+          test ! -f .github/workflows/agent-build-history-2.3.0.yml
+          grep -Eq '^version: 2\.3\.0\+17$' pubspec.yaml
+          git diff --check
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze source
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter analyze --no-fatal-infos 2>&1 | tee analyze-results.txt
+
+      - name: Run complete test suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -o pipefail
+          for test_file in test/*_test.dart; do
+            echo "=== Running ${test_file} ==="
+            timeout --signal=INT --kill-after=10s 240s \
+              flutter test "${test_file}" --reporter expanded
+          done 2>&1 | tee test-results.txt
+
+      - name: Build release APK
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter build apk --release \
+            --build-name 2.3.0 \
+            --build-number 17 2>&1 | tee build-results.txt
+
+      - name: Prepare and inspect APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            dist/Progression-Lab-2.3.0.apk
+          unzip -t dist/Progression-Lab-2.3.0.apk > apk-archive-test.txt
+          (cd dist && sha256sum Progression-Lab-2.3.0.apk \
+            > Progression-Lab-2.3.0.apk.sha256)
+          cp README.md dist/README-source.txt
+          git rev-parse HEAD > dist/BUILD-COMMIT.txt
+
+      - name: Prepare release notes
+        shell: bash
+        run: |
+          cat > release-notes.md <<'EOF'
+          ## Progression Lab 2.3.0+17
+
+          This release unifies imported training, the authored Strength plan, Free Workouts, history, Lab analysis, and historical nutrition context.
+
+          ### Imported plan matching
+
+          - Imported workouts are compared with authored Strength-plan slots using normalized exercises and prescription conditions.
+          - Only defensible matches are proposed as plan completions.
+          - Existing completed slots are protected.
+          - Users review and confirm matches before plan history or position changes.
+          - Confirmed matches can advance the active plan to the next appropriate incomplete slot.
+          - Existing imported history can be analyzed after upgrading.
+          - Undoing an import also removes plan links created by that import.
+
+          ### Free Workout and history
+
+          - Home includes a Free Workout action.
+          - Users can build unrestricted sessions from the complete exercise library.
+          - The unified history includes plan, imported, matched, Free Workout, Functional, and external endurance sessions.
+          - Prior sessions can be opened and repeated as a new Free Workout.
+
+          ### Lab and progress context
+
+          - The Lab receives a unified workout timeline and set data across supported session sources.
+          - Deterministic summaries and charts can use imported and Free Workout history instead of only authored-plan completions.
+          - Historical meals and supplements can be explicitly linked to a selected workout.
+          - Explicit links take precedence over timestamp-only associations.
+
+          ### Safety
+
+          Imported sessions remain preserved as source history. Progression Lab does not silently fabricate authored-plan completion. Plan-slot changes require a confirmed, reviewable match and remain covered by backup and rollback behavior.
+          EOF
+
+      - name: Publish exact APK to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag='v2.3.0'
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" \
+              dist/Progression-Lab-2.3.0.apk \
+              dist/Progression-Lab-2.3.0.apk.sha256 \
+              dist/BUILD-COMMIT.txt \
+              --clobber --repo "$GITHUB_REPOSITORY"
+            gh release edit "$tag" \
+              --target "$GITHUB_SHA" \
+              --title 'Progression Lab 2.3.0' \
+              --notes-file release-notes.md \
+              --latest --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$tag" \
+              dist/Progression-Lab-2.3.0.apk \
+              dist/Progression-Lab-2.3.0.apk.sha256 \
+              dist/BUILD-COMMIT.txt \
+              --target "$GITHUB_SHA" \
+              --title 'Progression Lab 2.3.0' \
+              --notes-file release-notes.md \
+              --latest --repo "$GITHUB_REPOSITORY"
+          fi
+
+      - name: Download and verify public APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p published
+          gh release download v2.3.0 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'Progression-Lab-2.3.0.apk' \
+            --dir published
+          expected="$(awk '{print $1}' dist/Progression-Lab-2.3.0.apk.sha256)"
+          actual="$(sha256sum published/Progression-Lab-2.3.0.apk | awk '{print $1}')"
+          test "$actual" = "$expected"
+          printf '%s\n' "$actual" > published-apk-sha256.txt
+
+      - name: Upload CI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Progression-Lab-2.3.0-published-build-17
+          path: |
+            dist/Progression-Lab-2.3.0.apk
+            dist/Progression-Lab-2.3.0.apk.sha256
+            dist/BUILD-COMMIT.txt
+            published-apk-sha256.txt
+            analyze-results.txt
+            test-results.txt
+            build-results.txt
+            apk-archive-test.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove one-use publisher and open pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/agent-publish-history-2.3.0.yml
+          git commit -m 'Remove one-use Progression Lab 2.3.0 publisher'
+          git push origin HEAD:feature/import-plan-matching-free-workouts
+          existing="$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --head feature/import-plan-matching-free-workouts \
+            --base main \
+            --state open \
+            --json number --jq '.[0].number // empty')"
+          if [[ -z "$existing" ]]; then
+            gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --head feature/import-plan-matching-free-workouts \
+              --base main \
+              --title 'Unify imported plan matching, Free Workouts, and Lab history' \
+              --body-file release-notes.md
+          fi
