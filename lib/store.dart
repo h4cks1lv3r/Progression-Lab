@@ -65,6 +65,16 @@ class SetLog {
   final String? sourceId;
   final String? importBatchId;
 
+  double get distanceInMeters =>
+      (distance ?? 0) *
+      switch (distanceUnit?.toLowerCase()) {
+        'km' => 1000,
+        'mi' || 'mile' || 'miles' => 1609.344,
+        'ft' => .3048,
+        'yd' => .9144,
+        _ => 1,
+      };
+
   double get e1rm => reps <= 0 ? weight : weight * (1 + reps / 30);
 
   ExerciseTrackingType get resolvedTrackingType {
@@ -1467,23 +1477,23 @@ class AppStore extends ChangeNotifier {
         existing.weight * (existing.durationSeconds ?? 0) >=
             candidate.weight * (candidate.durationSeconds ?? 0),
       ExerciseTrackingType.distanceDuration =>
-        (existing.distance ?? 0) > (candidate.distance ?? 0) ||
-            ((existing.distance ?? 0) == (candidate.distance ?? 0) &&
+        existing.distanceInMeters > candidate.distanceInMeters ||
+            (existing.distanceInMeters == candidate.distanceInMeters &&
                 (existing.durationSeconds ?? 1 << 30) <=
                     (candidate.durationSeconds ?? 1 << 30)),
       ExerciseTrackingType.weightDistance =>
-        existing.weight * (existing.distance ?? 0) >=
-            candidate.weight * (candidate.distance ?? 0),
+        existing.weight * existing.distanceInMeters >=
+            candidate.weight * candidate.distanceInMeters,
       ExerciseTrackingType.repsDuration =>
         existing.reps > candidate.reps ||
             (existing.reps == candidate.reps &&
                 (existing.durationSeconds ?? 0) >=
                     (candidate.durationSeconds ?? 0)),
       ExerciseTrackingType.repsDistance =>
-        existing.reps * (existing.distance ?? 0) >=
-            candidate.reps * (candidate.distance ?? 0),
+        existing.reps * existing.distanceInMeters >=
+            candidate.reps * candidate.distanceInMeters,
       ExerciseTrackingType.distanceOnly =>
-        (existing.distance ?? 0) >= (candidate.distance ?? 0),
+        existing.distanceInMeters >= candidate.distanceInMeters,
       ExerciseTrackingType.caloriesDuration =>
         (existing.calories ?? 0) >= (candidate.calories ?? 0),
     };

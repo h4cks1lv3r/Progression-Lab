@@ -323,6 +323,45 @@ void main() {
     },
   );
 
+  test('partial shares retain their status through privacy filtering', () {
+    final snapshot = ShareWorkoutSnapshot(
+      program: 'Strength',
+      workout: 'Upper',
+      completedAt: DateTime(2026),
+      duration: const Duration(minutes: 12),
+      sets: 3,
+      exercises: 1,
+      status: 'partial',
+    );
+    final safe = SharePrivacy.apply(
+      snapshot,
+      const WorkoutSharePrivacy(completionOnly: true),
+    );
+    expect(safe.status, 'partial');
+    expect(
+      WorkoutShareCaptionBuilder.build(safe, const WorkoutSharePreferences()),
+      contains('partial session'),
+    );
+  });
+
+  test('distance records compare metric and imperial history consistently', () {
+    final s = store();
+    SetLog run(double distance, String unit) => SetLog(
+      exercise: 'Custom run',
+      weight: 0,
+      reps: 0,
+      date: DateTime.now(),
+      workout: 'Cardio',
+      trackingType: 'distanceOnly',
+      distance: distance,
+      distanceUnit: unit,
+    );
+    s.logs.add(run(1, 'mi'));
+    expect(s.isPr(run(1.5, 'km')), isFalse);
+    expect(s.isPr(run(2, 'km')), isTrue);
+    s.dispose();
+  });
+
   test('plate pairs include the bar and never exceed the target', () {
     expect(platesPerSide(225, 45, 'lb'), [45, 45]);
     expect(

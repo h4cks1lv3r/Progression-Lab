@@ -258,7 +258,9 @@ abstract final class AdvancedWorkoutShareCardGenerator {
     var y = size.height * .105;
     _text(
       canvas,
-      'WORKOUT COMPLETE',
+      snapshot.status == 'partial'
+          ? 'PARTIAL SESSION SAVED'
+          : 'WORKOUT COMPLETE',
       Offset(left, y),
       34,
       color: const Color(0xff22d3ee),
@@ -323,7 +325,11 @@ abstract final class AdvancedWorkoutShareCardGenerator {
     );
     _textCentered(
       canvas,
-      snapshot.achievement.isNotEmpty ? 'NEW BEST' : 'LOCKED IN',
+      snapshot.status == 'partial'
+          ? 'PARTIAL SESSION'
+          : snapshot.achievement.isNotEmpty
+          ? 'NEW BEST'
+          : 'LOCKED IN',
       Offset(size.width / 2, size.height * .135),
       40,
       color: const Color(0xff22d3ee),
@@ -425,7 +431,9 @@ abstract final class AdvancedWorkoutShareCardGenerator {
           Offset(left, y),
           size.width * .85,
           'RESULT',
-          'All prescribed work complete',
+          snapshot.status == 'partial'
+              ? 'Partial session saved'
+              : 'All prescribed work complete',
         );
       }
     } else {

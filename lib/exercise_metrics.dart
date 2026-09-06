@@ -69,15 +69,7 @@ extension ExerciseMetricInfo on ExerciseMetric {
   };
 }
 
-double distanceMeters(SetLog log) =>
-    (log.distance ?? 0) *
-    switch (log.distanceUnit?.toLowerCase()) {
-      'km' => 1000,
-      'mi' || 'mile' || 'miles' => 1609.344,
-      'ft' => .3048,
-      'yd' => .9144,
-      _ => 1,
-    };
+double distanceMeters(SetLog log) => log.distanceInMeters;
 
 List<ExerciseMetric> metricsFor(ExerciseTrackingType type) => switch (type) {
   ExerciseTrackingType.weightReps => [
