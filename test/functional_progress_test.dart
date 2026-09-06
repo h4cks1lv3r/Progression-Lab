@@ -80,6 +80,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('functional-completions-value')),
+        250,
+        scrollable: find
+            .descendant(
+              of: find.byType(AthleticProgressDashboard),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       expect(
         tester
             .widget<Text>(
@@ -131,7 +141,7 @@ void main() {
       expect(find.text('Strength signal'), findsOneWidget);
       expect(find.text('No exercises logged'), findsOneWidget);
 
-      await tester.tap(find.text('FUNCTIONAL'));
+      await tester.tap(find.text('Athletic'));
       await tester.pumpAndSettle();
 
       expect(find.text('FUNCTIONAL PROGRESS'), findsOneWidget);

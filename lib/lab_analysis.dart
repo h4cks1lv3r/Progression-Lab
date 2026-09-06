@@ -1,3 +1,4 @@
+import 'exercise_metrics.dart';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -138,7 +139,10 @@ class LabAnalysisEngine {
             .where((log) => !log.date.isBefore(start))
             .length,
         'athleticSessions': store.athleticHistory
-            .where((record) => !record.completedAt.isBefore(start))
+            .where(
+              (record) =>
+                  record.isComplete && !record.completedAt.isBefore(start),
+            )
             .length,
         'supplementEvents': store.supplementEvents
             .where((event) => !event.takenAt.isBefore(start))
@@ -162,6 +166,7 @@ class LabAnalysisEngine {
     final recent = <String, double>{};
     final previous = <String, double>{};
     for (final log in store.logs) {
+      if (!supportsStrengthEstimate(log)) continue;
       if (log.date.isAfter(end)) continue;
       final target = !log.date.isBefore(recentStart)
           ? recent
@@ -519,7 +524,7 @@ class LabAnalysisEngine {
   LabEvidence _athleticConsistency(AppStore store, DateTime end) {
     final start = end.subtract(const Duration(days: 28));
     final records = store.athleticHistory
-        .where((item) => !item.completedAt.isBefore(start))
+        .where((item) => item.isComplete && !item.completedAt.isBefore(start))
         .toList();
     if (records.isEmpty) {
       return const LabEvidence(
@@ -562,7 +567,11 @@ class LabAnalysisEngine {
         continue;
       }
       final sessionLogs = store.logs
-          .where((log) => log.sessionId == record.sessionId)
+          .where(
+            (log) =>
+                log.sessionId == record.sessionId &&
+                supportsStrengthEstimate(log),
+          )
           .toList();
       if (sessionLogs.isEmpty) continue;
       sessionLogs.sort((a, b) => a.date.compareTo(b.date));

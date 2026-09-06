@@ -4,6 +4,8 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val previewBuild = providers.gradleProperty("previewBuild").orNull == "true"
+
 android {
     namespace = "com.h4cks1lv3.iron_cadence"
     compileSdk = flutter.compileSdkVersion
@@ -16,13 +18,14 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.h4cks1lv3.iron_cadence"
+        applicationId = if (previewBuild) "com.h4cks1lv3.iron_cadence.preview" else "com.h4cks1lv3.iron_cadence"
+        manifestPlaceholders["appLabel"] = if (previewBuild) "Progression Lab Preview" else "Progression Lab"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 31
         targetSdk = flutter.targetSdkVersion
-        versionCode = 16
-        versionName = "2.2.0"
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
     }
 
     buildTypes {

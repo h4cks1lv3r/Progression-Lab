@@ -112,6 +112,9 @@ class ShareWorkoutSnapshot {
     this.phaseLabel = '',
     this.achievement = '',
     this.highlights = const <ShareHighlight>[],
+    this.drills,
+    this.effort,
+    this.status = 'completed',
   });
 
   final String program;
@@ -127,6 +130,9 @@ class ShareWorkoutSnapshot {
   final String phaseLabel;
   final String achievement;
   final List<ShareHighlight> highlights;
+  final int? drills;
+  final int? effort;
+  final String status;
 }
 
 abstract final class WorkoutShareCaptionBuilder {
@@ -136,9 +142,15 @@ abstract final class WorkoutShareCaptionBuilder {
   ) {
     final privacy = preferences.privacy;
     final parts = <String>[
-      '${snapshot.workout} complete.',
+      '${snapshot.workout} ${snapshot.status == 'partial'
+          ? 'saved (partial session)'
+          : snapshot.status == 'skipped'
+          ? 'skipped'
+          : 'complete'}.',
       if (!privacy.completionOnly && snapshot.sets > 0)
         '${snapshot.sets} working sets across ${snapshot.exercises} exercises.',
+      if (!privacy.completionOnly && snapshot.drills != null)
+        '${snapshot.drills} drills completed.',
       if (!privacy.completionOnly && privacy.showDuration)
         '${snapshot.duration.inMinutes} minutes of work.',
       if (!privacy.completionOnly && snapshot.achievement.isNotEmpty)
@@ -157,6 +169,7 @@ abstract final class AdvancedWorkoutShareCardGenerator {
     ShareWorkoutSnapshot snapshot,
     WorkoutSharePreferences preferences,
   ) async {
+    snapshot = SharePrivacy.apply(snapshot, preferences.privacy);
     final size = switch (preferences.aspect) {
       WorkoutShareAspect.story => const Size(1080, 1920),
       WorkoutShareAspect.portraitFeed => const Size(1080, 1350),
@@ -245,7 +258,9 @@ abstract final class AdvancedWorkoutShareCardGenerator {
     var y = size.height * .105;
     _text(
       canvas,
-      'WORKOUT COMPLETE',
+      snapshot.status == 'partial'
+          ? 'PARTIAL SESSION SAVED'
+          : 'WORKOUT COMPLETE',
       Offset(left, y),
       34,
       color: const Color(0xff22d3ee),
@@ -310,7 +325,11 @@ abstract final class AdvancedWorkoutShareCardGenerator {
     );
     _textCentered(
       canvas,
-      snapshot.achievement.isNotEmpty ? 'NEW BEST' : 'LOCKED IN',
+      snapshot.status == 'partial'
+          ? 'PARTIAL SESSION'
+          : snapshot.achievement.isNotEmpty
+          ? 'NEW BEST'
+          : 'LOCKED IN',
       Offset(size.width / 2, size.height * .135),
       40,
       color: const Color(0xff22d3ee),
@@ -412,7 +431,9 @@ abstract final class AdvancedWorkoutShareCardGenerator {
           Offset(left, y),
           size.width * .85,
           'RESULT',
-          'All prescribed work complete',
+          snapshot.status == 'partial'
+              ? 'Partial session saved'
+              : 'All prescribed work complete',
         );
       }
     } else {
@@ -421,7 +442,9 @@ abstract final class AdvancedWorkoutShareCardGenerator {
         Offset(left, y),
         size.width * .85,
         'RESULT',
-        'Workout complete',
+        snapshot.status == 'partial'
+            ? 'Partial session saved'
+            : 'Workout complete',
       );
     }
   }
@@ -434,8 +457,14 @@ abstract final class AdvancedWorkoutShareCardGenerator {
     return <ShareHighlight>[
       if (privacy.showDuration)
         ShareHighlight('DURATION', '${snapshot.duration.inMinutes} MIN'),
-      ShareHighlight('WORKING SETS', '${snapshot.sets}'),
-      ShareHighlight('EXERCISES', '${snapshot.exercises}'),
+      if (snapshot.drills != null)
+        ShareHighlight('DRILLS', '${snapshot.drills}')
+      else
+        ShareHighlight('WORKING SETS', '${snapshot.sets}'),
+      if (snapshot.effort != null)
+        ShareHighlight('EFFORT', '${snapshot.effort}/10')
+      else
+        ShareHighlight('EXERCISES', '${snapshot.exercises}'),
       if (privacy.showVolume && snapshot.volume != null)
         ShareHighlight(
           'VOLUME',
@@ -725,4 +754,37 @@ extension _FirstOrNull<T> on Iterable<T> {
     final iterator = this.iterator;
     return iterator.moveNext() ? iterator.current : null;
   }
+}
+
+/// Privacy is applied to the complete data model before any template paints it.
+abstract final class SharePrivacy {
+  static ShareWorkoutSnapshot apply(
+    ShareWorkoutSnapshot s,
+    WorkoutSharePrivacy p,
+  ) => ShareWorkoutSnapshot(
+    program: s.program,
+    status: s.status,
+    workout: s.workout,
+    completedAt: s.completedAt,
+    duration: p.showDuration && !p.completionOnly ? s.duration : Duration.zero,
+    sets: p.completionOnly ? 0 : s.sets,
+    exercises: p.completionOnly ? 0 : s.exercises,
+    drills: p.completionOnly ? null : s.drills,
+    effort: p.completionOnly ? null : s.effort,
+    volume: p.showVolume && p.showExactWeights && !p.completionOnly
+        ? s.volume
+        : null,
+    volumeUnit: s.volumeUnit,
+    bodyweight: p.showBodyweight && p.showExactWeights && !p.completionOnly
+        ? s.bodyweight
+        : null,
+    bodyweightUnit: s.bodyweightUnit,
+    phaseLabel: s.phaseLabel,
+    achievement: p.completionOnly ? '' : s.achievement,
+    highlights: p.completionOnly
+        ? const []
+        : s.highlights
+              .where((h) => p.showExactWeights || !h.sensitiveWeight)
+              .toList(),
+  );
 }

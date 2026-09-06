@@ -1,3 +1,4 @@
+import 'store.dart';
 import 'dart:math' as math;
 
 enum LabExperimentTemplate {
@@ -470,10 +471,12 @@ abstract final class LabExperimentAnalyzer {
     final end = (ending ?? DateTime.now()).toUtc();
     final start = end.subtract(const Duration(days: 7));
     final workoutHistory = _maps(state['workoutHistory']).where((item) {
+      if (item['status'] != 'completed') return false;
       final date = _date(item['loggedAt'] ?? item['date']);
       return date != null && !date.isBefore(start) && !date.isAfter(end);
     }).toList();
     final athleticHistory = _maps(state['athleticHistory']).where((item) {
+      if (item['status'] != null && item['status'] != 'completed') return false;
       final date = _date(item['completedAt'] ?? item['date']);
       return date != null && !date.isBefore(start) && !date.isAfter(end);
     }).toList();
@@ -530,13 +533,32 @@ abstract final class LabExperimentAnalyzer {
     if (supplements.isEmpty) {
       dataGaps.add('No supplement inputs were logged.');
     }
+    final policy = AppStore();
+    var records = 0;
+    final allLogs = <SetLog>[];
+    for (final raw in _maps(state['logs'])) {
+      try {
+        allLogs.add(SetLog.fromJson(raw));
+      } on Object {
+        /* Ignore malformed imports. */
+      }
+    }
+    allLogs.sort((a, b) => a.date.compareTo(b.date));
+    for (final log in allLogs) {
+      if (!log.date.isBefore(start) &&
+          !log.date.isAfter(end) &&
+          policy.isPr(log))
+        records++;
+      policy.logs.add(log);
+    }
+    policy.dispose();
     return WeeklyLabReview(
       start: start,
       end: end,
       completedStrengthWorkouts: workoutHistory.length,
       completedAthleticSessions: athleticHistory.length,
       workingSets: logs.length,
-      personalRecords: 0,
+      personalRecords: records,
       creatineAdherenceDays: creatineDays,
       averageSleepHours: averageSleep,
       averageSessionEnergy: averageEnergy,
@@ -601,9 +623,17 @@ abstract final class LabExperimentAnalyzer {
     return switch (metric) {
       LabExperimentMetric.estimatedStrength => _maxDouble(
         sessionLogs.map((item) {
+          if (item['trackingType'] != null &&
+              item['trackingType'] != 'weightReps')
+            return null;
           final weight = (item['w'] ?? item['weight']) as num?;
           final reps = (item['r'] ?? item['reps']) as num?;
-          if (weight == null || reps == null || weight <= 0 || reps <= 0) {
+          if (weight == null ||
+              reps == null ||
+              !weight.isFinite ||
+              !reps.isFinite ||
+              weight <= 0 ||
+              reps <= 0) {
             return null;
           }
           return weight.toDouble() * (1 + reps.toDouble() / 30);
@@ -613,6 +643,12 @@ abstract final class LabExperimentAnalyzer {
         total,
         item,
       ) {
+        if (item['trackingType'] != null &&
+            ![
+              'weightReps',
+              'weightedBodyweight',
+            ].contains(item['trackingType']))
+          return total;
         final weight = ((item['w'] ?? item['weight']) as num?)?.toDouble() ?? 0;
         final reps = ((item['r'] ?? item['reps']) as num?)?.toDouble() ?? 0;
         return total + weight * reps;

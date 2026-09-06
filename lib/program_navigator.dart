@@ -4,6 +4,7 @@ import 'brand.dart';
 import 'logged_sets.dart';
 import 'program.dart';
 import 'store.dart';
+import 'contextual_guides.dart';
 
 typedef OpenProgramWorkout =
     void Function(ProgramWeek week, int workoutIndex, bool retroactive);
@@ -825,8 +826,12 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const LabMark(size: 52),
-                              const SizedBox(width: 13),
+                              if (MediaQuery.textScalerOf(context).scale(14) <=
+                                  21)
+                                const LabMark(size: 52),
+                              if (MediaQuery.textScalerOf(context).scale(14) <=
+                                  21)
+                                const SizedBox(width: 13),
                               const Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -847,13 +852,21 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
                                   ],
                                 ),
                               ),
-                              _CurrentBadge(
-                                phase: current.phase,
-                                microcycle: current.microcycle,
-                              ),
+                              if (MediaQuery.textScalerOf(context).scale(14) <=
+                                  21)
+                                _CurrentBadge(
+                                  phase: current.phase,
+                                  microcycle: current.microcycle,
+                                ),
                             ],
                           ),
                           const SizedBox(height: 22),
+                          FeatureTip(
+                            store: widget.store,
+                            id: ContextualGuideId.strengthWeekNavigator,
+                            message:
+                                'Choose a phase or week to inspect it. Changing cadence shows the exact next workout before you confirm.',
+                          ),
                           _CadencePanel(
                             days: widget.store.days,
                             onSelected: (days) => showCadenceSwitchSheet(
@@ -1375,8 +1388,12 @@ class _PhaseSelector extends StatelessWidget {
                 onTap: () => onSelected(phase),
                 borderRadius: BorderRadius.circular(18),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 230),
-                  height: constraints.maxWidth < 420 ? 70 : 76,
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 230),
+                  constraints: BoxConstraints(
+                    minHeight: MediaQuery.textScalerOf(context).scale(38) + 36,
+                  ),
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(
                     color: selected == phase ? _surfaceRaised : _surface,
@@ -1878,6 +1895,8 @@ class _WorkoutDetailCard extends StatelessWidget {
         ? 'RETRO FILLED'
         : record.status == WorkoutStatus.skipped
         ? 'SKIPPED'
+        : record.status == WorkoutStatus.partial
+        ? 'PARTIAL'
         : 'COMPLETED';
     return Container(
       key: ValueKey('workout-${week.number}-$workoutIndex'),

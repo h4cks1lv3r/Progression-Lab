@@ -98,7 +98,7 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "saveImage" -> result.success(saveImage(bytes, fileName))
                 "shareImage" -> {
-                    shareBytes(bytes, fileName, "image/png", "Share workout")
+                    shareBytes(bytes, fileName, "image/png", "Share workout", call.argument<String>("caption"))
                     result.success(null)
                 }
                 else -> result.notImplemented()
@@ -498,6 +498,7 @@ class MainActivity : FlutterActivity() {
         fileName: String,
         mimeType: String,
         chooserTitle: String,
+        caption: String? = null,
     ) {
         val directory = File(cacheDir, "shared_files").apply { mkdirs() }
         val file = File(directory, fileName)
@@ -506,6 +507,7 @@ class MainActivity : FlutterActivity() {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = mimeType
             putExtra(Intent.EXTRA_STREAM, uri)
+            if (!caption.isNullOrBlank()) putExtra(Intent.EXTRA_TEXT, caption)
             clipData = ClipData.newUri(contentResolver, "Progression Lab data", uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }

@@ -269,8 +269,15 @@ class IntegrationFileBridge {
   }
 }
 
+enum IntegrationSection { connections, backup, sharing, lab, help }
+
 class IntegrationsHubScreen extends StatefulWidget {
-  const IntegrationsHubScreen({super.key, required this.store});
+  const IntegrationsHubScreen({
+    super.key,
+    required this.store,
+    this.section = IntegrationSection.connections,
+  });
+  final IntegrationSection section;
 
   final AppStore store;
 
@@ -287,13 +294,27 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
   late final ContextualGuideState _guides;
   late final IntegrationPreferencesStore _preferences;
   final _fileBridge = const IntegrationFileBridge();
+  List<int> get _sections => switch (widget.section) {
+    IntegrationSection.connections => [0, 1, 2],
+    IntegrationSection.backup => [3],
+    IntegrationSection.sharing => [4],
+    IntegrationSection.lab => [5],
+    IntegrationSection.help => [6],
+  };
+  String get _title => switch (widget.section) {
+    IntegrationSection.connections => 'Connections',
+    IntegrationSection.backup => 'Cloud backup',
+    IntegrationSection.sharing => 'Sharing defaults',
+    IntegrationSection.lab => 'Experiments & weekly review',
+    IntegrationSection.help => 'Feature tips',
+  };
   String? _message;
   bool _fileBusy = false;
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 6, vsync: this);
+    _tabs = TabController(length: _sections.length, vsync: this);
     _health = HealthSyncService()..addListener(_refresh);
     _cloud = CloudBackupSyncService.shared(widget.store)..addListener(_refresh);
     _providers = ProviderIntegrationService()..addListener(_refresh);
@@ -333,20 +354,28 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: const Color(0xff06070c),
     appBar: AppBar(
-      title: const Text('CONNECTIONS & EXPERIMENTS'),
-      bottom: TabBar(
-        controller: _tabs,
-        isScrollable: true,
-        tabAlignment: TabAlignment.start,
-        tabs: const <Tab>[
-          Tab(text: 'HEALTH'),
-          Tab(text: 'PROVIDERS'),
-          Tab(text: 'IMPORT'),
-          Tab(text: 'CLOUD'),
-          Tab(text: 'SHARING'),
-          Tab(text: 'LAB & GUIDES'),
-        ],
-      ),
+      title: Text(_title),
+      bottom: _sections.length < 2
+          ? null
+          : TabBar(
+              controller: _tabs,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              tabs: [
+                for (final section in _sections)
+                  Tab(
+                    text: [
+                      'Health',
+                      'Wearables',
+                      'Activity import',
+                      'Cloud',
+                      'Sharing',
+                      'Lab',
+                      'Tips',
+                    ][section],
+                  ),
+              ],
+            ),
     ),
     body: LabSafeScreen(
       child: Column(
@@ -359,13 +388,17 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
           Expanded(
             child: TabBarView(
               controller: _tabs,
-              children: <Widget>[
-                _healthTab(),
-                _providerTab(),
-                _importTab(),
-                _cloudTab(),
-                _sharingTab(),
-                _labAndGuidesTab(),
+              children: [
+                for (final section in _sections)
+                  switch (section) {
+                    0 => _healthTab(),
+                    1 => _providerTab(),
+                    2 => _importTab(),
+                    3 => _cloudTab(),
+                    4 => _sharingTab(),
+                    5 => _labAndGuidesTab(),
+                    _ => _guidesTab(),
+                  },
               ],
             ),
           ),
@@ -434,7 +467,13 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
                       '${workouts.length} health workouts reviewed. Duplicate IDs were skipped.';
                 }),
           icon: const Icon(Icons.sync_rounded),
-          label: const Text('IMPORT RECENT WORKOUT SUMMARIES'),
+          label: const Text('Import recent workout summaries'),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: _health.busy || !status.available ? null : _exportWorkout,
+          icon: const Icon(Icons.upload_rounded),
+          label: const Text('Export a saved workout'),
         ),
         const SizedBox(height: 12),
         OutlinedButton.icon(
@@ -910,15 +949,10 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
         label: const Text('START AN EXPERIMENT'),
       ),
       const SizedBox(height: 12),
-      SwitchListTile.adaptive(
-        contentPadding: EdgeInsets.zero,
-        title: const Text('WEEKLY LAB REVIEW'),
-        subtitle: const Text(
-          'Prepare a user-triggered seven-day evidence summary. No background AI inference.',
-        ),
-        value: _preferences.weeklyReviewEnabled,
-        onChanged: (value) =>
-            _run(() => _preferences.setWeeklyReviewEnabled(value)),
+      OutlinedButton.icon(
+        onPressed: _showWeeklyReview,
+        icon: const Icon(Icons.date_range_outlined),
+        label: const Text('View last 7 days'),
       ),
       const SizedBox(height: 12),
       for (final experiment in _preferences.experiments) ...<Widget>[
@@ -931,9 +965,11 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
           text:
               'Start with caffeine timing, creatine consistency, meal timing, or a sleep target. Results remain labeled as associations.',
         ),
-      const SizedBox(height: 22),
-      const Divider(),
-      const SizedBox(height: 12),
+    ],
+  );
+
+  Widget _guidesTab() => _ScrollSection(
+    children: [
       const Text(
         'CONTEXTUAL GUIDES',
         style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5),
@@ -960,6 +996,138 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
       ),
     ],
   );
+
+  void _showWeeklyReview() {
+    final review = LabExperimentAnalyzer.weeklyReview(
+      widget.store.exportState(),
+    );
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) => SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Your last 7 days',
+                style: Theme.of(ctx).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '${review.completedStrengthWorkouts} Strength workouts · ${review.completedAthleticSessions} Athletic sessions',
+              ),
+              Text(
+                '${review.workingSets} working sets · ${review.personalRecords} records',
+              ),
+              if (review.averageSleepHours != null)
+                Text(
+                  '${review.averageSleepHours!.toStringAsFixed(1)} h average logged sleep',
+                ),
+              const SizedBox(height: 20),
+              for (final signal in review.signals)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Text(signal),
+                ),
+              if (review.dataGaps.isNotEmpty) ...[
+                Text(
+                  'What would improve this review',
+                  style: Theme.of(ctx).textTheme.titleMedium,
+                ),
+                for (final gap in review.dataGaps)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(gap),
+                  ),
+              ],
+              const SizedBox(height: 20),
+              const Text(
+                'Based on your saved records. Associations do not establish cause and effect.',
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Done'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _exportWorkout() async {
+    final requests = <HealthWorkoutWriteRequest>[
+      for (final r in widget.store.workoutHistory)
+        if (r.status != WorkoutStatus.skipped &&
+            !r.retroactive &&
+            r.sessionId != null &&
+            r.startedAt != null &&
+            r.elapsedSeconds > 0)
+          HealthWorkoutWriteRequest(
+            externalId: 'strength-${r.sessionId}',
+            title:
+                '${r.workout}${r.status == WorkoutStatus.partial ? ' (partial)' : ''}',
+            sport: 'strength',
+            startedAt: r.startedAt!,
+            endedAt: r.startedAt!.add(Duration(seconds: r.elapsedSeconds)),
+          ),
+      for (final r in widget.store.athleticHistory)
+        if (r.status != 'skipped' &&
+            r.sessionId != null &&
+            r.startedAt != null &&
+            r.durationSeconds > 0)
+          HealthWorkoutWriteRequest(
+            externalId: 'athletic-${r.sessionId}',
+            title: 'Athletic week ${r.week}${r.isComplete ? '' : ' (partial)'}',
+            sport: 'functionalStrength',
+            startedAt: r.startedAt!,
+            endedAt: r.startedAt!.add(Duration(seconds: r.durationSeconds)),
+            rateOfPerceivedExertion: r.effort.toDouble(),
+          ),
+    ]..sort((a, b) => b.startedAt.compareTo(a.startedAt));
+    if (requests.isEmpty) {
+      setState(
+        () => _message =
+            'Finish a timed session in this version to export it. Older records do not contain reliable start and end times.',
+      );
+      return;
+    }
+    final choice = await showModalBottomSheet<HealthWorkoutWriteRequest>(
+      context: context,
+      useSafeArea: true,
+      builder: (ctx) => ListView(
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(20),
+            child: Text(
+              'Choose a workout to export. Only its summary is shared.',
+            ),
+          ),
+          for (final r in requests.take(30))
+            ListTile(
+              title: Text(r.title),
+              subtitle: Text(
+                '${MaterialLocalizations.of(ctx).formatMediumDate(r.startedAt.toLocal())} · ${r.endedAt.difference(r.startedAt).inMinutes} min',
+              ),
+              trailing: const Icon(Icons.upload_outlined),
+              onTap: () => Navigator.pop(ctx, r),
+            ),
+        ],
+      ),
+    );
+    if (choice == null || !mounted) return;
+    await _run(() async {
+      final success = await _health.writeWorkout(choice);
+      _message = success
+          ? 'Workout summary exported. Re-exporting uses the same record ID.'
+          : 'Export was not saved. Review health permissions and retry.';
+    });
+  }
 
   Widget _experimentCard(LabExperiment experiment) {
     final result = LabExperimentAnalyzer.analyze(

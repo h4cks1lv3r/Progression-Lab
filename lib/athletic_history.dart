@@ -1,3 +1,44 @@
+class AthleticSessionDraft {
+  const AthleticSessionDraft({
+    required this.sessionId,
+    required this.programRun,
+    required this.week,
+    required this.sessionIndex,
+    required this.startedAt,
+    this.completedDrills = const [],
+    this.notes = '',
+  });
+  final String sessionId;
+  final int programRun;
+  final int week;
+  final int sessionIndex;
+  final DateTime startedAt;
+  final List<int> completedDrills;
+  final String notes;
+  Map<String, dynamic> toJson() => {
+    'sessionId': sessionId,
+    'programRun': programRun,
+    'week': week,
+    'sessionIndex': sessionIndex,
+    'startedAt': startedAt.toIso8601String(),
+    'completedDrills': completedDrills,
+    'notes': notes,
+  };
+  factory AthleticSessionDraft.fromJson(Map<String, dynamic> j) =>
+      AthleticSessionDraft(
+        sessionId: j['sessionId'] as String,
+        programRun: j['programRun'] as int,
+        week: j['week'] as int,
+        sessionIndex: j['sessionIndex'] as int,
+        startedAt: DateTime.parse(j['startedAt'] as String),
+        completedDrills: (j['completedDrills'] as List? ?? [])
+            .whereType<int>()
+            .toSet()
+            .toList(),
+        notes: j['notes'] as String? ?? '',
+      );
+}
+
 class AthleticSessionRecord {
   const AthleticSessionRecord({
     required this.programRun,
@@ -7,6 +48,10 @@ class AthleticSessionRecord {
     required this.effort,
     this.notes = '',
     this.sessionId,
+    this.completedDrills,
+    this.status = 'completed',
+    this.startedAt,
+    this.durationSeconds = 0,
   });
 
   final int programRun;
@@ -16,6 +61,11 @@ class AthleticSessionRecord {
   final int effort;
   final String notes;
   final String? sessionId;
+  final List<int>? completedDrills;
+  final String status;
+  final DateTime? startedAt;
+  final int durationSeconds;
+  bool get isComplete => status == 'completed';
 
   Map<String, dynamic> toJson() => {
     'programRun': programRun,
@@ -25,6 +75,10 @@ class AthleticSessionRecord {
     'effort': effort,
     'notes': notes,
     if (sessionId != null) 'sessionId': sessionId,
+    'completedDrills': completedDrills,
+    'status': status,
+    'durationSeconds': durationSeconds,
+    if (startedAt != null) 'startedAt': startedAt!.toIso8601String(),
   };
 
   factory AthleticSessionRecord.fromJson(Map<String, dynamic> json) =>
@@ -34,6 +88,12 @@ class AthleticSessionRecord {
         sessionIndex: _int(json['sessionIndex'], fallback: 0),
         completedAt: DateTime.parse(json['completedAt'] as String),
         effort: _int(json['effort'], fallback: 5),
+        completedDrills: json['completedDrills'] is List
+            ? (json['completedDrills'] as List).whereType<int>().toList()
+            : null,
+        status: json['status'] as String? ?? 'completed',
+        startedAt: DateTime.tryParse('${json['startedAt']}'),
+        durationSeconds: _int(json['durationSeconds'], fallback: 0),
         notes: json['notes'] is String ? json['notes'] as String : '',
         sessionId: json['sessionId'] is String
             ? json['sessionId'] as String

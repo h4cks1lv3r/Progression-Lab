@@ -12,14 +12,17 @@ import 'data_management_screen.dart';
 import 'exercise_library.dart';
 import 'exercise_library_screen.dart';
 import 'first_launch_data_flow.dart';
-import 'lab_screen.dart';
 import 'logged_sets.dart';
 import 'program.dart';
 import 'program_navigator.dart';
 import 'progress_hub.dart';
 import 'share_card.dart';
+import 'share_options.dart';
+import 'exercise_metrics.dart';
+import 'plate_calculator.dart';
 import 'safe_layout.dart';
 import 'store.dart';
+import 'contextual_guides.dart';
 import 'warmup.dart';
 
 import 'integrations_hub.dart';
@@ -48,8 +51,12 @@ class _ProgressionLabAppState extends State<ProgressionLabApp> {
   void initState() {
     super.initState();
     _automaticCloudSync = CloudBackupSyncService.shared(store);
-    unawaited(_automaticCloudSync!.initialize());
-    unawaited(store.load());
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    await store.load();
+    await _automaticCloudSync!.initialize();
   }
 
   @override
@@ -71,7 +78,9 @@ class _ProgressionLabAppState extends State<ProgressionLabApp> {
         textStyle: Theme.of(context).textTheme.bodyMedium,
         child: child ?? const SizedBox.shrink(),
       ),
-      home: Shell(store: store),
+      home: store.isLoaded
+          ? Shell(store: store)
+          : const Scaffold(body: Center(child: CircularProgressIndicator())),
     ),
   );
 }
@@ -104,6 +113,10 @@ class _ShellState extends State<Shell> {
       icon: Icon(Icons.dashboard_customize_rounded),
       label: 'Programs',
     ),
+    const NavigationDestination(
+      icon: Icon(Icons.add_circle_outline_rounded),
+      label: 'Track',
+    ),
     NavigationDestination(
       icon: KeyedSubtree(
         key: _progressNavKey,
@@ -124,27 +137,32 @@ class _ShellState extends State<Shell> {
     AppTourStep(
       targetKey: _homePrimaryKey,
       title: 'Start with the next session',
-      body: 'Home keeps one clear action in front of you. Switch between Strength and Athletic only when you need to.',
+      body:
+          'Home keeps one clear action in front of you. Switch between Strength and Athletic only when you need to.',
     ),
     AppTourStep(
       targetKey: _programsOverviewKey,
       title: 'Both programs live together',
-      body: 'Programs contains the 48-week Strength plan and 12-week Athletic plan. Each keeps its own progress.',
+      body:
+          'Programs contains the 48-week Strength plan and 12-week Athletic plan. Each keeps its own progress.',
     ),
     AppTourStep(
       targetKey: _progressNavKey,
       title: 'See what is changing',
-      body: 'Progress brings together logged sets, records, workout history, charts, and Athletic field assessments.',
+      body:
+          'Progress brings together logged sets, records, workout history, charts, and Athletic field assessments.',
     ),
     AppTourStep(
       targetKey: _moreNavKey,
       title: 'Tools stay out of the way',
-      body: 'More contains setup, the exercise library, help, and advanced controls so Home stays focused.',
+      body:
+          'Track holds daily inputs. More holds preferences, connections, sharing defaults, backup, and help.',
     ),
     AppTourStep(
       targetKey: _helpGuidesKey,
       title: 'Replay this tour anytime',
-      body: 'Open More → Help & Guides → App Tour whenever you want this walkthrough again.',
+      body:
+          'Open More → Help & Guides → App Tour whenever you want this walkthrough again.',
     ),
   ];
 
@@ -221,8 +239,8 @@ class _ShellState extends State<Shell> {
     final page = switch (step) {
       0 => 0,
       1 => 1,
-      2 => 2,
-      _ => 3,
+      2 => 3,
+      _ => 4,
     };
     setState(() {
       index = page;
@@ -316,6 +334,7 @@ class _ShellState extends State<Shell> {
         onOpenStrength: _openStrengthProgram,
         onOpenAthletic: _openAthleticProgram,
       ),
+      DailyInputsScreen(store: widget.store, embedded: true),
       ProgressHub(store: widget.store),
       SettingsPage(
         store: widget.store,
@@ -410,20 +429,23 @@ class TodayPage extends StatelessWidget {
             .toInt()];
     final athleticWeek = AthleticProgram.week(store.athleticWeek);
     final athleticSession = athleticWeek.sessions[store.athleticSessionIndex];
+    final today = DateUtils.dateOnly(DateTime.now());
+    final weekStart = today.subtract(Duration(days: today.weekday - 1));
+    final weekEnd = weekStart.add(const Duration(days: 7));
     final strengthDoneThisWeek = store.workoutHistory
         .where(
           (record) =>
-              record.programRun == store.strengthProgramRun &&
-              record.week == store.week &&
-              record.days == store.days &&
-              record.status == WorkoutStatus.completed,
+              record.status == WorkoutStatus.completed &&
+              !record.date.isBefore(weekStart) &&
+              record.date.isBefore(weekEnd),
         )
         .length;
     final athleticDoneThisWeek = store.athleticHistory
         .where(
           (record) =>
-              record.programRun == store.athleticProgramRun &&
-              record.week == store.athleticWeek,
+              record.isComplete &&
+              !record.completedAt.isBefore(weekStart) &&
+              record.completedAt.isBefore(weekEnd),
         )
         .length;
 
@@ -446,7 +468,7 @@ class TodayPage extends StatelessWidget {
                         'TEST · TRAIN · TRANSFORM',
                         style: TextStyle(
                           color: BrandColors.muted,
-                          fontSize: 9,
+                          fontSize: 12,
                           letterSpacing: 1.35,
                           fontWeight: FontWeight.w700,
                         ),
@@ -474,16 +496,20 @@ class TodayPage extends StatelessWidget {
               const BrandSectionLabel('Next session'),
               const SizedBox(height: 14),
               SegmentedButton<TrainingTrack>(
+                direction: MediaQuery.textScalerOf(context).scale(14) > 21
+                    ? Axis.vertical
+                    : Axis.horizontal,
+                showSelectedIcon: false,
                 segments: const [
                   ButtonSegment(
                     value: TrainingTrack.strength,
                     icon: Icon(Icons.fitness_center_rounded),
-                    label: Text('STRENGTH'),
+                    label: Text('Strength'),
                   ),
                   ButtonSegment(
                     value: TrainingTrack.athletic,
                     icon: Icon(Icons.directions_run_rounded),
-                    label: Text('ATHLETIC'),
+                    label: Text('Athletic'),
                   ),
                 ],
                 selected: {store.preferredTrack},
@@ -499,7 +525,9 @@ class TodayPage extends StatelessWidget {
               KeyedSubtree(
                 key: primaryActionKey,
                 child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 260),
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 260),
                   child: store.preferredTrack == TrainingTrack.strength
                       ? _StrengthHomeCard(
                           key: const ValueKey('strength-home-card'),
@@ -630,25 +658,28 @@ class _StrengthHomeCard extends StatelessWidget {
             children: [
               const Icon(Icons.bolt_rounded, color: BrandColors.violet),
               const SizedBox(width: 8),
-              Text(
-                'WEEK ${week.number} · PHASE ${week.phase}',
-                style: const TextStyle(
-                  color: BrandColors.cyan,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
+              Expanded(
+                child: Text(
+                  'WEEK ${week.number} · PHASE ${week.phase}',
+                  style: const TextStyle(
+                    color: BrandColors.cyan,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1,
+                  ),
                 ),
               ),
-              const Spacer(),
-              Text(
-                resuming ? 'IN PROGRESS' : 'READY',
-                style: const TextStyle(
-                  color: BrandColors.violet,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
+              const SizedBox(width: 8),
+              if (MediaQuery.textScalerOf(context).scale(14) <= 21)
+                Text(
+                  resuming ? 'IN PROGRESS' : 'READY',
+                  style: const TextStyle(
+                    color: BrandColors.violet,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1,
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -667,9 +698,7 @@ class _StrengthHomeCard extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           GradientAction(
-            label: resuming
-                ? 'RESUME STRENGTH WORKOUT'
-                : 'START STRENGTH WORKOUT',
+            label: resuming ? 'Resume workout' : 'Start workout',
             icon: resuming ? Icons.play_arrow_rounded : Icons.bolt_rounded,
             onPressed: () => Navigator.push(
               context,
@@ -697,7 +726,7 @@ class _StrengthHomeCard extends StatelessWidget {
                 'SESSION PREVIEW',
                 style: TextStyle(
                   color: BrandColors.muted,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.w900,
                   letterSpacing: .8,
                 ),
@@ -758,7 +787,7 @@ class _AthleticHomeCard extends StatelessWidget {
               'WEEK ${week.number} · SESSION ${store.athleticSessionIndex + 1}',
               style: const TextStyle(
                 color: BrandColors.cyan,
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 1,
               ),
@@ -789,7 +818,13 @@ class _AthleticHomeCard extends StatelessWidget {
         ),
         const SizedBox(height: 18),
         GradientAction(
-          label: 'START ATHLETIC SESSION',
+          label:
+              store.athleticDraft?.week == week.number &&
+                  store.athleticDraft?.sessionIndex ==
+                      store.athleticSessionIndex &&
+                  store.athleticDraft?.programRun == store.athleticProgramRun
+              ? 'Resume Athletic session'
+              : 'Start Athletic session',
           icon: Icons.play_arrow_rounded,
           onPressed: () => Navigator.push(
             context,
@@ -812,7 +847,7 @@ class _AthleticHomeCard extends StatelessWidget {
               'SESSION PREVIEW',
               style: TextStyle(
                 color: BrandColors.muted,
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w900,
                 letterSpacing: .8,
               ),
@@ -834,7 +869,7 @@ class _AthleticHomeCard extends StatelessWidget {
                         drill.prescription,
                         style: const TextStyle(
                           color: BrandColors.muted,
-                          fontSize: 11,
+                          fontSize: 12,
                         ),
                       ),
                     ],
@@ -872,7 +907,7 @@ class _HomeSummaryMetric extends StatelessWidget {
         label,
         style: const TextStyle(
           color: BrandColors.muted,
-          fontSize: 9,
+          fontSize: 12,
           fontWeight: FontWeight.w900,
           letterSpacing: 1,
         ),
@@ -925,6 +960,20 @@ class ProgramsHubPage extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 22),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.fitness_center_outlined),
+          title: const Text('Exercise library'),
+          subtitle: const Text('Search movements and manage custom exercises'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ExerciseLibraryScreen(store: store),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         KeyedSubtree(
           key: overviewKey,
           child: const LabPanel(
@@ -950,8 +999,9 @@ class ProgramsHubPage extends StatelessWidget {
           icon: Icons.fitness_center_rounded,
           eyebrow: '48-WEEK STRENGTH SYSTEM',
           title: 'Strength Program',
-          description: 'Periodized strength and hypertrophy with build, strength, and deload weeks.',
-          progress: store.week / ProgramEngine.totalWeeks,
+          description:
+              'Periodized strength and hypertrophy with build, strength, and deload weeks.',
+          progress: store.strengthCompletion,
           position:
               'Week ${store.week} · Phase ${strengthWeek.phase} · ${store.days} days/week',
           actionLabel: 'OPEN STRENGTH PROGRAM',
@@ -963,7 +1013,8 @@ class ProgramsHubPage extends StatelessWidget {
           icon: Icons.directions_run_rounded,
           eyebrow: '12-WEEK ATHLETIC SYSTEM',
           title: 'Athletic Functional Training',
-          description: 'Gait, unilateral strength, rotation, elastic work, speed, and change of direction.',
+          description:
+              'Gait, unilateral strength, rotation, elastic work, speed, and change of direction.',
           progress: store.athleticProgress,
           position:
               'Week ${store.athleticWeek} · ${athleticWeek.cycleName} · Session ${store.athleticSessionIndex + 1}',
@@ -1033,7 +1084,7 @@ class _ProgramTrackCard extends StatelessWidget {
           eyebrow,
           style: TextStyle(
             color: accent,
-            fontSize: 9,
+            fontSize: 12,
             fontWeight: FontWeight.w900,
             letterSpacing: 1.1,
           ),
@@ -1060,7 +1111,7 @@ class _ProgramTrackCard extends StatelessWidget {
           position,
           style: const TextStyle(
             color: BrandColors.muted,
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -1071,7 +1122,7 @@ class _ProgramTrackCard extends StatelessWidget {
               actionLabel,
               style: TextStyle(
                 color: accent,
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w900,
                 letterSpacing: .65,
               ),
@@ -1125,6 +1176,12 @@ class _WorkoutScreenState extends State<WorkoutScreen>
   bool lastPr = false;
   bool sessionHadPr = false;
   bool finishing = false;
+  bool logging = false;
+  bool draftSaving = false;
+  bool draftFailed = false;
+  Future<void> _draftWrites = Future.value();
+  late DateTime startedAt;
+  DateTime? restEndsAt;
 
   List<TextEditingController> get _draftControllers => [
     weight,
@@ -1156,11 +1213,14 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         draft.exerciseIndex >= 0 &&
         draft.exerciseIndex < widget.workout.exercises.length &&
         draft.setNumber > 0 &&
-        draft.setNumber <= widget.workout.exercises[draft.exerciseIndex].sets;
+        draft.setNumber <=
+            widget.workout.exercises[draft.exerciseIndex].sets + 1;
     if (canRestore) {
       exercise = draft.exerciseIndex;
       set = draft.setNumber;
       sessionId = draft.sessionId;
+      startedAt = draft.startedAt ?? DateTime.now();
+      restEndsAt = draft.restEndsAt;
       substitutions.addAll(draft.substitutions);
       weight.text = draft.weight;
       reps.text = draft.reps;
@@ -1169,7 +1229,8 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       calories.text = draft.calories;
       notes.text = draft.notes;
     } else {
-      sessionId = DateTime.now().microsecondsSinceEpoch.toString();
+      startedAt = DateTime.now();
+      sessionId = startedAt.microsecondsSinceEpoch.toString();
       _seed();
     }
     loggedSets = widget.store.logs
@@ -1182,15 +1243,19 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     unawaited(_persistDraft());
   }
 
+  void _updateClock() {
+    final now = DateTime.now();
+    elapsed = now.difference(startedAt).inSeconds.clamp(0, 864000);
+    rest = restEndsAt == null
+        ? 0
+        : restEndsAt!.difference(now).inSeconds.clamp(0, 3600);
+  }
+
   void _startTimer() {
     timer?.cancel();
+    _updateClock();
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() {
-          elapsed++;
-          if (rest > 0) rest--;
-        });
-      }
+      if (mounted) setState(_updateClock);
     });
   }
 
@@ -1224,7 +1289,11 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     final plan = _exercisePlan(exercise);
     final option = _optionForIndex(exercise);
     final type = option.trackingType;
-    final best = widget.store.best(plan.name);
+    final best = widget.store.lastSet(
+      plan.name,
+      excludingSession: sessionId,
+      type: type,
+    );
     if (type.usesWeight && !preserveWeight) {
       weight.text =
           best == null ||
@@ -1285,7 +1354,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     });
   }
 
-  Future<void> _persistDraft() async {
+  Future<void> _persistDraft({bool updateUi = true}) async {
     if (finishing) return;
     final value = DraftSetInput(
       week: widget.week.number,
@@ -1305,12 +1374,27 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       retroactive: widget.retroactive,
       scheduledDate: widget.scheduledDate,
       substitutions: Map.unmodifiable(substitutions),
+      startedAt: startedAt,
+      restEndsAt: restEndsAt,
     );
-    try {
-      await widget.store.setDraft(value);
-    } on Object {
-      // Keep the live input usable and retry on the next edit/lifecycle event.
-    }
+    if (mounted && updateUi) setState(() => draftSaving = true);
+    _draftWrites = _draftWrites.then((_) async {
+      try {
+        await widget.store.setDraft(value);
+        if (mounted)
+          setState(() {
+            draftSaving = false;
+            draftFailed = false;
+          });
+      } on Object {
+        if (mounted)
+          setState(() {
+            draftSaving = false;
+            draftFailed = true;
+          });
+      }
+    });
+    await _draftWrites;
   }
 
   @override
@@ -1329,7 +1413,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     WidgetsBinding.instance.removeObserver(this);
     timer?.cancel();
     draftTimer?.cancel();
-    unawaited(_persistDraft());
+    unawaited(_persistDraft(updateUi: false));
     for (final controller in _draftControllers) {
       controller.removeListener(_draftChanged);
       controller.dispose();
@@ -1338,6 +1422,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
   }
 
   Future<void> _log() async {
+    if (logging || finishing) return;
     final plan = _exercisePlan(exercise);
     final option = _optionForIndex(exercise);
     final type = option.trackingType;
@@ -1366,38 +1451,59 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       caloriesValue: parsedCalories,
     );
     if (validation != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(validation)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(validation)));
       return;
     }
 
-    final pr = await widget.store.add(
-      SetLog(
-        exercise: plan.name,
-        exerciseId: option.id,
-        trackingType: type.name,
-        weight: parsedWeight ?? 0,
-        reps: parsedReps ?? 0,
-        durationSeconds: parsedDuration,
-        distance: parsedDistance,
-        distanceUnit: type.usesDistance ? _defaultDistanceUnit : null,
-        calories: parsedCalories,
-        date: DateTime.now(),
-        workout: widget.workout.name,
-        notes: notes.text.trim(),
-        sessionId: sessionId,
-        exerciseIndex: exercise,
-        setOrder: _setsForExercise(exercise) + 1,
-        restSeconds: plan.primary ? 180 : 120,
-      ),
+    final loggedExercise = exercise;
+    final log = SetLog(
+      exercise: plan.name,
+      exerciseId: option.id,
+      trackingType: type.name,
+      weight: parsedWeight ?? 0,
+      reps: parsedReps ?? 0,
+      durationSeconds: parsedDuration,
+      distance: parsedDistance,
+      distanceUnit: type.usesDistance ? _defaultDistanceUnit : null,
+      calories: parsedCalories,
+      date: DateTime.now(),
+      workout: widget.workout.name,
+      notes: notes.text.trim(),
+      sessionId: sessionId,
+      exerciseIndex: exercise,
+      setOrder: _setsForExercise(exercise) + 1,
+      restSeconds: plan.primary ? 180 : 120,
     );
+    setState(() => logging = true);
+    late bool pr;
+    try {
+      await _draftWrites;
+      pr = await widget.store.add(log);
+    } on Object {
+      if (mounted) {
+        setState(() => logging = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Set could not be saved. Your inputs are ready to retry.',
+            ),
+            action: SnackBarAction(label: 'Retry', onPressed: _log),
+          ),
+        );
+      }
+      return;
+    }
     if (!mounted) return;
     var workoutComplete = false;
     setState(() {
+      logging = false;
       lastPr = pr;
       sessionHadPr = sessionHadPr || pr;
       loggedSets++;
       rest = plan.primary ? 180 : 120;
+      restEndsAt = DateTime.now().add(Duration(seconds: rest));
       final exerciseSets = _setsForExercise(exercise);
       if (exerciseSets < plan.sets) {
         set++;
@@ -1406,29 +1512,70 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         } else {
           notes.clear();
         }
-      } else if (exercise < widget.workout.exercises.length - 1) {
-        exercise++;
-        set = 1;
-        lastPr = false;
-        _seed();
       } else {
-        workoutComplete = true;
+        final remaining = widget.workout.exercises
+            .asMap()
+            .keys
+            .where((i) => _setsForExercise(i) < _exercisePlan(i).sets)
+            .toList();
+        if (remaining.isEmpty) {
+          workoutComplete = true;
+        } else {
+          exercise = remaining.firstWhere(
+            (i) => i > exercise,
+            orElse: () => remaining.first,
+          );
+          set = _setsForExercise(exercise) + 1;
+          lastPr = false;
+          _seed();
+        }
       }
     });
-    if (!workoutComplete) unawaited(_persistDraft());
+    await _persistDraft();
+    if (!mounted) return;
     HapticFeedback.selectionClick();
-    if (pr && mounted) {
-      HapticFeedback.heavyImpact();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Locked in. New best for this movement.'),
-          backgroundColor: lime,
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          workoutComplete
+              ? 'All sets saved. Finish when you are ready.'
+              : pr
+              ? 'Set saved · New personal best'
+              : 'Set saved',
         ),
-      );
-    }
-    if (workoutComplete) {
-      await _finish(completedAutomatically: true);
-    }
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () async {
+            if (finishing || logging) return;
+            setState(() => logging = true);
+            try {
+              await widget.store.removeSet(log);
+              if (!mounted) return;
+              setState(() {
+                logging = false;
+                loggedSets = widget.store.logs
+                    .where((l) => l.sessionId == sessionId)
+                    .length;
+                exercise = loggedExercise;
+                set = _setsForExercise(exercise) + 1;
+                lastPr = false;
+                _seed();
+              });
+              await _persistDraft();
+            } on Object {
+              if (!mounted) return;
+              setState(() => logging = false);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Could not undo. The set is still saved.'),
+                ),
+              );
+            }
+          },
+        ),
+      ),
+    );
   }
 
   String? _validateSet({
@@ -1492,7 +1639,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
   String get _defaultDistanceUnit => widget.store.unit == 'kg' ? 'km' : 'mi';
 
   Future<void> _finish({bool completedAutomatically = false}) async {
-    if (finishing) return;
+    if (finishing || logging) return;
     final plannedSets = widget.workout.exercises.fold<int>(
       0,
       (total, item) => total + item.sets,
@@ -1503,7 +1650,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         builder: (dialogContext) => AlertDialog(
           title: const Text('Finish this workout?'),
           content: Text(
-            '${plannedSets - loggedSets} planned sets remain. Logged sets stay saved and the program advances.',
+            '${loggedSets == 0 ? 'This will be marked skipped' : 'This will be marked partial'}. $loggedSets of $plannedSets sets are saved. The program advances.',
           ),
           actions: [
             TextButton(
@@ -1519,7 +1666,13 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       );
       if (confirmed != true || !mounted) return;
     }
-    await _commitWorkout(WorkoutStatus.completed);
+    await _commitWorkout(
+      loggedSets >= plannedSets
+          ? WorkoutStatus.completed
+          : loggedSets == 0
+          ? WorkoutStatus.skipped
+          : WorkoutStatus.partial,
+    );
   }
 
   Future<void> _skipWorkout() async {
@@ -1553,6 +1706,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     timer?.cancel();
     timer = null;
     draftTimer?.cancel();
+    await _draftWrites;
     try {
       await widget.store.recordWorkout(
         weekNumber: widget.week.number,
@@ -1563,19 +1717,9 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         substitutions: substitutions,
         retroactive: widget.retroactive,
         scheduledDate: widget.scheduledDate,
+        startedAt: startedAt,
+        elapsedSeconds: elapsed,
       );
-      if (status == WorkoutStatus.completed && mounted) {
-        await showWorkoutResponseSheet(
-          context,
-          widget.store,
-          sessionId: sessionId,
-          track: 'strength',
-        );
-      }
-      if (status == WorkoutStatus.completed && mounted) {
-        await showWorkoutCompleteSheet(context, _shareData());
-      }
-      if (mounted) Navigator.pop(context);
     } on Object {
       if (!mounted) return;
       setState(() => finishing = false);
@@ -1583,14 +1727,24 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'That workout was not saved. Your set data is unchanged.',
+            'Workout could not be finished. Your saved sets and draft are available to retry.',
           ),
         ),
       );
+      return;
     }
+    if (mounted && status != WorkoutStatus.skipped) {
+      await showWorkoutCompleteSheet(
+        context,
+        _shareData(partial: status == WorkoutStatus.partial),
+        store: widget.store,
+        sessionId: sessionId,
+      );
+    }
+    if (mounted) Navigator.pop(context);
   }
 
-  WorkoutShareData _shareData() {
+  WorkoutShareData _shareData({bool partial = false}) {
     final sessionLogs = widget.store.logs
         .where((log) => log.sessionId == sessionId)
         .toList();
@@ -1607,6 +1761,28 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     }
     final exerciseCount = sessionLogs.map((log) => log.exercise).toSet().length;
     return WorkoutShareData(
+      snapshot: ShareWorkoutSnapshot(
+        program: 'Strength Program',
+        status: partial ? 'partial' : 'completed',
+        workout: widget.workout.name,
+        completedAt: DateTime.now(),
+        duration: Duration(seconds: elapsed),
+        sets: sessionLogs.length,
+        exercises: exerciseCount,
+        volume: totalVolume > 0 ? totalVolume : null,
+        volumeUnit: widget.store.unit,
+        phaseLabel:
+            'Week ${widget.week.number} · ${partial ? 'Partial session' : widget.week.label}',
+        achievement: !partial && sessionHadPr ? 'New personal best' : '',
+        highlights: [
+          if (highlight != null)
+            ShareHighlight(
+              'Top result',
+              '${highlight.exercise} · ${setDescription(highlight, widget.store.unit)}',
+              sensitiveWeight: highlight.resolvedTrackingType.usesWeight,
+            ),
+        ],
+      ),
       program: 'Strength Program',
       title: widget.workout.name,
       contextLine:
@@ -1684,7 +1860,8 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         .where((log) => log.sessionId == sessionId && log.exercise == plan.name)
         .length;
     final progress =
-        (exercise + ((set - 1) / plan.sets)) / widget.workout.exercises.length;
+        loggedSets /
+        widget.workout.exercises.fold<int>(0, (sum, item) => sum + item.sets);
     final exerciseComplete = _setsForExercise(exercise) >= plan.sets;
     final target = _targetLabel(plan, type);
     return Scaffold(
@@ -1719,14 +1896,18 @@ class _WorkoutScreenState extends State<WorkoutScreen>
           width: double.infinity,
           height: 58,
           child: FilledButton.icon(
-            onPressed: finishing || exerciseComplete ? null : _log,
+            onPressed: finishing || logging || exerciseComplete ? null : _log,
             style: FilledButton.styleFrom(
-              backgroundColor: lime,
+              backgroundColor: BrandColors.purple,
               foregroundColor: Colors.white,
             ),
             icon: const Icon(Icons.add_task_rounded),
             label: Text(
-              exerciseComplete ? 'EXERCISE COMPLETE' : 'LOG SET',
+              logging
+                  ? 'Saving set…'
+                  : exerciseComplete
+                  ? 'Exercise complete'
+                  : 'Log set',
               style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
             ),
           ),
@@ -1735,6 +1916,12 @@ class _WorkoutScreenState extends State<WorkoutScreen>
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
           children: [
+            FeatureTip(
+              store: widget.store,
+              id: ContextualGuideId.strengthWorkout,
+              message:
+                  'Choose any exercise above the inputs. Each set saves immediately. Use Finish to review a complete or partial session.',
+            ),
             LinearProgressIndicator(
               value: progress,
               backgroundColor: Colors.white10,
@@ -1742,7 +1929,52 @@ class _WorkoutScreenState extends State<WorkoutScreen>
               borderRadius: BorderRadius.circular(8),
               minHeight: 6,
             ),
-            const SizedBox(height: 28),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    draftFailed
+                        ? 'Draft could not be saved'
+                        : draftSaving
+                        ? 'Saving draft…'
+                        : 'Draft saved on this device',
+                    style: TextStyle(
+                      color: draftFailed ? BrandColors.error : muted,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                if (draftFailed)
+                  TextButton(
+                    onPressed: _persistDraft,
+                    child: const Text('Retry'),
+                  ),
+              ],
+            ),
+            DropdownButtonFormField<int>(
+              initialValue: exercise,
+              key: ValueKey(exercise),
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Exercise · tap to jump',
+              ),
+              items: [
+                for (final entry in widget.workout.exercises.asMap().entries)
+                  DropdownMenuItem(
+                    value: entry.key,
+                    child: Text(
+                      '${entry.key + 1}. ${_exercisePlan(entry.key).name}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: logging || finishing
+                  ? null
+                  : (value) {
+                      if (value != null) _jumpToExercise(value);
+                    },
+            ),
+            const SizedBox(height: 20),
             Row(
               children: [
                 Expanded(
@@ -1791,7 +2023,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                 'SUBSTITUTED FOR ${widget.workout.exercises[exercise].name.toUpperCase()}',
                 style: const TextStyle(
                   color: Colors.white54,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -1819,11 +2051,33 @@ class _WorkoutScreenState extends State<WorkoutScreen>
               ),
             const SizedBox(height: 24),
             _Previous(
-              best: widget.store.best(plan.name),
+              best: widget.store.lastSet(
+                plan.name,
+                excludingSession: sessionId,
+              ),
               unit: widget.store.unit,
             ),
             const SizedBox(height: 24),
             _buildInputFields(type),
+            if (type.usesWeight) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Starting load uses your last saved session for this movement. When you own the top of the prescribed rep range, add the smallest practical increment. Adjust for readiness and deloads.',
+                style: const TextStyle(color: muted, fontSize: 13),
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => showPlateCalculator(
+                    context,
+                    unit: widget.store.unit,
+                    target: double.tryParse(weight.text),
+                  ),
+                  icon: const Icon(Icons.calculate_outlined),
+                  label: const Text('Plate calculator'),
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             TextField(
               controller: notes,
@@ -1856,7 +2110,13 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                     ),
                     const Spacer(),
                     TextButton(
-                      onPressed: () => setState(() => rest = 0),
+                      onPressed: () {
+                        setState(() {
+                          rest = 0;
+                          restEndsAt = null;
+                        });
+                        unawaited(_persistDraft());
+                      },
                       child: const Text('SKIP'),
                     ),
                   ],
@@ -1867,6 +2127,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
             Card(
               margin: EdgeInsets.zero,
               child: ExpansionTile(
+                initiallyExpanded: true,
                 leading: const Icon(Icons.history_rounded, color: cyan),
                 title: Text(
                   'LOGGED SETS ($activeLogs)',
@@ -1901,6 +2162,9 @@ class _WorkoutScreenState extends State<WorkoutScreen>
               final loggedForSlot = _setsForExercise(entry.key);
               final done = loggedForSlot >= exercisePlan.sets;
               return ListTile(
+                onTap: finishing || logging
+                    ? null
+                    : () => _jumpToExercise(entry.key),
                 contentPadding: EdgeInsets.zero,
                 selected: entry.key == exercise,
                 leading: CircleAvatar(
@@ -1939,6 +2203,16 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         ),
       ),
     );
+  }
+
+  void _jumpToExercise(int index) {
+    setState(() {
+      exercise = index;
+      set = _setsForExercise(index) + 1;
+      lastPr = false;
+      _seed();
+    });
+    unawaited(_persistDraft());
   }
 
   Widget _buildInputFields(ExerciseTrackingType type) {
@@ -2123,6 +2397,15 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                       ),
                     ),
                   ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: FeatureTip(
+                      store: widget.store,
+                      id: ContextualGuideId.exerciseSubstitution,
+                      message:
+                          'Choose a substitute before logging sets for that exercise. Tracking fields follow the selected movement.',
+                    ),
+                  ),
                   Expanded(
                     child: ListView.builder(
                       controller: scrollController,
@@ -2221,7 +2504,7 @@ class _WorkoutMetaChip extends StatelessWidget {
     ),
     child: Text(
       label,
-      style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w800),
+      style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w800),
     ),
   );
 }
@@ -2230,227 +2513,112 @@ class SettingsPage extends StatelessWidget {
   const SettingsPage({
     super.key,
     required this.store,
-    required this.onReplayTour,
     required this.helpGuidesKey,
+    required this.onReplayTour,
   });
-
   final AppStore store;
-  final VoidCallback onReplayTour;
   final GlobalKey helpGuidesKey;
-
+  final VoidCallback onReplayTour;
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.fromLTRB(20, 24, 20, 30),
-    children: [
-      const Row(
-        children: [
-          LabMark(size: 54),
-          SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'MORE & SETUP',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Program controls and training tools',
-                  style: TextStyle(color: BrandColors.muted),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 24),
-      const BrandSectionLabel('Help & Guides'),
-      const SizedBox(height: 8),
-      _Setting(
-        key: helpGuidesKey,
-        icon: Icons.route_rounded,
-        title: 'App Tour',
-        subtitle: 'Replay the guided walkthrough of Home, Programs, and tools',
-        available: true,
-        badge: 'REPLAY',
-        onTap: onReplayTour,
-      ),
-      _Setting(
-        icon: Icons.lightbulb_outline_rounded,
-        title: 'How progression works',
-        subtitle: 'Review the core strength progression rules',
-        available: true,
-        badge: 'GUIDE',
-        onTap: () => showModalBottomSheet(
-          context: context,
-          useSafeArea: true,
-          builder: (_) => const _QuickHelp(),
+  Widget build(BuildContext context) {
+    void open(Widget screen) =>
+        Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+      children: [
+        Text('More', style: Theme.of(context).textTheme.headlineLarge),
+        const SizedBox(height: 6),
+        const Text(
+          'Preferences, connections, and your data',
+          style: TextStyle(color: muted),
         ),
-      ),
-      const SizedBox(height: 22),
-      const BrandSectionLabel('Tracking & Intelligence'),
-      const SizedBox(height: 8),
-      _Setting(
-        icon: Icons.science_rounded,
-        title: 'Supplements & Daily Inputs',
-        subtitle: 'Creatine, caffeine, meals, hydration, sleep, and recovery',
-        available: true,
-        badge: 'TRACK',
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => DailyInputsScreen(store: store)),
-        ),
-      ),
-      _Setting(
-        icon: Icons.auto_awesome_rounded,
-        title: 'The Lab',
-        subtitle: 'Evidence-first insights with optional on-device Gemini Nano',
-        available: true,
-        badge: store.aiAnalysisEnabled ? 'AI ON' : 'AI OFF',
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => LabScreen(store: store)),
-        ),
-      ),
-      _Setting(
-        icon: Icons.insights_rounded,
-        title: 'Inputs & Performance',
-        subtitle: 'Compare logged inputs with matched workout outcomes',
-        available: true,
-        badge: 'LAB CORE',
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => InputsPerformanceScreen(store: store),
-          ),
-        ),
-      ),
-      const SizedBox(height: 22),
-      const _SectionTitle('TRAINING DAYS'),
-      const SizedBox(height: 10),
-      SegmentedButton<int>(
-        segments: const [
-          ButtonSegment(value: 3, label: Text('3 DAYS')),
-          ButtonSegment(value: 4, label: Text('4 DAYS')),
-          ButtonSegment(value: 5, label: Text('5 DAYS')),
-        ],
-        selected: {store.days},
-        onSelectionChanged: (selection) {
-          final requested = selection.first;
-          if (requested != store.days) {
-            showCadenceSwitchSheet(context, store, requestedDays: requested);
-          }
-        },
-      ),
-      const SizedBox(height: 11),
-      Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: cyan.withValues(alpha: .07),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: cyan.withValues(alpha: .16)),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.shield_outlined, color: cyan, size: 19),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Switching keeps Week ${store.week}, Phase ${ProgramEngine.week(store.week, store.days).phase}, and Microcycle ${ProgramEngine.week(store.week, store.days).microcycle}. You choose the exact next workout before anything changes.',
-                style: const TextStyle(
-                  color: Colors.white60,
-                  fontSize: 12,
-                  height: 1.35,
-                ),
-              ),
-            ),
+        const SizedBox(height: 28),
+        const BrandSectionLabel('Preferences'),
+        const SizedBox(height: 12),
+        const Text('Weight unit'),
+        const SizedBox(height: 8),
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'lb', label: Text('Pounds')),
+            ButtonSegment(value: 'kg', label: Text('Kilograms')),
           ],
+          selected: {store.unit},
+          onSelectionChanged: (v) async {
+            try {
+              await store.setUnit(v.first);
+            } on Object {
+              if (context.mounted)
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Could not save the unit.')),
+                );
+            }
+          },
         ),
-      ),
-      const SizedBox(height: 26),
-      const _SectionTitle('WEIGHT UNIT'),
-      const SizedBox(height: 10),
-      SegmentedButton<String>(
-        segments: const [
-          ButtonSegment(value: 'lb', label: Text('POUNDS')),
-          ButtonSegment(value: 'kg', label: Text('KILOGRAMS')),
-        ],
-        selected: {store.unit},
-        onSelectionChanged: (selection) async {
-          try {
-            await store.setUnit(selection.first);
-          } on Object {
-            if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('The weight unit could not be saved.'),
-              ),
-            );
-          }
-        },
-      ),
-      const SizedBox(height: 28),
-      _Setting(
-        icon: Icons.fitness_center_rounded,
-        title: 'Exercise library',
-        subtitle: 'Browse built-ins or manage custom exercises',
-        available: true,
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ExerciseLibraryScreen(store: store),
+        const SizedBox(height: 16),
+        _Setting(
+          icon: Icons.share_outlined,
+          title: 'Sharing defaults',
+          subtitle: 'Format, caption, and privacy',
+          available: true,
+          onTap: () => open(
+            IntegrationsHubScreen(
+              store: store,
+              section: IntegrationSection.sharing,
+            ),
           ),
         ),
-      ),
-      const _Setting(
-        icon: Icons.calculate_rounded,
-        title: 'Plate calculator',
-        subtitle: 'Planned for the target-load update',
-        available: false,
-      ),
-      _Setting(
-        icon: Icons.backup_rounded,
-        title: 'Backup & data',
-        subtitle: 'Automatic backups, restore, CSV export, and app migration',
-        available: true,
-        badge: 'PORTABLE',
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => DataManagementScreen(store: store)),
+        _Setting(
+          icon: Icons.hub_outlined,
+          title: 'Connections',
+          subtitle: 'Health, wearables, and activity imports',
+          available: true,
+          onTap: () => open(IntegrationsHubScreen(store: store)),
         ),
-      ),
-      _Setting(
-        icon: Icons.hub_rounded,
-        title: 'Connections & Experiments',
-        subtitle:
-            'Health, wearables, cloud sync, sharing, and Lab experiments.',
-        available: true,
-        badge: 'PORTABLE',
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => IntegrationsHubScreen(store: store),
+        _Setting(
+          icon: Icons.backup_outlined,
+          title: 'Backup & data',
+          subtitle: 'Backup, restore, export, and cloud sync',
+          available: true,
+          onTap: () => open(DataManagementScreen(store: store)),
+        ),
+        const SizedBox(height: 28),
+        const BrandSectionLabel('Help & Guides'),
+        _Setting(
+          key: helpGuidesKey,
+          icon: Icons.route_outlined,
+          title: 'App Tour',
+          subtitle: 'Find your way around all five tabs',
+          available: true,
+          onTap: onReplayTour,
+        ),
+        _Setting(
+          icon: Icons.lightbulb_outline,
+          title: 'Feature tips',
+          subtitle: 'Show or reset contextual help',
+          available: true,
+          onTap: () => open(
+            IntegrationsHubScreen(
+              store: store,
+              section: IntegrationSection.help,
+            ),
           ),
         ),
-      ),
-      const SizedBox(height: 22),
-      const Text(
-        'PROGRAM LOGIC',
-        style: TextStyle(
-          color: lime,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 1.4,
+        _Setting(
+          icon: Icons.help_outline,
+          title: 'How progression works',
+          subtitle: 'The Strength program and its rep targets',
+          available: true,
+          onTap: () => showModalBottomSheet(
+            context: context,
+            useSafeArea: true,
+            builder: (_) => const _QuickHelp(),
+          ),
         ),
-      ),
-      const SizedBox(height: 10),
-      const Text(
-        'The included templates follow the 16-microcycle cadence reconstructed from your supplied material. Training recommendations are educational and should be adjusted for injuries, experience, and medical guidance.',
-        style: TextStyle(color: Colors.white54, height: 1.45),
-      ),
-    ],
-  );
+        const SizedBox(height: 24),
+        const Text('Progression Lab 2.3.0', style: TextStyle(color: muted)),
+      ],
+    );
+  }
 }
 
 class _Mark extends StatelessWidget {
@@ -2458,20 +2626,6 @@ class _Mark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const LabMark(size: 44);
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-  final String text;
-  @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: const TextStyle(
-      fontWeight: FontWeight.w900,
-      letterSpacing: 1.5,
-      fontSize: 13,
-    ),
-  );
 }
 
 class _WarmupCard extends StatelessWidget {
@@ -2543,7 +2697,7 @@ class _WarmupCard extends StatelessWidget {
               'RAMP',
               style: TextStyle(
                 color: cyan,
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 1.1,
               ),
@@ -2573,7 +2727,7 @@ class _WarmupCard extends StatelessWidget {
                         'WARM-UP ${i + 1} · ${recommendation.sets[i].percentage}%',
                         style: const TextStyle(
                           color: BrandColors.muted,
-                          fontSize: 9,
+                          fontSize: 12,
                           fontWeight: FontWeight.w800,
                           letterSpacing: .65,
                         ),
@@ -2600,7 +2754,7 @@ class _WarmupCard extends StatelessWidget {
           'Rest about 60 seconds between ramp sets. These do not count as working sets.',
           style: TextStyle(
             color: BrandColors.muted,
-            fontSize: 11,
+            fontSize: 12,
             height: 1.35,
           ),
         ),
@@ -2648,30 +2802,30 @@ class _Previous extends StatelessWidget {
 
   String _summary(SetLog log) => switch (log.resolvedTrackingType) {
     ExerciseTrackingType.bodyweightReps ||
-    ExerciseTrackingType.repsOnly => 'Best  ${log.reps} reps',
+    ExerciseTrackingType.repsOnly => 'Last session  ${log.reps} reps',
     ExerciseTrackingType.weightedBodyweight =>
-      'Best  +${log.weight.g} $unit × ${log.reps}',
+      'Last session  +${log.weight.g} $unit × ${log.reps}',
     ExerciseTrackingType.assistedBodyweight =>
-      'Best  ${log.weight.g} $unit assistance × ${log.reps}',
+      'Last session  ${log.weight.g} $unit assistance × ${log.reps}',
     ExerciseTrackingType.duration =>
-      'Best  ${_durationLabel(log.durationSeconds ?? 0)}',
+      'Last session  ${_durationLabel(log.durationSeconds ?? 0)}',
     ExerciseTrackingType.durationWeight =>
-      'Best  ${log.weight.g} $unit · ${_durationLabel(log.durationSeconds ?? 0)}',
+      'Last session  ${log.weight.g} $unit · ${_durationLabel(log.durationSeconds ?? 0)}',
     ExerciseTrackingType.distanceDuration =>
-      'Best  ${(log.distance ?? 0).g} ${log.distanceUnit ?? ''} · ${_durationLabel(log.durationSeconds ?? 0)}',
+      'Last session  ${(log.distance ?? 0).g} ${log.distanceUnit ?? ''} · ${_durationLabel(log.durationSeconds ?? 0)}',
     ExerciseTrackingType.weightDistance =>
-      'Best  ${log.weight.g} $unit · ${(log.distance ?? 0).g} ${log.distanceUnit ?? ''}',
+      'Last session  ${log.weight.g} $unit · ${(log.distance ?? 0).g} ${log.distanceUnit ?? ''}',
     ExerciseTrackingType.repsDuration =>
-      'Best  ${log.reps} reps · ${_durationLabel(log.durationSeconds ?? 0)}',
+      'Last session  ${log.reps} reps · ${_durationLabel(log.durationSeconds ?? 0)}',
     ExerciseTrackingType.repsDistance =>
-      'Best  ${log.reps} reps · ${(log.distance ?? 0).g} ${log.distanceUnit ?? ''}',
+      'Last session  ${log.reps} reps · ${(log.distance ?? 0).g} ${log.distanceUnit ?? ''}',
     ExerciseTrackingType.distanceOnly =>
-      'Best  ${(log.distance ?? 0).g} ${log.distanceUnit ?? ''}',
+      'Last session  ${(log.distance ?? 0).g} ${log.distanceUnit ?? ''}',
     ExerciseTrackingType.caloriesDuration =>
-      'Best  ${(log.calories ?? 0).g} cal · ${_durationLabel(log.durationSeconds ?? 0)}',
-    ExerciseTrackingType.weightOnly => 'Best  ${log.weight.g} $unit',
+      'Last session  ${(log.calories ?? 0).g} cal · ${_durationLabel(log.durationSeconds ?? 0)}',
+    ExerciseTrackingType.weightOnly => 'Last session  ${log.weight.g} $unit',
     ExerciseTrackingType.weightReps =>
-      'Best  ${log.weight.g} $unit × ${log.reps}',
+      'Last session  ${log.weight.g} $unit × ${log.reps}',
   };
 
   String _metric(SetLog log) => switch (log.resolvedTrackingType) {
@@ -2702,13 +2856,11 @@ class _Setting extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.available,
-    this.badge,
     this.onTap,
   });
   final IconData icon;
   final String title, subtitle;
   final bool available;
-  final String? badge;
   final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) => Material(
@@ -2722,22 +2874,7 @@ class _Setting extends StatelessWidget {
       ),
       title: Text(title),
       subtitle: Text(subtitle),
-      trailing: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: (available ? lime : Colors.white38).withValues(alpha: .1),
-          borderRadius: BorderRadius.circular(99),
-        ),
-        child: Text(
-          badge ?? (available ? 'ACTIVE' : 'PLANNED'),
-          style: TextStyle(
-            color: available ? lime : Colors.white38,
-            fontSize: 9,
-            fontWeight: FontWeight.w900,
-            letterSpacing: .8,
-          ),
-        ),
-      ),
+      trailing: const Icon(Icons.chevron_right_rounded),
     ),
   );
 }

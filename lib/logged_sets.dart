@@ -62,6 +62,8 @@ class LoggedWorkoutScreen extends StatelessWidget {
         ? 'RETROACTIVELY FILLED'
         : record.status == WorkoutStatus.skipped
         ? 'SKIPPED'
+        : record.status == WorkoutStatus.partial
+        ? 'PARTIAL'
         : 'COMPLETED';
     return Scaffold(
       appBar: AppBar(title: const Text('Logged workout')),

@@ -249,7 +249,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
-    expect(navigation.destinations, hasLength(4));
+    expect(navigation.destinations, hasLength(5));
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Programs'), findsOneWidget);
     expect(find.text('Progress'), findsOneWidget);
@@ -260,8 +260,9 @@ void main() {
     expect(find.text('Strength Program'), findsOneWidget);
     expect(find.text('Athletic Functional Training'), findsOneWidget);
 
-    await tester.tap(find.text('More'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'More'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('App Tour'));
     await tester.tap(find.text('App Tour'));
     await tester.pumpAndSettle();
     expect(find.text('SKIP TOUR'), findsOneWidget);

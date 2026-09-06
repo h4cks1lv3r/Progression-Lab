@@ -8,6 +8,8 @@ import 'data_portability.dart';
 import 'data_portability_bridge.dart';
 import 'data_portability_core.dart';
 import 'store.dart';
+import 'contextual_guides.dart';
+import 'integrations_hub.dart';
 
 class DataManagementScreen extends StatefulWidget {
   const DataManagementScreen({super.key, required this.store});
@@ -40,8 +42,9 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
     try {
       await action();
       if (!mounted || success == null) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(success)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(success)));
     } on PlatformException catch (error) {
       if (!mounted) return;
       _error(error.message ?? 'The file operation could not be completed.');
@@ -193,13 +196,36 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Backup & data')),
+    appBar: AppBar(
+      actions: [
+        IconButton(
+          tooltip: 'Cloud backup',
+          icon: const Icon(Icons.cloud_outlined),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => IntegrationsHubScreen(
+                store: widget.store,
+                section: IntegrationSection.backup,
+              ),
+            ),
+          ),
+        ),
+      ],
+      title: const Text('Backup & data'),
+    ),
     body: BrandBackdrop(
       child: SafeArea(
         top: false,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 36),
           children: [
+            FeatureTip(
+              store: widget.store,
+              id: ContextualGuideId.dataBackup,
+              message:
+                  'Export a full backup before moving devices. Use Cloud backup above to select a synced folder.',
+            ),
             const _DataHeader(),
             const SizedBox(height: 22),
             const BrandSectionLabel('Automatic protection'),
@@ -294,7 +320,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             _ActionTile(
               icon: Icons.save_alt_rounded,
               title: 'Export Progression Lab backup',
-              subtitle: 'A complete .plab archive that restores programs, logs, drafts, assessments, settings, and imports.',
+              subtitle:
+                  'A complete .plab archive that restores programs, logs, drafts, assessments, settings, and imports.',
               badge: 'FULL',
               onTap: _busy
                   ? null
@@ -305,7 +332,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             _ActionTile(
               icon: Icons.ios_share_rounded,
               title: 'Share full backup',
-              subtitle: 'Send an exact .plab backup through the system share sheet without saving a second copy first.',
+              subtitle:
+                  'Send an exact .plab backup through the system share sheet without saving a second copy first.',
               badge: 'SHARE',
               onTap: _busy
                   ? null
@@ -317,7 +345,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             _ActionTile(
               icon: Icons.restore_rounded,
               title: 'Restore or import a file',
-              subtitle: 'Open a .plab backup, native .fitnotes backup, or a Strong, Hevy, Fitbod, JEFIT, CSV, TSV, JSON, TXT, or ZIP export.',
+              subtitle:
+                  'Open a .plab backup, native .fitnotes backup, or a Strong, Hevy, Fitbod, JEFIT, CSV, TSV, JSON, TXT, or ZIP export.',
               badge: 'IMPORT',
               onTap: _busy ? null : _pickImport,
             ),
@@ -327,7 +356,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             _ActionTile(
               icon: Icons.folder_zip_rounded,
               title: 'Export portable CSV package',
-              subtitle: 'Workouts, sets, custom exercises, Athletic sessions, and assessments in open UTF-8 CSV files.',
+              subtitle:
+                  'Workouts, sets, custom exercises, Athletic sessions, and assessments in open UTF-8 CSV files.',
               badge: 'OPEN',
               onTap: _busy
                   ? null
@@ -338,7 +368,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             _ActionTile(
               icon: Icons.sync_alt_rounded,
               title: 'Export Strong-compatible CSV',
-              subtitle: 'Creates a Strong-style workout CSV accepted by compatible apps such as Hevy.',
+              subtitle:
+                  'Creates a Strong-style workout CSV accepted by compatible apps such as Hevy.',
               badge: 'MIGRATE',
               onTap: _busy
                   ? null

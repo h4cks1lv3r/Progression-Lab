@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - agent/daily-inputs-gemini-lab
+      - feature/ui-flow-reliability-2.3
 
 permissions:
   contents: read
@@ -34,6 +35,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.44.9'
           cache: true
 
       - name: Show tool versions
@@ -68,7 +70,7 @@ jobs:
         continue-on-error: true
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           for test_file in test/*_test.dart; do
             echo "=== Running ${test_file} ==="
             timeout --signal=INT --kill-after=10s 120s \
@@ -101,6 +103,8 @@ jobs:
           echo "number=${BASH_REMATCH[2]}" >> "$GITHUB_OUTPUT"
 
       - name: Build release APK
+        env:
+          ORG_GRADLE_PROJECT_previewBuild: ${{ github.ref_name == 'feature/ui-flow-reliability-2.3' || github.head_ref == 'feature/ui-flow-reliability-2.3' }}
         run: >-
           flutter build apk --release
           --build-name "${{ steps.version.outputs.name }}"
