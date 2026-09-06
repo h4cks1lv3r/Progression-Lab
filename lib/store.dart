@@ -10,6 +10,7 @@ import 'data_portability_bridge.dart';
 import 'data_portability_core.dart';
 import 'exercise_library.dart';
 import 'program.dart';
+import 'share_options.dart';
 
 enum TrainingTrack { strength, athletic }
 
@@ -203,7 +204,7 @@ class SetLog {
   );
 }
 
-enum WorkoutStatus { completed, skipped }
+enum WorkoutStatus { completed, partial, skipped }
 
 class WorkoutRecord {
   const WorkoutRecord({
@@ -219,6 +220,8 @@ class WorkoutRecord {
     this.retroactive = false,
     this.sessionId,
     this.substitutions = const {},
+    this.startedAt,
+    this.elapsedSeconds = 0,
   }) : scheduledDate = scheduledDate ?? date,
        loggedAt = loggedAt ?? date;
 
@@ -234,6 +237,8 @@ class WorkoutRecord {
   final bool retroactive;
   final String? sessionId;
   final Map<int, String> substitutions;
+  final DateTime? startedAt;
+  final int elapsedSeconds;
 
   Map<String, dynamic> toJson() => {
     'week': week,
@@ -247,6 +252,8 @@ class WorkoutRecord {
     'loggedAt': loggedAt.toIso8601String(),
     'retroactive': retroactive,
     if (sessionId != null) 'sessionId': sessionId,
+    'elapsedSeconds': elapsedSeconds,
+    if (startedAt != null) 'startedAt': startedAt!.toIso8601String(),
     'substitutions': {
       for (final entry in substitutions.entries) '${entry.key}': entry.value,
     },
@@ -258,6 +265,8 @@ class WorkoutRecord {
     workout: json['workout'] as String,
     date: DateTime.parse(json['date'] as String),
     status: WorkoutStatus.values.byName(json['status'] as String),
+    startedAt: DateTime.tryParse('${json['startedAt']}'),
+    elapsedSeconds: (json['elapsedSeconds'] as num?)?.toInt() ?? 0,
     programRun: json['programRun'] is num
         ? (json['programRun'] as num).toInt()
         : 1,
@@ -302,6 +311,8 @@ class DraftSetInput {
     this.retroactive = false,
     this.scheduledDate,
     this.substitutions = const {},
+    this.startedAt,
+    this.restEndsAt,
   });
 
   final int week;
@@ -321,6 +332,8 @@ class DraftSetInput {
   final bool retroactive;
   final DateTime? scheduledDate;
   final Map<int, String> substitutions;
+  final DateTime? startedAt;
+  final DateTime? restEndsAt;
 
   Map<String, dynamic> toJson() => {
     'week': week,
@@ -340,6 +353,8 @@ class DraftSetInput {
     'retroactive': retroactive,
     if (scheduledDate != null)
       'scheduledDate': scheduledDate!.toIso8601String(),
+    if (startedAt != null) 'startedAt': startedAt!.toIso8601String(),
+    if (restEndsAt != null) 'restEndsAt': restEndsAt!.toIso8601String(),
     'substitutions': {
       for (final entry in substitutions.entries) '${entry.key}': entry.value,
     },
@@ -367,13 +382,15 @@ class DraftSetInput {
         ? DateTime.parse(json['scheduledDate'] as String)
         : null,
     substitutions: WorkoutRecord._readSubstitutions(json['substitutions']),
+    startedAt: DateTime.tryParse('${json['startedAt']}'),
+    restEndsAt: DateTime.tryParse('${json['restEndsAt']}'),
   );
 }
 
 class AppStore extends ChangeNotifier {
   Map<String, dynamic> integrationState = <String, dynamic>{};
   static const _channel = MethodChannel('iron_cadence/storage');
-  static const int schemaVersion = 16;
+  static const int schemaVersion = 17;
   static const double poundsToKilograms = 0.45359237;
   bool isLoaded = false;
   bool hadPersistedState = false;
@@ -398,6 +415,7 @@ class AppStore extends ChangeNotifier {
   int athleticSessionIndex = 0;
   DateTime athleticStartDate = _dateOnly(DateTime.now());
   List<AthleticSessionRecord> athleticHistory = [];
+  AthleticSessionDraft? athleticDraft;
   List<AthleticAssessment> athleticAssessments = [];
   int onboardingVersionSeen = 0;
   int dataOnboardingVersionSeen = 0;
@@ -532,6 +550,16 @@ class AppStore extends ChangeNotifier {
     athleticStartDate = data['athleticStartDate'] is String
         ? DateTime.parse(data['athleticStartDate'] as String)
         : _dateOnly(DateTime.now());
+    athleticDraft = null;
+    if (data['athleticDraft'] is Map) {
+      try {
+        athleticDraft = AthleticSessionDraft.fromJson(
+          Map<String, dynamic>.from(data['athleticDraft'] as Map),
+        );
+      } catch (_) {
+        athleticDraft = null;
+      }
+    }
     athleticHistory = data['athleticHistory'] is List
         ? (data['athleticHistory'] as List)
               .map(_readAthleticRecord)
@@ -700,6 +728,7 @@ class AppStore extends ChangeNotifier {
     'athleticWeek': athleticWeek,
     'athleticSessionIndex': athleticSessionIndex,
     'athleticStartDate': athleticStartDate.toIso8601String(),
+    'athleticDraft': athleticDraft?.toJson(),
     'athleticHistory': athleticHistory
         .map((record) => record.toJson())
         .toList(),
@@ -725,9 +754,15 @@ class AppStore extends ChangeNotifier {
     'labMessages': labMessages.map((item) => item.toJson()).toList(),
   };
 
+  Future<void> _writeQueue = Future.value();
   Future<void> save({bool createAutomaticBackup = true}) async {
     final state = exportState();
-    await _channel.invokeMethod('write', jsonEncode(state));
+    final encoded = jsonEncode(state);
+    final write = _writeQueue.then(
+      (_) => _channel.invokeMethod<void>('write', encoded),
+    );
+    _writeQueue = write.catchError((Object _) {});
+    await write;
     if (automaticBackupsEnabled && createAutomaticBackup) {
       await _writeAutomaticBackup(
         state,
@@ -1020,6 +1055,21 @@ class AppStore extends ChangeNotifier {
         updatedAt: now,
       ),
     );
+    try {
+      await save();
+    } on Object {
+      hydrationEvents = previous;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> saveHydrationEvent(HydrationEvent value) async {
+    if (!value.amountMl.isFinite || value.amountMl <= 0)
+      throw ArgumentError('Hydration must be above zero.');
+    final previous = List<HydrationEvent>.of(hydrationEvents);
+    hydrationEvents.removeWhere((event) => event.id == value.id);
+    hydrationEvents.add(value);
     try {
       await save();
     } on Object {
@@ -1657,11 +1707,24 @@ class AppStore extends ChangeNotifier {
     try {
       await save(createAutomaticBackup: false);
     } on Object {
-      logs.removeLast();
+      logs.remove(log);
       rethrow;
     }
     notifyListeners();
     return pr;
+  }
+
+  Future<void> removeSet(SetLog log) async {
+    final index = logs.indexOf(log);
+    if (index < 0) return;
+    logs.removeAt(index);
+    try {
+      await save(createAutomaticBackup: false);
+    } on Object {
+      logs.insert(index.clamp(0, logs.length), log);
+      rethrow;
+    }
+    notifyListeners();
   }
 
   Future<void> updateSet(
@@ -1761,6 +1824,7 @@ class AppStore extends ChangeNotifier {
     assert(workoutsThisWeek > 0, 'Workout count must be positive.');
     // The store cadence is authoritative. A workout screen can remain open
     // across a settings change and pass a stale count from the old cadence.
+    final previousRun = strengthProgramRun;
     final previousWeek = week;
     final previousWorkoutIndex = workoutIndex;
     final previousProgramStartDate = programStartDate;
@@ -1768,6 +1832,7 @@ class AppStore extends ChangeNotifier {
     try {
       await save();
     } on Object {
+      strengthProgramRun = previousRun;
       week = previousWeek;
       workoutIndex = previousWorkoutIndex;
       programStartDate = previousProgramStartDate;
@@ -1803,7 +1868,13 @@ class AppStore extends ChangeNotifier {
     Map<int, String> substitutions = const {},
     bool retroactive = false,
     DateTime? scheduledDate,
+    DateTime? startedAt,
+    int elapsedSeconds = 0,
   }) async {
+    if (sessionId != null &&
+        workoutHistory.any((r) => r.sessionId == sessionId))
+      return;
+    final previousRun = strengthProgramRun;
     final previousWeek = week;
     final previousWorkoutIndex = workoutIndex;
     final previousProgramStartDate = programStartDate;
@@ -1823,6 +1894,8 @@ class AppStore extends ChangeNotifier {
       retroactive: retroactive,
       sessionId: sessionId,
       substitutions: Map.unmodifiable(substitutions),
+      startedAt: startedAt,
+      elapsedSeconds: elapsedSeconds,
     );
     workoutHistory.add(record);
     drafts.removeWhere(
@@ -1843,6 +1916,7 @@ class AppStore extends ChangeNotifier {
     try {
       await save();
     } on Object {
+      strengthProgramRun = previousRun;
       week = previousWeek;
       workoutIndex = previousWorkoutIndex;
       programStartDate = previousProgramStartDate;
@@ -1921,6 +1995,7 @@ class AppStore extends ChangeNotifier {
       workoutIndex = 0;
       if (week >= ProgramEngine.totalWeeks) {
         week = 1;
+        strengthProgramRun++;
         programStartDate = programStartDate.add(
           const Duration(days: ProgramEngine.totalWeeks * 7),
         );
@@ -1941,7 +2016,11 @@ class AppStore extends ChangeNotifier {
           .toList()
         ..sort((a, b) => a.completedAt.compareTo(b.completedAt));
 
-  int get athleticCompletedSessions => currentAthleticRunHistory.length;
+  int get athleticCompletedSessions => currentAthleticRunHistory
+      .where((r) => r.isComplete)
+      .map((r) => '${r.week}:${r.sessionIndex}')
+      .toSet()
+      .length;
 
   bool get athleticProgramComplete => isAthleticSessionCompleted(
     AthleticProgram.totalWeeks,
@@ -1957,6 +2036,7 @@ class AppStore extends ChangeNotifier {
       athleticHistory.any(
         (record) =>
             record.programRun == athleticProgramRun &&
+            record.isComplete &&
             record.week == weekNumber &&
             record.sessionIndex == sessionIndex,
       );
@@ -1978,7 +2058,14 @@ class AppStore extends ChangeNotifier {
     required int effort,
     required String notes,
     String? sessionId,
+    List<int>? completedDrills,
+    DateTime? startedAt,
+    bool partial = false,
+    bool skipped = false,
   }) async {
+    if (sessionId != null &&
+        athleticHistory.any((r) => r.sessionId == sessionId))
+      return;
     if (effort < 1 || effort > 10) {
       throw RangeError.range(effort, 1, 10, 'effort');
     }
@@ -1987,6 +2074,7 @@ class AppStore extends ChangeNotifier {
     }
     final previousWeek = athleticWeek;
     final previousSessionIndex = athleticSessionIndex;
+    final previousDraft = athleticDraft;
     final record = AthleticSessionRecord(
       programRun: athleticProgramRun,
       week: athleticWeek,
@@ -1995,7 +2083,18 @@ class AppStore extends ChangeNotifier {
       effort: effort,
       notes: notes.trim(),
       sessionId: sessionId,
+      completedDrills: completedDrills,
+      startedAt: startedAt,
+      durationSeconds: startedAt == null
+          ? 0
+          : DateTime.now().difference(startedAt).inSeconds.clamp(0, 2147483647),
+      status: skipped
+          ? 'skipped'
+          : partial
+          ? 'partial'
+          : 'completed',
     );
+    athleticDraft = null;
     athleticHistory.add(record);
     if (!(athleticWeek == AthleticProgram.totalWeeks &&
         athleticSessionIndex == AthleticProgram.sessionsPerWeek - 1)) {
@@ -2011,10 +2110,87 @@ class AppStore extends ChangeNotifier {
       athleticWeek = previousWeek;
       athleticSessionIndex = previousSessionIndex;
       athleticHistory.removeLast();
+      athleticDraft = previousDraft;
       rethrow;
     }
     notifyListeners();
   }
+
+  Future<void> saveAthleticDraft(AthleticSessionDraft? value) async {
+    final previous = athleticDraft;
+    athleticDraft = value;
+    try {
+      await save(createAutomaticBackup: false);
+    } catch (_) {
+      athleticDraft = previous;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  WorkoutSharePreferences get sharePreferences {
+    final raw = integrationState['integrations'];
+    if (raw is Map && raw['sharePreferences'] is Map)
+      return WorkoutSharePreferences.fromJson(
+        Map<String, dynamic>.from(raw['sharePreferences'] as Map),
+      );
+    return const WorkoutSharePreferences();
+  }
+
+  Future<void> setSharePreferences(WorkoutSharePreferences value) async {
+    final previous = Map<String, dynamic>.from(integrationState);
+    final raw = integrationState['integrations'];
+    integrationState = {
+      ...integrationState,
+      'integrations': {
+        if (raw is Map) ...Map<String, dynamic>.from(raw),
+        'sharePreferences': value.toJson(),
+      },
+    };
+    try {
+      await save();
+    } catch (_) {
+      integrationState = previous;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  double get strengthCompletion =>
+      workoutHistory
+          .where(
+            (r) =>
+                r.programRun == strengthProgramRun &&
+                r.status == WorkoutStatus.completed &&
+                r.days == days,
+          )
+          .map((r) => '${r.week}:${r.workoutIndex}')
+          .toSet()
+          .length /
+      (ProgramEngine.totalWeeks * days);
+  SetLog? lastSet(
+    String exercise, {
+    String? excludingSession,
+    ExerciseTrackingType? type,
+  }) {
+    final result =
+        logs
+            .where(
+              (l) =>
+                  _normalizeExerciseName(l.exercise) ==
+                      _normalizeExerciseName(exercise) &&
+                  (excludingSession == null ||
+                      l.sessionId != excludingSession) &&
+                  (type == null || l.resolvedTrackingType == type) &&
+                  !drafts.any((d) => d.sessionId == l.sessionId),
+            )
+            .toList()
+          ..sort((a, b) => b.date.compareTo(a.date));
+    return result.firstOrNull;
+  }
+
+  bool dominates(SetLog existing, SetLog candidate) =>
+      _dominates(existing, candidate);
 
   Future<void> saveAthleticAssessment(AthleticAssessment assessment) async {
     if (assessment.programRun != athleticProgramRun) {
@@ -2172,8 +2348,9 @@ class AppStore extends ChangeNotifier {
     athleticWeek = weekNumber;
     athleticSessionIndex = sessionIndex;
     const offsets = [0, 2, 4, 5];
-    athleticStartDate = _dateOnly(nextSessionDate)
-        .subtract(Duration(days: (weekNumber - 1) * 7 + offsets[sessionIndex]));
+    athleticStartDate = _dateOnly(
+      nextSessionDate,
+    ).subtract(Duration(days: (weekNumber - 1) * 7 + offsets[sessionIndex]));
 
     try {
       await save();
@@ -2243,6 +2420,18 @@ class AppStore extends ChangeNotifier {
     final factor = unit == 'lb' ? poundsToKilograms : 1 / poundsToKilograms;
     final previousUnit = unit;
     final previousLogs = logs;
+    final previousDraft = draft;
+    final previousDrafts = drafts;
+    DraftSetInput convertDraft(DraftSetInput d) {
+      final data = d.toJson();
+      final input = double.tryParse(d.weight);
+      if (input != null && input.isFinite)
+        data['weight'] = (input * factor).toStringAsFixed(2);
+      return DraftSetInput.fromJson(data);
+    }
+
+    drafts = drafts.map(convertDraft).toList();
+    draft = draft == null ? null : convertDraft(draft!);
     logs = [for (final log in logs) log.copyWith(weight: log.weight * factor)];
     unit = value;
     try {
@@ -2250,6 +2439,8 @@ class AppStore extends ChangeNotifier {
     } on Object {
       unit = previousUnit;
       logs = previousLogs;
+      draft = previousDraft;
+      drafts = previousDrafts;
       rethrow;
     }
     notifyListeners();

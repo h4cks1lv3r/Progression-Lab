@@ -240,8 +240,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('DAILY INPUTS & RECOVERY'), findsOneWidget);
-    expect(find.text('TODAY AT A GLANCE'), findsOneWidget);
+    expect(find.text('Track'), findsOneWidget);
+    expect(find.text('DAY AT A GLANCE'), findsOneWidget);
     expect(find.text('QUICK ADD'), findsOneWidget);
 
     await tester.pumpWidget(

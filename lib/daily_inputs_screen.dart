@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'brand.dart';
 import 'daily_inputs.dart';
 import 'store.dart';
+import 'contextual_guides.dart';
 
 class TodayInputsCard extends StatelessWidget {
   const TodayInputsCard({super.key, required this.store});
@@ -94,30 +95,24 @@ class TodayInputsCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 10),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => showMealEntrySheet(context, store),
-                  icon: const Icon(Icons.restaurant_rounded, size: 17),
-                  label: const Text('MEAL'),
-                ),
+              OutlinedButton.icon(
+                onPressed: () => showMealEntrySheet(context, store),
+                icon: const Icon(Icons.restaurant_rounded, size: 18),
+                label: const Text('Meal'),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _quickHydration(context, store, 500),
-                  icon: const Icon(Icons.water_drop_rounded, size: 17),
-                  label: const Text('+500 ML'),
-                ),
+              OutlinedButton.icon(
+                onPressed: () => _quickHydration(context, store, 500),
+                icon: const Icon(Icons.water_drop_rounded, size: 18),
+                label: const Text('+500 mL'),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => showRecoveryCheckInSheet(context, store),
-                  icon: const Icon(Icons.bedtime_rounded, size: 17),
-                  label: const Text('RECOVERY'),
-                ),
+              OutlinedButton.icon(
+                onPressed: () => showRecoveryCheckInSheet(context, store),
+                icon: const Icon(Icons.bedtime_rounded, size: 18),
+                label: const Text('Recovery'),
               ),
             ],
           ),
@@ -127,16 +122,41 @@ class TodayInputsCard extends StatelessWidget {
   }
 }
 
-class DailyInputsScreen extends StatelessWidget {
-  const DailyInputsScreen({super.key, required this.store});
-
+class DailyInputsScreen extends StatefulWidget {
+  const DailyInputsScreen({
+    super.key,
+    required this.store,
+    this.embedded = false,
+    this.initialDate,
+  });
   final AppStore store;
+  final bool embedded;
+  final DateTime? initialDate;
+  @override
+  State<DailyInputsScreen> createState() => _DailyInputsScreenState();
+}
+
+class _DailyInputsScreenState extends State<DailyInputsScreen> {
+  AppStore get store => widget.store;
+  late DateTime selectedDay = DateUtils.dateOnly(
+    widget.initialDate ?? DateTime.now(),
+  );
+
+  Future<void> _pickDay() async {
+    final value = await showDatePicker(
+      context: context,
+      initialDate: selectedDay,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (value != null) setState(() => selectedDay = value);
+  }
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: store,
     builder: (context, _) {
-      final now = DateTime.now();
+      final now = selectedDay;
       final supplements = store.supplementEventsForDay(now);
       final meals = store.mealEventsForDay(now);
       final hydration = store.hydrationEventsForDay(now);
@@ -148,7 +168,8 @@ class DailyInputsScreen extends StatelessWidget {
               slivers: [
                 SliverAppBar(
                   pinned: true,
-                  title: const Text('DAILY INPUTS & RECOVERY'),
+                  automaticallyImplyLeading: !widget.embedded,
+                  title: const Text('Track'),
                   backgroundColor: BrandColors.ink.withValues(alpha: .94),
                   actions: [
                     IconButton(
@@ -167,19 +188,70 @@ class DailyInputsScreen extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(20, 14, 20, 36),
                   sliver: SliverList.list(
                     children: [
-                      const BrandSectionLabel('Today at a glance'),
+                      Row(
+                        children: [
+                          IconButton(
+                            tooltip: 'Previous day',
+                            onPressed: () => setState(
+                              () => selectedDay = selectedDay.subtract(
+                                const Duration(days: 1),
+                              ),
+                            ),
+                            icon: const Icon(Icons.chevron_left),
+                          ),
+                          Expanded(
+                            child: TextButton.icon(
+                              onPressed: _pickDay,
+                              icon: const Icon(
+                                Icons.calendar_today_outlined,
+                                size: 18,
+                              ),
+                              label: Text(
+                                DateUtils.isSameDay(selectedDay, DateTime.now())
+                                    ? 'Today'
+                                    : MaterialLocalizations.of(
+                                        context,
+                                      ).formatMediumDate(selectedDay),
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Next day',
+                            onPressed:
+                                DateUtils.isSameDay(selectedDay, DateTime.now())
+                                ? null
+                                : () => setState(
+                                    () => selectedDay = selectedDay.add(
+                                      const Duration(days: 1),
+                                    ),
+                                  ),
+                            icon: const Icon(Icons.chevron_right),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      FeatureTip(
+                        store: store,
+                        id: ContextualGuideId.dailyInputs,
+                        message:
+                            'Use the date above to log or edit a past day. Quick adds belong to the selected day.',
+                      ),
+                      const BrandSectionLabel('Day at a glance'),
                       const SizedBox(height: 12),
                       _DailySummaryPanel(store: store, day: now),
                       const SizedBox(height: 22),
                       const BrandSectionLabel('Quick add'),
                       const SizedBox(height: 12),
-                      _QuickAddPanel(store: store),
+                      _QuickAddPanel(store: store, day: selectedDay),
                       const SizedBox(height: 22),
                       BrandSectionLabel(
                         'Supplements',
                         trailing: TextButton.icon(
-                          onPressed: () =>
-                              showSupplementEntrySheet(context, store),
+                          onPressed: () => showSupplementEntrySheet(
+                            context,
+                            store,
+                            day: selectedDay,
+                          ),
                           icon: const Icon(Icons.add_rounded, size: 17),
                           label: const Text('ADD'),
                         ),
@@ -202,7 +274,11 @@ class DailyInputsScreen extends StatelessWidget {
                       BrandSectionLabel(
                         'Meals',
                         trailing: TextButton.icon(
-                          onPressed: () => showMealEntrySheet(context, store),
+                          onPressed: () => showMealEntrySheet(
+                            context,
+                            store,
+                            day: selectedDay,
+                          ),
                           icon: const Icon(Icons.add_rounded, size: 17),
                           label: const Text('ADD'),
                         ),
@@ -222,8 +298,11 @@ class DailyInputsScreen extends StatelessWidget {
                       BrandSectionLabel(
                         'Hydration',
                         trailing: TextButton.icon(
-                          onPressed: () =>
-                              showHydrationEntrySheet(context, store),
+                          onPressed: () => showHydrationEntrySheet(
+                            context,
+                            store,
+                            day: selectedDay,
+                          ),
                           icon: const Icon(Icons.add_rounded, size: 17),
                           label: const Text('ADD'),
                         ),
@@ -231,6 +310,11 @@ class DailyInputsScreen extends StatelessWidget {
                       const SizedBox(height: 10),
                       _HydrationPanel(
                         events: hydration,
+                        onEdit: (event) => showHydrationEntrySheet(
+                          context,
+                          store,
+                          existing: event,
+                        ),
                         onDelete: (event) => _confirmDelete(
                           context,
                           label: '${event.amountMl.round()} mL hydration',
@@ -245,6 +329,7 @@ class DailyInputsScreen extends StatelessWidget {
                             context,
                             store,
                             existing: recovery,
+                            day: selectedDay,
                           ),
                           icon: Icon(
                             recovery == null
@@ -262,7 +347,7 @@ class DailyInputsScreen extends StatelessWidget {
                         'Progression Lab reports associations, not proof that a supplement, meal, or recovery factor caused a performance change.',
                         style: TextStyle(
                           color: BrandColors.muted,
-                          fontSize: 11,
+                          fontSize: 12,
                           height: 1.45,
                         ),
                       ),
@@ -451,7 +536,7 @@ class _SummaryMetric extends StatelessWidget {
           label,
           style: const TextStyle(
             color: BrandColors.muted,
-            fontSize: 9,
+            fontSize: 12,
             fontWeight: FontWeight.w900,
             letterSpacing: .7,
           ),
@@ -462,9 +547,10 @@ class _SummaryMetric extends StatelessWidget {
 }
 
 class _QuickAddPanel extends StatelessWidget {
-  const _QuickAddPanel({required this.store});
+  const _QuickAddPanel({required this.store, required this.day});
 
   final AppStore store;
+  final DateTime day;
 
   @override
   Widget build(BuildContext context) => LabPanel(
@@ -484,7 +570,8 @@ class _QuickAddPanel extends StatelessWidget {
                   size: 16,
                 ),
                 label: Text(preset.name),
-                onPressed: () => _quickLogPreset(context, store, preset),
+                onPressed: () =>
+                    _quickLogPreset(context, store, preset, day: day),
               ),
           ],
         ),
@@ -494,22 +581,25 @@ class _QuickAddPanel extends StatelessWidget {
           runSpacing: 8,
           children: [
             OutlinedButton.icon(
-              onPressed: () => showSupplementEntrySheet(context, store),
+              onPressed: () =>
+                  showSupplementEntrySheet(context, store, day: day),
               icon: const Icon(Icons.science_rounded),
               label: const Text('CUSTOM SUPPLEMENT'),
             ),
             OutlinedButton.icon(
-              onPressed: () => showMealEntrySheet(context, store),
+              onPressed: () => showMealEntrySheet(context, store, day: day),
               icon: const Icon(Icons.restaurant_rounded),
               label: const Text('MEAL'),
             ),
             OutlinedButton.icon(
-              onPressed: () => showHydrationEntrySheet(context, store),
+              onPressed: () =>
+                  showHydrationEntrySheet(context, store, day: day),
               icon: const Icon(Icons.water_drop_rounded),
               label: const Text('WATER'),
             ),
             OutlinedButton.icon(
-              onPressed: () => showRecoveryCheckInSheet(context, store),
+              onPressed: () =>
+                  showRecoveryCheckInSheet(context, store, day: day),
               icon: const Icon(Icons.bedtime_rounded),
               label: const Text('RECOVERY'),
             ),
@@ -534,7 +624,7 @@ class _SupplementList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (events.isEmpty)
-      return const _EmptyPanel('No supplements logged today.');
+      return const _EmptyPanel('No supplements logged for this day.');
     return Column(
       children: [
         for (final event in events) ...[
@@ -604,7 +694,8 @@ class _MealList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (events.isEmpty) return const _EmptyPanel('No meals logged today.');
+    if (events.isEmpty)
+      return const _EmptyPanel('No meals logged for this day.');
     return Column(
       children: [
         for (final event in events) ...[
@@ -655,20 +746,27 @@ class _MealList extends StatelessWidget {
 }
 
 class _HydrationPanel extends StatelessWidget {
-  const _HydrationPanel({required this.events, required this.onDelete});
+  const _HydrationPanel({
+    required this.events,
+    required this.onDelete,
+    required this.onEdit,
+  });
 
   final List<HydrationEvent> events;
   final ValueChanged<HydrationEvent> onDelete;
+  final ValueChanged<HydrationEvent> onEdit;
 
   @override
   Widget build(BuildContext context) {
-    if (events.isEmpty) return const _EmptyPanel('No hydration logged today.');
+    if (events.isEmpty)
+      return const _EmptyPanel('No hydration logged for this day.');
     return LabPanel(
       accent: BrandColors.cyan,
       child: Column(
         children: [
           for (final event in events)
             ListTile(
+              onTap: () => onEdit(event),
               contentPadding: EdgeInsets.zero,
               leading: Icon(
                 event.electrolytes
@@ -758,7 +856,7 @@ class _RecoveryMetric extends StatelessWidget {
           label,
           style: const TextStyle(
             color: BrandColors.muted,
-            fontSize: 9,
+            fontSize: 12,
             fontWeight: FontWeight.w900,
             letterSpacing: .7,
           ),
@@ -788,6 +886,7 @@ Future<void> showSupplementEntrySheet(
   BuildContext context,
   AppStore store, {
   SupplementEvent? existing,
+  DateTime? day,
 }) async {
   final name = TextEditingController(text: existing?.name ?? '');
   final brand = TextEditingController(text: existing?.brand ?? '');
@@ -801,7 +900,7 @@ Future<void> showSupplementEntrySheet(
         : _number(existing.caffeineMg),
   );
   final notes = TextEditingController(text: existing?.notes ?? '');
-  var when = existing?.takenAt ?? DateTime.now();
+  var when = existing?.takenAt ?? _timeOnDay(day);
   var savePreset = false;
   final value = await showModalBottomSheet<SupplementEvent>(
     context: context,
@@ -1060,6 +1159,7 @@ Future<void> showMealEntrySheet(
   BuildContext context,
   AppStore store, {
   MealEvent? existing,
+  DateTime? day,
 }) async {
   final name = TextEditingController(text: existing?.name ?? 'Meal');
   final calories = TextEditingController(
@@ -1079,7 +1179,7 @@ Future<void> showMealEntrySheet(
     text: existing?.fatGrams == null ? '' : _number(existing!.fatGrams!),
   );
   final notes = TextEditingController(text: existing?.notes ?? '');
-  var when = existing?.occurredAt ?? DateTime.now();
+  var when = existing?.occurredAt ?? _timeOnDay(day);
   var size = existing?.size ?? MealSize.medium;
   var timing = existing?.timing ?? MealTiming.general;
   var detailed =
@@ -1228,12 +1328,16 @@ Future<void> showMealEntrySheet(
 
 Future<void> showHydrationEntrySheet(
   BuildContext context,
-  AppStore store,
-) async {
-  final amount = TextEditingController(text: '500');
-  final notes = TextEditingController();
-  var electrolytes = false;
-  var when = DateTime.now();
+  AppStore store, {
+  DateTime? day,
+  HydrationEvent? existing,
+}) async {
+  final amount = TextEditingController(
+    text: existing == null ? '500' : _number(existing.amountMl),
+  );
+  final notes = TextEditingController(text: existing?.notes ?? '');
+  var electrolytes = existing?.electrolytes ?? false;
+  var when = existing?.occurredAt ?? _timeOnDay(day);
   final value = await showModalBottomSheet<HydrationEvent>(
     context: context,
     isScrollControlled: true,
@@ -1272,12 +1376,12 @@ Future<void> showHydrationEntrySheet(
           Navigator.pop(
             sheetContext,
             HydrationEvent(
-              id: createRecordId('hydration'),
+              id: existing?.id ?? createRecordId('hydration'),
               occurredAt: when,
               amountMl: parsed,
               electrolytes: electrolytes,
               notes: notes.text.trim(),
-              createdAt: now,
+              createdAt: existing?.createdAt ?? now,
               updatedAt: now,
             ),
           );
@@ -1287,12 +1391,7 @@ Future<void> showHydrationEntrySheet(
   );
   try {
     if (value != null) {
-      await store.addHydration(
-        amountMl: value.amountMl,
-        electrolytes: value.electrolytes,
-        notes: value.notes,
-        occurredAt: value.occurredAt,
-      );
+      await store.saveHydrationEvent(value);
     }
   } on Object {
     if (context.mounted)
@@ -1307,8 +1406,9 @@ Future<void> showRecoveryCheckInSheet(
   BuildContext context,
   AppStore store, {
   RecoveryCheckIn? existing,
+  DateTime? day,
 }) async {
-  final current = existing ?? store.recoveryForDay(DateTime.now());
+  final current = existing ?? store.recoveryForDay(day ?? DateTime.now());
   final sleep = TextEditingController(
     text: current?.sleepHours == null ? '' : _number(current!.sleepHours!),
   );
@@ -1409,7 +1509,7 @@ Future<void> showRecoveryCheckInSheet(
             sheetContext,
             RecoveryCheckIn(
               id: current?.id ?? createRecordId('recovery'),
-              localDate: dateOnly(now),
+              localDate: current?.localDate ?? dateOnly(day ?? now),
               sleepHours: sleepValue,
               sleepQuality: sleepQuality,
               stress: stress,
@@ -1630,23 +1730,26 @@ class _TimeRow extends StatelessWidget {
   Widget build(BuildContext context) => ListTile(
     contentPadding: EdgeInsets.zero,
     leading: const Icon(Icons.schedule_rounded, color: BrandColors.cyan),
-    title: const Text('Time'),
-    subtitle: Text(_time(value)),
+    title: const Text('Date & time'),
+    subtitle: Text(
+      '${MaterialLocalizations.of(context).formatMediumDate(value)} · ${_time(value)}',
+    ),
     trailing: TextButton(
       onPressed: () async {
+        final day = await showDatePicker(
+          context: context,
+          initialDate: DateUtils.dateOnly(value),
+          firstDate: DateTime(2000),
+          lastDate: DateTime.now(),
+        );
+        if (day == null || !context.mounted) return;
         final picked = await showTimePicker(
           context: context,
           initialTime: TimeOfDay.fromDateTime(value),
         );
         if (picked == null) return;
         onChanged(
-          DateTime(
-            value.year,
-            value.month,
-            value.day,
-            picked.hour,
-            picked.minute,
-          ),
+          DateTime(day.year, day.month, day.day, picked.hour, picked.minute),
         );
       },
       child: const Text('CHANGE'),
@@ -1734,10 +1837,11 @@ class _RatingInput extends StatelessWidget {
 Future<void> _quickLogPreset(
   BuildContext context,
   AppStore store,
-  SupplementPreset preset,
-) async {
+  SupplementPreset preset, {
+  DateTime? day,
+}) async {
   try {
-    await store.logSupplementPreset(preset);
+    await store.logSupplementPreset(preset, takenAt: _timeOnDay(day));
     if (!context.mounted) return;
     ScaffoldMessenger.of(
       context,
@@ -1829,3 +1933,9 @@ String _mealTiming(MealTiming value) => switch (value) {
   MealTiming.preWorkout => 'Pre-workout',
   MealTiming.postWorkout => 'Post-workout',
 };
+
+DateTime _timeOnDay(DateTime? day) {
+  final now = DateTime.now();
+  if (day == null) return now;
+  return DateTime(day.year, day.month, day.day, now.hour, now.minute);
+}

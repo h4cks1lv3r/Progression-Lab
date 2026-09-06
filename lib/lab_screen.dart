@@ -8,6 +8,7 @@ import 'daily_inputs.dart';
 import 'gemini_nano.dart';
 import 'lab_analysis.dart';
 import 'store.dart';
+import 'contextual_guides.dart';
 
 class LabScreen extends StatefulWidget {
   const LabScreen({super.key, required this.store});
@@ -174,6 +175,12 @@ class _LabScreenState extends State<LabScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 14, 20, 36),
                   sliver: SliverList.list(
                     children: [
+                      FeatureTip(
+                        store: widget.store,
+                        id: ContextualGuideId.labEvidence,
+                        message:
+                            'Lab Core uses your saved records. Optional AI explains that evidence; missing data stays visible.',
+                      ),
                       const _LabHero(),
                       const SizedBox(height: 18),
                       _AiControlPanel(

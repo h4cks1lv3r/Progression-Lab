@@ -18,6 +18,85 @@ enum ContextualGuideId {
   dataBackup,
 }
 
+/// Inline help stays in the reading order and grows with the system text size.
+class FeatureTip extends StatelessWidget {
+  const FeatureTip({
+    super.key,
+    required this.store,
+    required this.id,
+    required this.message,
+  });
+  final AppStore store;
+  final ContextualGuideId id;
+  final String message;
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: store,
+    builder: (context, _) {
+      final raw = store.integrationState['contextualGuides'];
+      final settings = raw is Map
+          ? Map<String, dynamic>.from(raw)
+          : <String, dynamic>{};
+      final seen = (settings['seen'] as List? ?? [])
+          .whereType<String>()
+          .toSet();
+      if (settings['tipsEnabled'] == false || seen.contains(id.name))
+        return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: Icon(Icons.lightbulb_outline, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Text(
+                      message,
+                      style: const TextStyle(fontSize: 13, height: 1.4),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Dismiss this tip',
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: () async {
+                    try {
+                      await store.setIntegrationState({
+                        ...store.integrationState,
+                        'contextualGuides': {
+                          ...settings,
+                          'seen': [...seen, id.name],
+                        },
+                      });
+                    } on Object {
+                      if (context.mounted)
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Could not save the tip preference. Please retry.',
+                            ),
+                          ),
+                        );
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
 class ContextualGuideStep {
   const ContextualGuideStep({
     required this.title,

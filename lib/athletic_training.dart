@@ -5,9 +5,11 @@ import 'athletic_history.dart';
 import 'athletic_program.dart';
 import 'brand.dart';
 import 'daily_inputs.dart';
-import 'daily_inputs_screen.dart';
 import 'share_card.dart';
+import 'share_options.dart';
+import 'dart:async';
 import 'store.dart';
+import 'contextual_guides.dart';
 
 Future<void> showAthleticPositionSheet(
   BuildContext context,
@@ -232,7 +234,7 @@ Future<void> showAthleticPositionSheet(
                           'PROGRAM WEEK $targetWeekNumber',
                           style: const TextStyle(
                             color: BrandColors.cyan,
-                            fontSize: 10,
+                            fontSize: 12,
                             fontWeight: FontWeight.w900,
                             letterSpacing: .7,
                           ),
@@ -329,7 +331,7 @@ Future<void> showAthleticPositionSheet(
                               'NEW STARTING POSITION',
                               style: TextStyle(
                                 color: BrandColors.cyan,
-                                fontSize: 10,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 1,
                               ),
@@ -464,7 +466,7 @@ class _AthleticPositionSessionOption extends StatelessWidget {
                   '${session.day} · ${session.durationMinutes} min',
                   style: const TextStyle(
                     color: BrandColors.muted,
-                    fontSize: 11,
+                    fontSize: 12,
                   ),
                 ),
               ],
@@ -624,7 +626,7 @@ class AthleticTrainingPage extends StatelessWidget {
                               week.stage.toUpperCase(),
                               style: const TextStyle(
                                 color: BrandColors.cyan,
-                                fontSize: 10,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: .7,
                               ),
@@ -687,7 +689,7 @@ class AthleticTrainingPage extends StatelessWidget {
                             'Training guidance only. Stop for sharp pain, dizziness, or loss of control. Field measures are repeatable performance markers, not medical screening or diagnosis.',
                             style: TextStyle(
                               color: BrandColors.muted.withValues(alpha: .8),
-                              fontSize: 11,
+                              fontSize: 12,
                               height: 1.45,
                             ),
                           ),
@@ -898,7 +900,7 @@ class _NextAthleticSessionPanel extends StatelessWidget {
               'NEXT SESSION',
               style: TextStyle(
                 color: BrandColors.cyan,
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 1.25,
               ),
@@ -1136,7 +1138,7 @@ class _RoutineSessionTile extends StatelessWidget {
                     session.day,
                     style: const TextStyle(
                       color: BrandColors.cyan,
-                      fontSize: 9,
+                      fontSize: 12,
                       fontWeight: FontWeight.w900,
                       letterSpacing: .8,
                     ),
@@ -1147,7 +1149,7 @@ class _RoutineSessionTile extends StatelessWidget {
                       'CURRENT',
                       style: TextStyle(
                         color: BrandColors.violet,
-                        fontSize: 9,
+                        fontSize: 12,
                         fontWeight: FontWeight.w900,
                         letterSpacing: .8,
                       ),
@@ -1218,7 +1220,7 @@ class _WeeklyRhythmPanel extends StatelessWidget {
                           style: TextStyle(
                             color: day.$3,
                             fontWeight: FontWeight.w900,
-                            fontSize: 10,
+                            fontSize: 12,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -1227,7 +1229,7 @@ class _WeeklyRhythmPanel extends StatelessWidget {
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: BrandColors.muted,
-                            fontSize: 10,
+                            fontSize: 12,
                           ),
                         ),
                       ],
@@ -1348,7 +1350,7 @@ class _QualityGrid extends StatelessWidget {
                       item.$2.toUpperCase(),
                       style: const TextStyle(
                         fontWeight: FontWeight.w900,
-                        fontSize: 11,
+                        fontSize: 12,
                         letterSpacing: .7,
                       ),
                     ),
@@ -1357,7 +1359,7 @@ class _QualityGrid extends StatelessWidget {
                       item.$3,
                       style: const TextStyle(
                         color: BrandColors.muted,
-                        fontSize: 11,
+                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -1411,7 +1413,7 @@ class _AssessmentPanel extends StatelessWidget {
                 style: const TextStyle(
                   color: BrandColors.violet,
                   fontWeight: FontWeight.w900,
-                  fontSize: 11,
+                  fontSize: 12,
                 ),
               ),
             ],
@@ -1484,7 +1486,7 @@ class _InfoPill extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontSize: 9,
+            fontSize: 12,
             fontWeight: FontWeight.w900,
             letterSpacing: .55,
           ),
@@ -1544,8 +1546,63 @@ class AthleticSessionScreen extends StatefulWidget {
 
 class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
   final Set<int> completedDrills = {};
-  final DateTime startedAt = DateTime.now();
+  late DateTime startedAt;
+  late String sessionId;
   bool saving = false;
+  bool draftSaving = false;
+  bool draftFailed = false;
+  Future<void> _writes = Future.value();
+
+  @override
+  void initState() {
+    super.initState();
+    final draft = widget.store.athleticDraft;
+    if (draft != null &&
+        draft.week == widget.week.number &&
+        draft.sessionIndex == widget.sessionIndex &&
+        draft.programRun == widget.store.athleticProgramRun) {
+      startedAt = draft.startedAt;
+      sessionId = draft.sessionId;
+      completedDrills.addAll(
+        draft.completedDrills.where((i) => i >= 0 && i < session.drills.length),
+      );
+    } else {
+      startedAt = DateTime.now();
+      sessionId = createRecordId('athletic-session');
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _saveDraft();
+    });
+  }
+
+  Future<void> _saveDraft() async {
+    final draft = AthleticSessionDraft(
+      sessionId: sessionId,
+      programRun: widget.store.athleticProgramRun,
+      week: widget.week.number,
+      sessionIndex: widget.sessionIndex,
+      startedAt: startedAt,
+      completedDrills: completedDrills.toList()..sort(),
+    );
+    setState(() => draftSaving = true);
+    _writes = _writes.then((_) async {
+      try {
+        await widget.store.saveAthleticDraft(draft);
+        if (mounted)
+          setState(() {
+            draftFailed = false;
+            draftSaving = false;
+          });
+      } on Object {
+        if (mounted)
+          setState(() {
+            draftFailed = true;
+            draftSaving = false;
+          });
+      }
+    });
+    await _writes;
+  }
 
   AthleticSession get session => widget.week.sessions[widget.sessionIndex];
 
@@ -1602,18 +1659,46 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
               textAlign: TextAlign.right,
               style: const TextStyle(
                 color: BrandColors.muted,
-                fontSize: 9,
+                fontSize: 12,
                 fontWeight: FontWeight.w900,
                 letterSpacing: .7,
               ),
             ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    draftFailed
+                        ? 'Draft could not be saved'
+                        : draftSaving
+                        ? 'Saving draft…'
+                        : 'Draft saved · You can leave and resume',
+                    style: TextStyle(
+                      color: draftFailed
+                          ? BrandColors.error
+                          : BrandColors.muted,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                if (draftFailed)
+                  TextButton(onPressed: _saveDraft, child: const Text('Retry')),
+              ],
+            ),
             const SizedBox(height: 20),
+            FeatureTip(
+              store: widget.store,
+              id: ContextualGuideId.athleticSession,
+              message:
+                  'Check off drills as you complete them. Your session resumes here, including after the app closes.',
+            ),
             for (final entry in session.drills.asMap().entries) ...[
               _ActiveDrillCard(
                 index: entry.key,
                 drill: entry.value,
                 complete: completedDrills.contains(entry.key),
                 onChanged: (value) {
+                  if (saving) return;
                   setState(() {
                     if (value) {
                       completedDrills.add(entry.key);
@@ -1621,6 +1706,7 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
                       completedDrills.remove(entry.key);
                     }
                   });
+                  unawaited(_saveDraft());
                   HapticFeedback.selectionClick();
                 },
               ),
@@ -1631,15 +1717,12 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
             GradientAction(
               label: saving ? 'SAVING SESSION' : 'FINISH SESSION',
               icon: Icons.check_circle_rounded,
-              onPressed:
-                  completedDrills.length == session.drills.length && !saving
-                  ? _finish
-                  : null,
+              onPressed: saving ? null : _finish,
             ),
             if (completedDrills.length < session.drills.length) ...[
               const SizedBox(height: 10),
               const Text(
-                'Complete every drill before finishing. Use the listed regression when the prescribed version cannot be controlled.',
+                'Your checks are saved as you go. Finishing with drills remaining records a partial session; no drills records a skipped session.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: BrandColors.muted, fontSize: 11),
               ),
@@ -1651,63 +1734,91 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
   }
 
   Future<void> _finish() async {
+    if (saving) return;
     final result = await showModalBottomSheet<_SessionFinishResult>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => const _SessionFinishSheet(),
+      builder: (_) => _SessionFinishSheet(
+        completed: completedDrills.length,
+        total: session.drills.length,
+      ),
     );
     if (result == null || !mounted) return;
     setState(() => saving = true);
-    final responseSessionId = createRecordId('athletic-session');
+    await _writes;
     try {
       await widget.store.completeAthleticSession(
         effort: result.effort,
         notes: result.notes,
-        sessionId: responseSessionId,
+        sessionId: sessionId,
+        completedDrills: completedDrills.toList()..sort(),
+        startedAt: startedAt,
+        partial: completedDrills.length < session.drills.length,
+        skipped: completedDrills.isEmpty,
       );
-      if (mounted) {
-        await showWorkoutResponseSheet(
-          context,
-          widget.store,
-          sessionId: responseSessionId,
-          track: 'athletic',
-        );
-      }
-      if (mounted) {
-        final cycleComplete =
-            widget.sessionIndex == AthleticProgram.sessionsPerWeek - 1 &&
-            widget.week.number % AthleticProgram.weeksPerCycle == 0;
-        await showWorkoutCompleteSheet(
-          context,
-          WorkoutShareData(
-            program: 'Athletic Functional Training',
-            title: session.name,
-            contextLine:
-                '${widget.week.cycleName} · Week ${widget.week.number} · ${session.day}',
-            completedAt: DateTime.now(),
-            achievementLabel: cycleComplete ? 'Cycle complete' : null,
-            metrics: [
-              ShareMetric(
-                'Duration',
-                formatShareDuration(DateTime.now().difference(startedAt)),
-              ),
-              ShareMetric('Drills', '${session.drills.length}'),
-              ShareMetric('Effort', '${result.effort}/10'),
-              ShareMetric('Program', 'Week ${widget.week.number}/12'),
-            ],
-            highlightLabel: 'Training focus',
-            highlightValue: session.summary,
-          ),
-        );
-      }
-      if (mounted) Navigator.pop(context);
     } on Object {
       if (!mounted) return;
       setState(() => saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not save the athletic session.')),
+        const SnackBar(
+          content: Text('Could not save. Your draft is available to retry.'),
+        ),
+      );
+      return;
+    }
+    if (mounted && completedDrills.isNotEmpty) {
+      final cycleComplete =
+          widget.sessionIndex == AthleticProgram.sessionsPerWeek - 1 &&
+          widget.week.number % AthleticProgram.weeksPerCycle == 0 &&
+          completedDrills.length == session.drills.length;
+      await showWorkoutCompleteSheet(
+        context,
+        WorkoutShareData(
+          snapshot: ShareWorkoutSnapshot(
+            program: 'Athletic Functional Training',
+            status: completedDrills.length == session.drills.length
+                ? 'completed'
+                : 'partial',
+            workout: session.name,
+            completedAt: DateTime.now(),
+            duration: DateTime.now().difference(startedAt),
+            sets: 0,
+            exercises: 0,
+            drills: completedDrills.length,
+            effort: result.effort,
+            phaseLabel:
+                'Week ${widget.week.number} · ${completedDrills.length == session.drills.length
+                    ? session.day
+                    : completedDrills.isEmpty
+                    ? 'Skipped'
+                    : 'Partial session'}',
+            achievement: cycleComplete ? 'Cycle complete' : '',
+            highlights: [ShareHighlight('Training focus', session.summary)],
+          ),
+          program: 'Athletic Functional Training',
+          title: session.name,
+          contextLine:
+              '${widget.week.cycleName} · Week ${widget.week.number} · ${session.day}',
+          completedAt: DateTime.now(),
+          achievementLabel: cycleComplete ? 'Cycle complete' : null,
+          metrics: [
+            ShareMetric(
+              'Duration',
+              formatShareDuration(DateTime.now().difference(startedAt)),
+            ),
+            ShareMetric('Drills', '${completedDrills.length}'),
+            ShareMetric('Effort', '${result.effort}/10'),
+            ShareMetric('Program', 'Week ${widget.week.number}/12'),
+          ],
+          highlightLabel: 'Training focus',
+          highlightValue: session.summary,
+        ),
+        store: widget.store,
+        sessionId: sessionId,
+        track: 'athletic',
       );
     }
+    if (mounted) Navigator.pop(context);
   }
 }
 
@@ -1736,8 +1847,8 @@ class _ActiveDrillCard extends StatelessWidget {
         onTap: () => onChanged(!complete),
         borderRadius: BorderRadius.circular(20),
         child: Container(
-          width: 38,
-          height: 38,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
             color: complete
                 ? BrandColors.success.withValues(alpha: .14)
@@ -1777,7 +1888,7 @@ class _ActiveDrillCard extends StatelessWidget {
             'PRIMARY CUES',
             style: TextStyle(
               color: BrandColors.violet,
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: FontWeight.w900,
               letterSpacing: .8,
             ),
@@ -1834,7 +1945,7 @@ class _DrillDetail extends StatelessWidget {
         label,
         style: const TextStyle(
           color: BrandColors.violet,
-          fontSize: 10,
+          fontSize: 12,
           fontWeight: FontWeight.w900,
           letterSpacing: .8,
         ),
@@ -1853,7 +1964,9 @@ class _SessionFinishResult {
 }
 
 class _SessionFinishSheet extends StatefulWidget {
-  const _SessionFinishSheet();
+  const _SessionFinishSheet({required this.completed, required this.total});
+  final int completed;
+  final int total;
 
   @override
   State<_SessionFinishSheet> createState() => _SessionFinishSheetState();
@@ -1871,72 +1984,81 @@ class _SessionFinishSheetState extends State<_SessionFinishSheet> {
 
   @override
   Widget build(BuildContext context) => SafeArea(
-    child: Padding(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        8,
-        20,
-        20 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'SESSION COMPLETE',
-            style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 5),
-          const Text(
-            'Rate the whole session, not the hardest single drill.',
-            style: TextStyle(color: BrandColors.muted),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              const Text(
-                'EFFORT',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
-              const Spacer(),
-              Text(
-                '${effort.round()} / 10',
-                style: const TextStyle(
-                  color: BrandColors.cyan,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
+    child: SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          8,
+          20,
+          20 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Finish session · ${widget.completed}/${widget.total} drills',
+              style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              widget.completed == widget.total
+                  ? 'All drills complete.'
+                  : widget.completed == 0
+                  ? 'This session will be marked skipped.'
+                  : 'This session will be marked partial. Completed drills stay in history.',
+            ),
+            const Text(
+              'Rate the whole session, not the hardest single drill.',
+              style: TextStyle(color: BrandColors.muted),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                const Text(
+                  'EFFORT',
+                  style: TextStyle(fontWeight: FontWeight.w900),
                 ),
+                const Spacer(),
+                Text(
+                  '${effort.round()} / 10',
+                  style: const TextStyle(
+                    color: BrandColors.cyan,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+            Slider(
+              value: effort,
+              min: 1,
+              max: 10,
+              divisions: 9,
+              label: '${effort.round()}',
+              onChanged: (value) => setState(() => effort = value),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: notes,
+              minLines: 2,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'SESSION NOTES',
+                hintText: 'Control, discomfort, wins, or changes for next time',
               ),
-            ],
-          ),
-          Slider(
-            value: effort,
-            min: 1,
-            max: 10,
-            divisions: 9,
-            label: '${effort.round()}',
-            onChanged: (value) => setState(() => effort = value),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: notes,
-            minLines: 2,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: 'SESSION NOTES',
-              hintText: 'Control, discomfort, wins, or changes for next time',
             ),
-          ),
-          const SizedBox(height: 18),
-          GradientAction(
-            label: 'SAVE & ADVANCE',
-            icon: Icons.arrow_forward_rounded,
-            onPressed: () => Navigator.pop(
-              context,
-              _SessionFinishResult(effort.round(), notes.text),
+            const SizedBox(height: 18),
+            GradientAction(
+              label: 'SAVE & ADVANCE',
+              icon: Icons.arrow_forward_rounded,
+              onPressed: () => Navigator.pop(
+                context,
+                _SessionFinishResult(effort.round(), notes.text),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );
@@ -2431,7 +2553,7 @@ class _HistorySessionCard extends StatelessWidget {
                   'Run ${record.programRun} · Week ${record.week} · ${_formatDate(record.completedAt)} · Effort ${record.effort}/10',
                   style: const TextStyle(
                     color: BrandColors.muted,
-                    fontSize: 11,
+                    fontSize: 12,
                   ),
                 ),
                 if (record.notes.isNotEmpty) ...[

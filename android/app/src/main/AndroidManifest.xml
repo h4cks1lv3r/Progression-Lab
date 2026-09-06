@@ -16,7 +16,7 @@
     </queries>
 
     <application
-        android:label="Progression Lab"
+        android:label="${appLabel}"
         android:name="${applicationName}"
         android:icon="@drawable/progression_lab_launcher"
         android:roundIcon="@drawable/progression_lab_launcher"

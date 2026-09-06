@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 
 import 'brand.dart';
 import 'share_options.dart';
+import 'store.dart';
+import 'contextual_guides.dart';
+import 'daily_inputs_screen.dart';
 
 class ShareMetric {
   const ShareMetric(this.label, this.value);
@@ -22,6 +25,7 @@ class WorkoutShareData {
     required this.highlightValue,
     this.achievementLabel,
     this.footer = 'TEST · TRAIN · TRANSFORM',
+    this.snapshot,
   });
 
   final String program;
@@ -33,60 +37,74 @@ class WorkoutShareData {
   final String highlightValue;
   final String? achievementLabel;
   final String footer;
+  final ShareWorkoutSnapshot? snapshot;
 }
 
 class WorkoutShareCardGenerator {
-  static Future<Uint8List> generate(WorkoutShareData data) =>
-      AdvancedWorkoutShareCardGenerator.generate(
-        ShareWorkoutSnapshot(
-          program: data.program,
-          workout: data.title,
-          completedAt: data.completedAt,
-          duration: _durationFromMetrics(data.metrics),
-          sets: _intMetric(data.metrics, 'sets') ?? 0,
-          exercises: _intMetric(data.metrics, 'exercises') ?? 0,
-          volume: _doubleMetric(data.metrics, 'volume') ?? 0,
-          achievement: data.achievementLabel ?? '',
-          highlights: <ShareHighlight>[
-            ShareHighlight(data.highlightLabel, data.highlightValue),
-          ],
+  static Future<Uint8List> generate(
+    WorkoutShareData data, {
+    WorkoutSharePreferences? preferences,
+  }) => AdvancedWorkoutShareCardGenerator.generate(
+    toSnapshot(data),
+    preferences ?? AdvancedWorkoutShareCardGenerator.currentPreferences,
+  );
+
+  // Legacy callers remain supported; active workouts supply typed snapshots.
+  static ShareWorkoutSnapshot toSnapshot(WorkoutShareData data) {
+    if (data.snapshot != null) return data.snapshot!;
+    String metric(String name) =>
+        data.metrics
+            .where((m) => m.label.toLowerCase() == name)
+            .firstOrNull
+            ?.value ??
+        '';
+    double number(String text) {
+      final m = RegExp(
+        r'([0-9]+(?:\.[0-9]+)?)\s*([kKmM]?)',
+      ).firstMatch(text.replaceAll(',', ''));
+      if (m == null) return 0;
+      return double.parse(m[1]!) *
+          (m[2]!.toLowerCase() == 'k'
+              ? 1000
+              : m[2]!.toLowerCase() == 'm'
+              ? 1000000
+              : 1);
+    }
+
+    final duration = metric('duration').toUpperCase();
+    final hours = RegExp(r'(\d+)\s*HR').firstMatch(duration);
+    final minutes = RegExp(r'(\d+)\s*MIN').firstMatch(duration);
+    final elapsed = duration.startsWith('<')
+        ? Duration.zero
+        : Duration(
+            hours: int.tryParse(hours?[1] ?? '') ?? 0,
+            minutes: int.tryParse(minutes?[1] ?? '') ?? 0,
+          );
+    return ShareWorkoutSnapshot(
+      program: data.program,
+      workout: data.title,
+      completedAt: data.completedAt,
+      duration: elapsed,
+      sets: number(metric('sets')).toInt(),
+      exercises: number(metric('exercises')).toInt(),
+      volume: metric('volume').isEmpty ? null : number(metric('volume')),
+      volumeUnit: metric('volume').toLowerCase().contains('kg') ? 'kg' : 'lb',
+      drills: metric('drills').isEmpty
+          ? null
+          : number(metric('drills')).toInt(),
+      effort: metric('effort').isEmpty
+          ? null
+          : number(metric('effort')).toInt(),
+      phaseLabel: data.contextLine,
+      achievement: data.achievementLabel ?? '',
+      highlights: [
+        ShareHighlight(
+          data.highlightLabel,
+          data.highlightValue,
+          sensitiveWeight: true,
         ),
-        AdvancedWorkoutShareCardGenerator.currentPreferences,
-      );
-
-  static int? _intMetric(List<ShareMetric> metrics, String label) {
-    for (final metric in metrics) {
-      if (metric.label.toLowerCase() == label) {
-        return int.tryParse(metric.value.replaceAll(RegExp('[^0-9]'), ''));
-      }
-    }
-    return null;
-  }
-
-  static double? _doubleMetric(List<ShareMetric> metrics, String label) {
-    for (final metric in metrics) {
-      if (metric.label.toLowerCase() == label) {
-        return double.tryParse(metric.value.replaceAll(RegExp('[^0-9.]'), ''));
-      }
-    }
-    return null;
-  }
-
-  static Duration _durationFromMetrics(List<ShareMetric> metrics) {
-    for (final metric in metrics) {
-      if (metric.label.toLowerCase() == 'duration') {
-        final parts = metric.value.split(':');
-        if (parts.length == 2) {
-          final hours = int.tryParse(parts.first) ?? 0;
-          final minutes = int.tryParse(parts.last) ?? 0;
-          return Duration(hours: hours, minutes: minutes);
-        }
-        final minutes =
-            int.tryParse(metric.value.replaceAll(RegExp('[^0-9]'), '')) ?? 0;
-        return Duration(minutes: minutes);
-      }
-    }
-    return Duration.zero;
+      ],
+    );
   }
 }
 
@@ -104,9 +122,14 @@ class ShareImageBridge {
     }
   }
 
-  static Future<void> sharePng(Uint8List bytes, String fileName) async {
+  static Future<void> sharePng(
+    Uint8List bytes,
+    String fileName, {
+    String? caption,
+  }) async {
     try {
       await _channel.invokeMethod<void>('shareImage', <String, Object>{
+        if (caption != null) 'caption': caption,
         'bytes': bytes,
         'fileName': fileName,
       });
@@ -290,9 +313,10 @@ class _PreviewMetric extends StatelessWidget {
 }
 
 class WorkoutSharePreviewScreen extends StatefulWidget {
-  const WorkoutSharePreviewScreen({super.key, required this.data});
+  const WorkoutSharePreviewScreen({super.key, required this.data, this.store});
 
   final WorkoutShareData data;
+  final AppStore? store;
 
   @override
   State<WorkoutSharePreviewScreen> createState() =>
@@ -300,15 +324,187 @@ class WorkoutSharePreviewScreen extends StatefulWidget {
 }
 
 class _WorkoutSharePreviewScreenState extends State<WorkoutSharePreviewScreen> {
-  late final Future<Uint8List> _image;
+  late Future<Uint8List> _image;
+  late WorkoutSharePreferences _preferences;
   bool _saving = false;
   bool _sharing = false;
 
   @override
   void initState() {
     super.initState();
-    _image = WorkoutShareCardGenerator.generate(widget.data);
+    _preferences =
+        widget.store?.sharePreferences ?? const WorkoutSharePreferences();
+    _image = WorkoutShareCardGenerator.generate(
+      widget.data,
+      preferences: _preferences,
+    );
   }
+
+  Future<void> _editOptions() async {
+    var selected = _preferences;
+    final result = await showModalBottomSheet<WorkoutSharePreferences>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, update) => SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Share settings',
+                    style: Theme.of(ctx).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<WorkoutShareTemplate>(
+                    initialValue: selected.template,
+                    decoration: const InputDecoration(labelText: 'Template'),
+                    items: WorkoutShareTemplate.values
+                        .map(
+                          (v) => DropdownMenuItem(
+                            value: v,
+                            child: Text(switch (v) {
+                              WorkoutShareTemplate.cleanPerformance =>
+                                'Performance',
+                              WorkoutShareTemplate.achievement => 'Achievement',
+                              WorkoutShareTemplate.sessionRecap =>
+                                'Session recap',
+                            }),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => update(
+                      () => selected = WorkoutSharePreferences(
+                        template: v!,
+                        aspect: selected.aspect,
+                        privacy: selected.privacy,
+                        includeCaption: selected.includeCaption,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<WorkoutShareAspect>(
+                    initialValue: selected.aspect,
+                    decoration: const InputDecoration(labelText: 'Format'),
+                    items: WorkoutShareAspect.values
+                        .map(
+                          (v) => DropdownMenuItem(
+                            value: v,
+                            child: Text(switch (v) {
+                              WorkoutShareAspect.story => 'Story · 9:16',
+                              WorkoutShareAspect.portraitFeed =>
+                                'Portrait · 4:5',
+                              WorkoutShareAspect.square => 'Square · 1:1',
+                            }),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => update(
+                      () => selected = WorkoutSharePreferences(
+                        template: selected.template,
+                        aspect: v!,
+                        privacy: selected.privacy,
+                        includeCaption: selected.includeCaption,
+                      ),
+                    ),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Show exact weights'),
+                    value: selected.privacy.showExactWeights,
+                    onChanged: (v) => update(
+                      () => selected = _withPrivacy(selected, weights: v),
+                    ),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Completion only'),
+                    subtitle: const Text('Hide all performance metrics.'),
+                    value: selected.privacy.completionOnly,
+                    onChanged: (v) => update(
+                      () => selected = _withPrivacy(selected, completion: v),
+                    ),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Show duration'),
+                    value: selected.privacy.showDuration,
+                    onChanged: (v) => update(
+                      () => selected = _withPrivacy(selected, duration: v),
+                    ),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Show volume'),
+                    value: selected.privacy.showVolume,
+                    onChanged: (v) => update(
+                      () => selected = _withPrivacy(selected, volume: v),
+                    ),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Show date'),
+                    value: selected.privacy.showDate,
+                    onChanged: (v) => update(
+                      () => selected = _withPrivacy(selected, date: v),
+                    ),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(ctx, selected),
+                    child: const Text('Apply settings'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    try {
+      await widget.store?.setSharePreferences(result);
+      if (!mounted) return;
+      setState(() {
+        _preferences = result;
+        _image = WorkoutShareCardGenerator.generate(
+          widget.data,
+          preferences: result,
+        );
+      });
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Share settings could not be saved. Try again.'),
+          ),
+        );
+    }
+  }
+
+  WorkoutSharePreferences _withPrivacy(
+    WorkoutSharePreferences p, {
+    bool? weights,
+    bool? completion,
+    bool? duration,
+    bool? volume,
+    bool? date,
+  }) => WorkoutSharePreferences(
+    template: p.template,
+    aspect: p.aspect,
+    includeCaption: p.includeCaption,
+    privacy: WorkoutSharePrivacy(
+      showExactWeights: weights ?? p.privacy.showExactWeights,
+      completionOnly: completion ?? p.privacy.completionOnly,
+      showDuration: duration ?? p.privacy.showDuration,
+      showVolume: volume ?? p.privacy.showVolume,
+      showDate: date ?? p.privacy.showDate,
+      showBodyweight: p.privacy.showBodyweight,
+    ),
+  );
 
   Future<void> _save(Uint8List bytes) async {
     if (_saving) return;
@@ -345,6 +541,12 @@ class _WorkoutSharePreviewScreenState extends State<WorkoutSharePreviewScreen> {
       await ShareImageBridge.sharePng(
         bytes,
         shareFileName(widget.data.completedAt),
+        caption: _preferences.includeCaption
+            ? WorkoutShareCaptionBuilder.build(
+                WorkoutShareCardGenerator.toSnapshot(widget.data),
+                _preferences,
+              )
+            : null,
       );
     } on PlatformException catch (error) {
       if (!mounted) return;
@@ -358,7 +560,16 @@ class _WorkoutSharePreviewScreenState extends State<WorkoutSharePreviewScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Share workout')),
+    appBar: AppBar(
+      title: const Text('Share workout'),
+      actions: [
+        TextButton.icon(
+          onPressed: _editOptions,
+          icon: const Icon(Icons.tune),
+          label: const Text('Format & privacy'),
+        ),
+      ],
+    ),
     body: BrandBackdrop(
       child: FutureBuilder<Uint8List>(
         future: _image,
@@ -380,6 +591,16 @@ class _WorkoutSharePreviewScreenState extends State<WorkoutSharePreviewScreen> {
           }
           return Column(
             children: <Widget>[
+              if (widget.store != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: FeatureTip(
+                    store: widget.store!,
+                    id: ContextualGuideId.workoutSharing,
+                    message:
+                        'Use Format & privacy above to choose exactly what appears in this image before saving or sharing.',
+                  ),
+                ),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
@@ -434,52 +655,68 @@ class _WorkoutSharePreviewScreenState extends State<WorkoutSharePreviewScreen> {
 
 Future<void> showWorkoutCompleteSheet(
   BuildContext context,
-  WorkoutShareData data,
-) => showModalBottomSheet<void>(
+  WorkoutShareData data, {
+  AppStore? store,
+  String? sessionId,
+  String track = 'strength',
+}) => showModalBottomSheet<void>(
   context: context,
   isScrollControlled: true,
   builder: (sheetContext) => SafeArea(
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(22, 8, 22, 22),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          const LabMark(size: 68),
-          const SizedBox(height: 16),
-          const Text(
-            'WORKOUT COMPLETE',
-            style: TextStyle(
-              fontSize: 25,
-              fontWeight: FontWeight.w900,
-              letterSpacing: .7,
-            ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            data.title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: BrandColors.muted, fontSize: 16),
-          ),
-          const SizedBox(height: 20),
-          GradientAction(
-            label: 'CREATE STORY CARD',
-            icon: Icons.auto_awesome_rounded,
-            onPressed: () => Navigator.push(
-              sheetContext,
-              MaterialPageRoute<void>(
-                builder: (_) => WorkoutSharePreviewScreen(data: data),
+    child: SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 8, 22, 22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const LabMark(size: 68),
+            const SizedBox(height: 16),
+            const Text(
+              'Workout saved',
+              style: TextStyle(
+                fontSize: 25,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .7,
               ),
             ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: TextButton(
-              onPressed: () => Navigator.pop(sheetContext),
-              child: const Text('DONE'),
+            const SizedBox(height: 7),
+            Text(
+              data.title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: BrandColors.muted, fontSize: 16),
             ),
-          ),
-        ],
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.pop(sheetContext),
+                child: const Text('Done'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              label: const Text('Share workout'),
+              icon: const Icon(Icons.share_outlined),
+              onPressed: () => Navigator.push(
+                sheetContext,
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      WorkoutSharePreviewScreen(data: data, store: store),
+                ),
+              ),
+            ),
+            if (store != null && sessionId != null)
+              TextButton(
+                onPressed: () => showWorkoutResponseSheet(
+                  sheetContext,
+                  store,
+                  sessionId: sessionId,
+                  track: track,
+                ),
+                child: const Text('Add how it felt'),
+              ),
+          ],
+        ),
       ),
     ),
   ),

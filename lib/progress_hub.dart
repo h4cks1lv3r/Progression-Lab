@@ -5,8 +5,13 @@ import 'athletic_program.dart';
 import 'brand.dart';
 import 'progress_dashboard.dart';
 import 'store.dart';
+import 'athletic_training.dart';
+import 'contextual_guides.dart';
+import 'lab_screen.dart';
+import 'integrations_hub.dart';
+import 'training_history.dart';
 
-enum _ProgressView { strength, functional }
+enum _ProgressView { strength, functional, lab }
 
 class ProgressHub extends StatefulWidget {
   const ProgressHub({super.key, required this.store});
@@ -35,22 +40,54 @@ class _ProgressHubState extends State<ProgressHub> {
       child: Column(
         children: [
           Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Progress',
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          TrainingHistoryScreen(store: widget.store),
+                    ),
+                  ),
+                  icon: const Icon(Icons.history),
+                  label: const Text('History'),
+                ),
+              ],
+            ),
+          ),
+          Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
             child: SizedBox(
               width: double.infinity,
               child: SegmentedButton<_ProgressView>(
+                direction: MediaQuery.textScalerOf(context).scale(14) > 21
+                    ? Axis.vertical
+                    : Axis.horizontal,
                 key: const ValueKey('progress-track-selector'),
                 showSelectedIcon: false,
                 segments: const [
                   ButtonSegment(
                     value: _ProgressView.strength,
                     icon: Icon(Icons.fitness_center_rounded, size: 18),
-                    label: Text('STRENGTH'),
+                    label: Text('Strength'),
                   ),
                   ButtonSegment(
                     value: _ProgressView.functional,
                     icon: Icon(Icons.directions_run_rounded, size: 18),
-                    label: Text('FUNCTIONAL'),
+                    label: Text('Athletic'),
+                  ),
+                  ButtonSegment(
+                    value: _ProgressView.lab,
+                    icon: Icon(Icons.science_outlined, size: 18),
+                    label: Text('Lab'),
                   ),
                 ],
                 selected: {view},
@@ -65,6 +102,7 @@ class _ProgressHubState extends State<ProgressHub> {
               children: [
                 ProgressDashboard(store: widget.store),
                 AthleticProgressDashboard(store: widget.store),
+                _LabDestinations(store: widget.store),
               ],
             ),
           ),
@@ -143,6 +181,38 @@ class _AthleticProgressDashboardState extends State<AthleticProgressDashboard> {
       key: const PageStorageKey('functional-progress-dashboard'),
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 36),
       children: [
+        FeatureTip(
+          store: widget.store,
+          id: ContextualGuideId.athleticAssessment,
+          message:
+              'Use field assessments to compare balance, jumps, and speed. Drill history below shows only the drills you checked off.',
+        ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AthleticAssessmentScreen(store: widget.store),
+                ),
+              ),
+              icon: const Icon(Icons.speed_outlined),
+              label: const Text('Record assessment'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AthleticHistoryScreen(store: widget.store),
+                ),
+              ),
+              child: const Text('Assessment history'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -170,7 +240,7 @@ class _AthleticProgressDashboardState extends State<AthleticProgressDashboard> {
                   ),
                   const SizedBox(height: 7),
                   Text(
-                    '${names.length} programmed drills • ${widget.store.athleticHistory.length} completed sessions',
+                    '${names.length} programmed drills • ${widget.store.athleticHistory.where((r) => r.isComplete).length} completed sessions',
                     style: const TextStyle(color: BrandColors.muted),
                   ),
                 ],
@@ -400,7 +470,11 @@ class _AthleticProgressDashboardState extends State<AthleticProgressDashboard> {
       final session = _session(record);
       if (session == null) continue;
       final week = AthleticProgram.week(record.week);
-      for (final drill in session.drills) {
+      for (final entry in session.drills.asMap().entries) {
+        if (record.completedDrills != null &&
+            !record.completedDrills!.contains(entry.key))
+          continue;
+        final drill = entry.value;
         if (drill.name == drillName) {
           result.add(_Completion(record, _Appearance(week, session, drill)));
           break;
@@ -452,7 +526,7 @@ Widget _detail(String label, String value) => Padding(
         label,
         style: const TextStyle(
           color: BrandColors.violet,
-          fontSize: 9,
+          fontSize: 12,
           fontWeight: FontWeight.w900,
         ),
       ),
@@ -493,3 +567,57 @@ const _month = [
 ];
 
 String _date(DateTime value) => '${_month[value.month - 1]} ${value.day}';
+
+class _LabDestinations extends StatelessWidget {
+  const _LabDestinations({required this.store});
+  final AppStore store;
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(20),
+    children: [
+      const Text(
+        'Understand your training',
+        style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+      ),
+      const SizedBox(height: 8),
+      const Text(
+        'Review evidence, compare inputs, and plan experiments.',
+        style: TextStyle(color: BrandColors.muted),
+      ),
+      const SizedBox(height: 20),
+      for (final entry in <(IconData, String, String, Widget)>[
+        (
+          Icons.auto_awesome_outlined,
+          'The Lab',
+          'Evidence and optional on-device AI',
+          LabScreen(store: store),
+        ),
+        (
+          Icons.insights_outlined,
+          'Inputs & performance',
+          'Compare logged inputs with workout outcomes',
+          InputsPerformanceScreen(store: store),
+        ),
+        (
+          Icons.biotech_outlined,
+          'Experiments & weekly review',
+          'Plan a comparison or review your last seven days',
+          IntegrationsHubScreen(store: store, section: IntegrationSection.lab),
+        ),
+      ])
+        Card(
+          child: ListTile(
+            contentPadding: const EdgeInsets.all(16),
+            leading: Icon(entry.$1, color: BrandColors.cyan),
+            title: Text(entry.$2),
+            subtitle: Text(entry.$3),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => entry.$4),
+            ),
+          ),
+        ),
+    ],
+  );
+}

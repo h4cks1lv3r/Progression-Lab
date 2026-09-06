@@ -23,7 +23,7 @@ class LabSafeScreen extends StatelessWidget {
   final Color backgroundColor;
 
   @override
-  Widget build(BuildContext context) => ColoredBox(
+  Widget build(BuildContext context) => Material(
     color: backgroundColor,
     child: SafeArea(
       top: top,

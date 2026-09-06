@@ -34,7 +34,7 @@ abstract final class ProgressionBrand {
         ColorScheme.fromSeed(
           seedColor: BrandColors.purple,
           brightness: Brightness.dark,
-          primary: BrandColors.violet,
+          primary: BrandColors.purple,
           secondary: BrandColors.cyan,
           tertiary: BrandColors.magenta,
           surface: BrandColors.panel,
@@ -94,7 +94,7 @@ abstract final class ProgressionBrand {
             color: states.contains(WidgetState.selected)
                 ? BrandColors.white
                 : BrandColors.muted,
-            fontSize: 10.5,
+            fontSize: 12,
             fontWeight: states.contains(WidgetState.selected)
                 ? FontWeight.w800
                 : FontWeight.w600,
@@ -145,6 +145,7 @@ abstract final class ProgressionBrand {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
+          minimumSize: const Size(48, 48),
           foregroundColor: BrandColors.violet,
           textStyle: const TextStyle(fontWeight: FontWeight.w800),
         ),
@@ -247,7 +248,8 @@ class BrandBackdrop extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           const IgnorePointer(child: CustomPaint(painter: _LabGridPainter())),
-          ?child,
+          if (child != null)
+            Material(type: MaterialType.transparency, child: child),
         ],
       ),
     ),
@@ -589,7 +591,7 @@ class GradientAction extends StatelessWidget {
     child: DecoratedBox(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [BrandColors.purple, BrandColors.violet],
+          colors: [BrandColors.purple, Color(0xFF5B21B6)],
         ),
         borderRadius: BorderRadius.circular(17),
         boxShadow: onPressed == null
@@ -602,9 +604,11 @@ class GradientAction extends StatelessWidget {
                 ),
               ],
       ),
-      child: SizedBox(
-        width: double.infinity,
-        height: height,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minWidth: double.infinity,
+          minHeight: height,
+        ),
         child: TextButton.icon(
           onPressed: onPressed,
           style: TextButton.styleFrom(
