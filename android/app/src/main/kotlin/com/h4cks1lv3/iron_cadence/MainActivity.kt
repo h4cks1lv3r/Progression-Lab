@@ -31,6 +31,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : FlutterActivity() {
     private var integrationBridge: IntegrationBridge? = null
@@ -52,7 +53,7 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         integrationBridge = IntegrationBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         durableStateStore = DurableStateStore(this)
-        bodyMediaBridge = BodyMediaBridge(this, flutterEngine.dartExecutor.binaryMessenger)
+        bodyMediaBridge = BodyMediaBridge(this, flutterEngine.dartExecutor.binaryMessenger, durableStateStore)
         bodyLaunchChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "progression_lab/body_launch").also { channel ->
             channel.setMethodCallHandler { call,result ->
                 if(call.method == "consumeLaunch") {
@@ -65,7 +66,12 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 try {
                     when (call.method) {
-                        "read" -> result.success(durableStateStore.read())
+                        "read" -> aiScope.launch {
+                            try { result.success(withContext(Dispatchers.IO) {
+                                bodyMediaBridge?.recoverPending()
+                                durableStateStore.read()
+                            }) } catch(error: Exception) { result.error("durable_storage_failed",error.message,null) }
+                        }
                         "write" -> {
                             durableStateStore.write(call.arguments as? String ?: "{}")
                             result.success(null)

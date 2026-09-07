@@ -168,7 +168,7 @@ class _BodyShareScreenState extends State<BodyShareScreen> {
     try {
       if (layout != BodyShareLayout.withoutPhoto) {
         for (final p in [
-          if (layout != BodyShareLayout.milestone) firstPhoto!,
+          if ((layout == BodyShareLayout.comparison)) firstPhoto!,
           lastPhoto!,
         ]) {
           final bytes = await File(
@@ -330,7 +330,7 @@ class _BodyShareScreenState extends State<BodyShareScreen> {
                 Wrap(
                   spacing: 10,
                   children: [
-                    if (layout != BodyShareLayout.milestone)
+                    if ((layout == BodyShareLayout.comparison))
                       TextButton(
                         onPressed: () async {
                           final p = await editBodyPhoto(
@@ -456,13 +456,30 @@ class BodyShareArtwork extends StatelessWidget {
               Expanded(
                 child: layout == BodyShareLayout.withoutPhoto
                     ? Center(
-                        child: Icon(
-                          Icons.insights,
-                          size: 76,
-                          color: const Color(0xFF22D3EE).withValues(alpha: .8),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.insights,
+                              size: 64,
+                              color: Color(0xFF22D3EE),
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              snapshot.lines.isEmpty
+                                  ? 'Every check-in counts.'
+                                  : snapshot.lines.first,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
                         ),
                       )
-                    : layout == BodyShareLayout.milestone
+                    : (layout == BodyShareLayout.milestone ||
+                          layout == BodyShareLayout.recap)
                     ? Center(
                         child: AspectRatio(
                           aspectRatio: 3 / 4,
@@ -487,7 +504,10 @@ class BodyShareArtwork extends StatelessWidget {
               ),
               if (snapshot.lines.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                for (final line in snapshot.lines)
+                for (final line
+                    in (layout == BodyShareLayout.withoutPhoto
+                        ? snapshot.lines.skip(1)
+                        : snapshot.lines))
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Text(

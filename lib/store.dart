@@ -778,10 +778,15 @@ class AppStore extends ChangeNotifier {
   Future<void> _writeQueue = Future.value();
   Future<void> save({bool createAutomaticBackup = true}) async {
     final state = exportState();
-    final encoded = jsonEncode(state);
-    final write = _writeQueue.then(
-      (_) => _channel.invokeMethod<void>('write', encoded),
-    );
+    final write = _writeQueue.then((_) {
+      // Body transactions may finish while this ordinary save is queued.
+      // Persist the committed body state, including rollback on a failed commit.
+      state['bodyMeasurements'] = bodyMeasurements
+          .map((r) => r.toJson())
+          .toList();
+      state['bodySettings'] = bodySettings;
+      return _channel.invokeMethod<void>('write', jsonEncode(state));
+    });
     _writeQueue = write.catchError((Object _) {});
     await write;
     if (automaticBackupsEnabled && createAutomaticBackup) {
@@ -1140,23 +1145,19 @@ class AppStore extends ChangeNotifier {
   }) async {
     if (values.any((v) => !v.valid))
       throw ArgumentError('The body archive contains invalid measurements.');
-    final previous = bodyMeasurements;
-    final previousSettings = bodySettings;
-    bodyMeasurements = values;
-    if (settings != null) bodySettings = settings;
-    final next = exportState();
-    final write = _writeQueue.then(
-      (_) => bodyMedia.commit(next, journal, token: token),
-    );
+    final next = {
+      ...exportState(),
+      'bodyMeasurements': values.map((v) => v.toJson()).toList(),
+      'bodySettings': settings ?? bodySettings,
+    };
+    final write = _writeQueue.then((_) async {
+      await bodyMedia.commit(next, journal, token: token);
+      bodyMeasurements = values;
+      if (settings != null) bodySettings = settings;
+      notifyListeners();
+    });
     _writeQueue = write.catchError((Object _) {});
-    try {
-      await write;
-    } on Object {
-      bodyMeasurements = previous;
-      bodySettings = previousSettings;
-      rethrow;
-    }
-    notifyListeners();
+    await write;
   }
 
   BodyMeasurement? bodyWeightForDay(DateTime date) => BodyAnalysis.dailyWeights(

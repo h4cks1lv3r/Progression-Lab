@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -60,7 +61,11 @@ void main() {
   Map<String, dynamic> journal = {'version': 1, 'checkIns': []};
   String? saved;
   bool fail = false;
+  Completer<void>? pendingBody;
+  bool failBodyOnly = false;
   setUp(() {
+    pendingBody = null;
+    failBodyOnly = false;
     calls.clear();
     saved = null;
     fail = false;
@@ -81,7 +86,8 @@ void main() {
         return {'directory': '/tmp/body-fixtures', 'journal': journal};
       if (call.method == 'unlock') return true;
       if (call.method == 'commit') {
-        if (fail) throw PlatformException(code: 'disk_full');
+        if (pendingBody != null) await pendingBody!.future;
+        if (fail || failBodyOnly) throw PlatformException(code: 'disk_full');
         final args = call.arguments as Map;
         saved = args['state'] as String;
         journal = Map<String, dynamic>.from(
@@ -302,6 +308,25 @@ void main() {
     },
   );
   test(
+    'an ordinary save queued during a failed photo commit cannot persist its measurements',
+    () async {
+      final model = store();
+      model.bodyMeasurements = [reading('old', '2026-09-01', 80)];
+      pendingBody = Completer<void>();
+      failBodyOnly = true;
+      final body = model.commitBodyJournal(
+        [reading('uncommitted', '2026-09-02', 81)],
+        {'version': 1, 'checkIns': []},
+      );
+      final check = expectLater(body, throwsA(isA<PlatformException>()));
+      final ordinary = model.save();
+      pendingBody!.complete();
+      await check;
+      await ordinary;
+      expect((jsonDecode(saved!) as Map)['bodyMeasurements'][0]['id'], 'old');
+    },
+  );
+  test(
     'selected body permissions request no writes or unrelated records',
     () async {
       const health = MethodChannel('test_body_health');
@@ -327,7 +352,13 @@ void main() {
   }
 
   Widget app(Widget child, {double scale = 1}) => MaterialApp(
-    theme: ProgressionBrand.theme(),
+    theme: ProgressionBrand.theme().copyWith(
+      textTheme: ProgressionBrand.theme().textTheme.apply(
+        fontFamily: Platform.environment['BODY_FONT_ROOT'] == null
+            ? null
+            : 'Roboto',
+      ),
+    ),
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(
         context,
@@ -499,6 +530,119 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  for (final layout in [
+    BodyShareLayout.comparison,
+    BodyShareLayout.milestone,
+    BodyShareLayout.recap,
+  ]) {
+    for (final height in [360.0, 450.0, 640.0]) {
+      testWidgets(
+        '${layout.name} photo artwork fits ${height.toInt()} with all optional fields',
+        (tester) async {
+          phone(tester);
+          final media = BodyMediaStore()..directory = '/tmp/body-fixtures';
+          const photo = BodyPhoto(
+            id: 'fixture',
+            asset: 'fixture.jpg',
+            thumbnail: 'fixture.jpg',
+            coverFace: true,
+          );
+          await tester.runAsync(() async {
+            final recorder = ui.PictureRecorder();
+            final canvas = Canvas(recorder);
+            canvas.drawRect(
+              const Rect.fromLTWH(0, 0, 60, 90),
+              Paint()..color = Colors.blue,
+            );
+            canvas.drawRect(
+              const Rect.fromLTWH(20, 20, 20, 50),
+              Paint()..color = Colors.cyan,
+            );
+            final picture = recorder.endRecording();
+            final bitmap = await picture.toImage(60, 90);
+            picture.dispose();
+            final bytes = await bitmap.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
+            bitmap.dispose();
+            await Directory(media.directory).create(recursive: true);
+            await File(
+              media.path(photo),
+            ).writeAsBytes(bytes!.buffer.asUint8List());
+          });
+          await tester.pumpWidget(app(const Scaffold(body: SizedBox())));
+          await tester.runAsync(
+            () => precacheImage(
+              FileImage(File(media.path(photo))),
+              tester.element(find.byType(Scaffold)),
+            ),
+          );
+          final key = GlobalKey();
+          const snapshot = BodyShareSnapshot(
+            title: 'A longer personal title about my progress over time',
+            interval: '42 days of progress',
+            earlierLabel: '2026-07-01',
+            latestLabel: '2026-08-12',
+            lines: [
+              'Weight change: -2.3 kg',
+              'Waist change: -3.0 cm',
+              '12 logged strength sessions in this interval',
+            ],
+          );
+          await tester.pumpWidget(
+            app(
+              Scaffold(
+                body: Center(
+                  child: RepaintBoundary(
+                    key: key,
+                    child: SizedBox(
+                      width: 360,
+                      height: height,
+                      child: BodyShareArtwork(
+                        snapshot: snapshot,
+                        layout: layout,
+                        firstPhoto: photo,
+                        lastPhoto: photo,
+                        media: media,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.runAsync(
+            () => precacheImage(
+              FileImage(File(media.path(photo))),
+              tester.element(find.byType(Scaffold)),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          await tester.runAsync(() async {
+            final bitmap =
+                await (key.currentContext!.findRenderObject()
+                        as RenderRepaintBoundary)
+                    .toImage(pixelRatio: 3);
+            expect(bitmap.width, 1080);
+            expect(bitmap.height, (height * 3).toInt());
+            if (Platform.environment['BODY_VISUALS'] != null &&
+                layout == BodyShareLayout.comparison &&
+                height == 450) {
+              final bytes = await bitmap.toByteData(
+                format: ui.ImageByteFormat.png,
+              );
+              await Directory('/tmp/body-visuals').create(recursive: true);
+              await File(
+                '/tmp/body-visuals/photo-comparison.png',
+              ).writeAsBytes(bytes!.buffer.asUint8List());
+            }
+            bitmap.dispose();
+          });
+        },
+      );
+    }
+  }
   testWidgets('body overview visual evidence', (tester) async {
     phone(tester);
     final model = store()

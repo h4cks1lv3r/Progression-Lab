@@ -34,7 +34,7 @@ import kotlinx.coroutines.*
 
 /** Private assets never enter MediaStore. Body archives use streaming ZIP and
  * authenticated encryption; restoration is staged before one durable commit. */
-class BodyMediaBridge(private val activity: FlutterActivity, messenger: BinaryMessenger) {
+class BodyMediaBridge(private val activity: FlutterActivity, messenger: BinaryMessenger, private val stateStore: DurableStateStore) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val root = File(activity.noBackupFilesDir, "progression_body").apply { mkdirs() }
     private val assets = File(root,"assets").apply { mkdirs() }
@@ -46,7 +46,6 @@ class BodyMediaBridge(private val activity: FlutterActivity, messenger: BinaryMe
     private val maxBytes = 2L * 1024 * 1024 * 1024
 
     init {
-        runCatching { recoverTransaction() } // Retry and report recovery errors through load.
         File(activity.cacheDir,"shared_files").listFiles()?.filter {
             System.currentTimeMillis()-it.lastModified()>24*60*60*1000L
         }?.forEach { it.delete() }
@@ -124,6 +123,8 @@ class BodyMediaBridge(private val activity: FlutterActivity, messenger: BinaryMe
         }
     }
 
+    fun recoverPending() = recoverTransaction()
+
     private fun readJournal():JSONObject = try { JSONObject(String(journalFile.readFully(),Charsets.UTF_8)) }
         catch(e:FileNotFoundException) { JSONObject().put("version",1).put("checkIns",JSONArray()) }
     private fun writeAtomic(file:AtomicFile,text:String) {
@@ -177,7 +178,7 @@ class BodyMediaBridge(private val activity: FlutterActivity, messenger: BinaryMe
             }
         }
         validateJournal(tx.getJSONObject("journal"),assets)
-        DurableStateStore(activity).write(tx.getJSONObject("state").toString())
+        stateStore.write(tx.getJSONObject("state").toString())
         writeAtomic(journalFile,tx.getJSONObject("journal").toString())
         transaction.delete()
         if(token.isNotEmpty()) stage(token).deleteRecursively()
