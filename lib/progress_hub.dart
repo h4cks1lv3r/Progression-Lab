@@ -10,8 +10,9 @@ import 'contextual_guides.dart';
 import 'lab_screen.dart';
 import 'integrations_hub.dart';
 import 'training_history.dart';
+import 'body_progress_screen.dart';
 
-enum _ProgressView { strength, functional, lab }
+enum _ProgressView { training, body, lab }
 
 class ProgressHub extends StatefulWidget {
   const ProgressHub({super.key, required this.store});
@@ -23,14 +24,13 @@ class ProgressHub extends StatefulWidget {
 }
 
 class _ProgressHubState extends State<ProgressHub> {
-  late _ProgressView view;
+  _ProgressView view = _ProgressView.training;
+  bool athletic = false;
 
   @override
   void initState() {
     super.initState();
-    view = widget.store.preferredTrack == TrainingTrack.athletic
-        ? _ProgressView.functional
-        : _ProgressView.strength;
+    athletic = widget.store.preferredTrack == TrainingTrack.athletic;
   }
 
   @override
@@ -41,13 +41,14 @@ class _ProgressHubState extends State<ProgressHub> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
-            child: Row(
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 16,
               children: [
-                Expanded(
-                  child: Text(
-                    'Progress',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
+                Text(
+                  'Progress',
+                  style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 TextButton.icon(
                   onPressed: () => Navigator.push(
@@ -67,44 +68,90 @@ class _ProgressHubState extends State<ProgressHub> {
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
             child: SizedBox(
               width: double.infinity,
-              child: SegmentedButton<_ProgressView>(
-                direction: MediaQuery.textScalerOf(context).scale(14) > 21
-                    ? Axis.vertical
-                    : Axis.horizontal,
-                key: const ValueKey('progress-track-selector'),
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(
-                    value: _ProgressView.strength,
-                    icon: Icon(Icons.fitness_center_rounded, size: 18),
-                    label: Text('Strength'),
-                  ),
-                  ButtonSegment(
-                    value: _ProgressView.functional,
-                    icon: Icon(Icons.directions_run_rounded, size: 18),
-                    label: Text('Athletic'),
-                  ),
-                  ButtonSegment(
-                    value: _ProgressView.lab,
-                    icon: Icon(Icons.science_outlined, size: 18),
-                    label: Text('Lab'),
-                  ),
-                ],
-                selected: {view},
-                onSelectionChanged: (value) =>
-                    setState(() => view = value.first),
-              ),
+              child: MediaQuery.textScalerOf(context).scale(14) > 21
+                  ? Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final v in _ProgressView.values)
+                          ChoiceChip(
+                            label: Text(switch (v) {
+                              _ProgressView.training => 'Training',
+                              _ProgressView.body => 'Body',
+                              _ProgressView.lab => 'Lab',
+                            }),
+                            selected: view == v,
+                            onSelected: (_) => setState(() => view = v),
+                          ),
+                      ],
+                    )
+                  : SegmentedButton<_ProgressView>(
+                      direction: MediaQuery.textScalerOf(context).scale(14) > 21
+                          ? Axis.vertical
+                          : Axis.horizontal,
+                      key: const ValueKey('progress-track-selector'),
+                      showSelectedIcon: false,
+                      segments: const [
+                        ButtonSegment(
+                          value: _ProgressView.training,
+                          icon: Icon(Icons.fitness_center_rounded, size: 18),
+                          label: Text('Training'),
+                        ),
+                        ButtonSegment(
+                          value: _ProgressView.body,
+                          icon: Icon(Icons.photo_library_outlined, size: 18),
+                          label: Text('Body'),
+                        ),
+                        ButtonSegment(
+                          value: _ProgressView.lab,
+                          icon: Icon(Icons.science_outlined, size: 18),
+                          label: Text('Lab'),
+                        ),
+                      ],
+                      selected: {view},
+                      onSelectionChanged: (value) =>
+                          setState(() => view = value.first),
+                    ),
             ),
           ),
           Expanded(
-            child: IndexedStack(
-              index: view.index,
-              children: [
-                ProgressDashboard(store: widget.store),
-                AthleticProgressDashboard(store: widget.store),
-                _LabDestinations(store: widget.store),
-              ],
-            ),
+            child: switch (view) {
+              _ProgressView.body => BodyProgressScreen(
+                store: widget.store,
+                embedded: true,
+              ),
+              _ProgressView.lab => _LabDestinations(store: widget.store),
+              _ProgressView.training => Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
+                    child: Wrap(
+                      spacing: 8,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('Strength'),
+                          selected: !athletic,
+                          onSelected: (_) => setState(() => athletic = false),
+                        ),
+                        ChoiceChip(
+                          label: const Text('Athletic'),
+                          selected: athletic,
+                          onSelected: (_) => setState(() => athletic = true),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: athletic
+                        ? AthleticProgressDashboard(store: widget.store)
+                        : ProgressDashboard(store: widget.store),
+                  ),
+                ],
+              ),
+            },
           ),
         ],
       ),

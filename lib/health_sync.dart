@@ -56,6 +56,10 @@ class HealthBodyMetric {
     required this.unit,
     required this.recordedAt,
     this.source = '',
+    this.recordId = '',
+    this.method = '',
+    this.revision = 1,
+    this.localDate = '',
   });
 
   final String type;
@@ -63,6 +67,8 @@ class HealthBodyMetric {
   final String unit;
   final DateTime recordedAt;
   final String source;
+  final String recordId, method, localDate;
+  final int revision;
 
   factory HealthBodyMetric.fromJson(Map<Object?, Object?> value) =>
       HealthBodyMetric(
@@ -71,6 +77,10 @@ class HealthBodyMetric {
         unit: '${value['unit']}',
         recordedAt: DateTime.parse('${value['recordedAt']}').toUtc(),
         source: value['source'] is String ? value['source']! as String : '',
+        recordId: value['recordId'] as String? ?? '',
+        method: value['method'] as String? ?? '',
+        revision: (value['revision'] as num?)?.toInt() ?? 1,
+        localDate: value['localDate'] as String? ?? '',
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -79,6 +89,10 @@ class HealthBodyMetric {
     'unit': unit,
     'recordedAt': recordedAt.toUtc().toIso8601String(),
     if (source.isNotEmpty) 'source': source,
+    if (recordId.isNotEmpty) 'recordId': recordId,
+    if (method.isNotEmpty) 'method': method,
+    if (localDate.isNotEmpty) 'localDate': localDate,
+    if (revision != 1) 'revision': revision,
   };
 }
 
@@ -198,14 +212,38 @@ class HealthSyncService extends ChangeNotifier {
     });
   }
 
+  Future<bool> requestBodyAuthorization(List<String> types) async =>
+      await _channel.invokeMethod<bool>('requestAuthorization', {
+        'read': types,
+        'write': <String>[],
+      }) ??
+      false;
+
+  Future<Map<String, dynamic>> syncBodyMetrics({
+    required List<String> types,
+    required Map<String, String> tokens,
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    return await _channel.invokeMapMethod<String, dynamic>('syncBodyMetrics', {
+          'types': types,
+          'tokens': tokens,
+          'start': start.toUtc().toIso8601String(),
+          'end': end.toUtc().toIso8601String(),
+        }) ??
+        (throw StateError('Health Connect did not return a complete sync.'));
+  }
+
   Future<List<HealthBodyMetric>> readBodyMetrics({
     required DateTime start,
     required DateTime end,
+    List<String>? types,
   }) async {
     return _guard(() async {
       final result =
           await _channel
-              .invokeListMethod<Object?>('readBodyMetrics', <String, String>{
+              .invokeListMethod<Object?>('readBodyMetrics', <String, Object>{
+                if (types != null) 'types': types,
                 'start': start.toUtc().toIso8601String(),
                 'end': end.toUtc().toIso8601String(),
               }) ??

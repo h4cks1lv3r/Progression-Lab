@@ -10,6 +10,7 @@ import 'data_portability_core.dart';
 import 'store.dart';
 import 'contextual_guides.dart';
 import 'integrations_hub.dart';
+import 'body_progress_screen.dart';
 
 class DataManagementScreen extends StatefulWidget {
   const DataManagementScreen({super.key, required this.store});
@@ -220,6 +221,23 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 36),
           children: [
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Body photos and encrypted backup'),
+                subtitle: const Text(
+                  'Open Progress → Body for photos, measurements, and their separate backup.',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => BodyProgressScreen(store: widget.store),
+                  ),
+                ),
+              ),
+            ),
+
             FeatureTip(
               store: widget.store,
               id: ContextualGuideId.dataBackup,

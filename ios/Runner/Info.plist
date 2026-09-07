@@ -26,6 +26,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Take an optional progress photo.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Save branded workout story images to Photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

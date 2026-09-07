@@ -9,6 +9,7 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.HeightRecord
 import androidx.health.connect.client.records.BodyFatRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.WeightRecord
@@ -56,6 +57,7 @@ class IntegrationBridge(
     }
 
     private var pendingHealthPermissionResult: MethodChannel.Result? = null
+    private var requestedHealthPermissions: Set<String> = emptySet()
     private var pendingFolderResult: MethodChannel.Result? = null
     private var pendingFileResult: MethodChannel.Result? = null
     private var pendingOAuthResult: MethodChannel.Result? = null
@@ -146,7 +148,7 @@ class IntegrationBridge(
                 pendingHealthPermissionResult = null
                 try {
                     val granted = healthPermissionContract.parseResult(resultCode, data)
-                    pending.success(granted.containsAll(healthPermissions))
+                    pending.success(granted.containsAll(requestedHealthPermissions))
                 } catch (error: Exception) {
                     pending.error("health_permission_failed", error.message, null)
                 }
@@ -240,7 +242,15 @@ class IntegrationBridge(
                 }
                 pendingHealthPermissionResult = result
                 try {
-                    val intent = healthPermissionContract.createIntent(activity, healthPermissions)
+                    fun permissions(types:List<String>,write:Boolean):Set<String> = types.mapNotNull { name ->
+                        val cls=when(name) { "workouts"->ExerciseSessionRecord::class;"bodyWeight"->WeightRecord::class;
+                            "bodyFat","bodyFatPercentage"->BodyFatRecord::class;"height"->HeightRecord::class;else->null }
+                        cls?.let { if(write)HealthPermission.getWritePermission(it) else HealthPermission.getReadPermission(it) }
+                    }.toSet()
+                    requestedHealthPermissions=permissions(call.argument<List<String>>("read") ?: listOf("workouts","bodyWeight","bodyFat"),false)+
+                        permissions(call.argument<List<String>>("write") ?: listOf("workouts","bodyWeight","bodyFat"),true)
+                    require(requestedHealthPermissions.isNotEmpty()) { "Select a Health Connect data type." }
+                    val intent = healthPermissionContract.createIntent(activity, requestedHealthPermissions)
                     activity.startActivityForResult(intent, REQUEST_HEALTH_PERMISSIONS)
                 } catch (error: Exception) {
                     pendingHealthPermissionResult = null
@@ -280,45 +290,14 @@ class IntegrationBridge(
                     result.error("health_read_failed", error.message, null)
                 }
             }
-            "readBodyMetrics" -> scope.launch {
+            "readBodyMetrics", "syncBodyMetrics" -> scope.launch {
                 try {
                     val start = Instant.parse(call.argument<String>("start"))
                     val end = Instant.parse(call.argument<String>("end"))
-                    val filter = TimeRangeFilter.between(start, end)
-                    val weights = healthClient.readRecords(
-                        ReadRecordsRequest(
-                            recordType = WeightRecord::class,
-                            timeRangeFilter = filter,
-                            pageSize = 1000,
-                        )
-                    ).records.map { record ->
-                        mapOf(
-                            "type" to "bodyWeight",
-                            "value" to record.weight.inKilograms,
-                            "unit" to "kg",
-                            "recordedAt" to record.time.toString(),
-                            "source" to record.metadata.dataOrigin.packageName,
-                        )
-                    }
-                    val bodyFat = healthClient.readRecords(
-                        ReadRecordsRequest(
-                            recordType = BodyFatRecord::class,
-                            timeRangeFilter = filter,
-                            pageSize = 1000,
-                        )
-                    ).records.map { record ->
-                        mapOf(
-                            "type" to "bodyFatPercentage",
-                            "value" to record.percentage.value,
-                            "unit" to "%",
-                            "recordedAt" to record.time.toString(),
-                            "source" to record.metadata.dataOrigin.packageName,
-                        )
-                    }
-                    result.success(weights + bodyFat)
-                } catch (error: Exception) {
-                    result.error("health_metric_read_failed", error.message, null)
-                }
+                    val types = call.argument<List<String>>("types") ?: listOf("bodyWeight", "bodyFatPercentage")
+                    if (call.method == "syncBodyMetrics") result.success(BodyHealthReader.sync(healthClient, activity.packageName, types, call.argument<Map<String,String>>("tokens") ?: emptyMap(), start, end))
+                    else result.success(BodyHealthReader.read(healthClient, activity.packageName, types, start, end))
+                } catch(error:Exception) { result.error("health_metric_read_failed",error.message,null) }
             }
             "writeWorkout" -> scope.launch {
                 try {

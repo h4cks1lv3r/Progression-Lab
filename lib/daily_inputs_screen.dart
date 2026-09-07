@@ -6,6 +6,7 @@ import 'brand.dart';
 import 'daily_inputs.dart';
 import 'store.dart';
 import 'contextual_guides.dart';
+import 'body_progress_screen.dart';
 
 class TodayInputsCard extends StatelessWidget {
   const TodayInputsCard({super.key, required this.store});
@@ -239,6 +240,24 @@ class _DailyInputsScreenState extends State<DailyInputsScreen> {
                       const BrandSectionLabel('Day at a glance'),
                       const SizedBox(height: 12),
                       _DailySummaryPanel(store: store, day: now),
+                      const SizedBox(height: 12),
+                      Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.monitor_weight_outlined),
+                          title: const Text('Body weight'),
+                          subtitle: Text(
+                            store.bodyWeightForDay(now) == null
+                                ? 'Optional • one place for your weight history'
+                                : '${bodyNumber(store.bodyWeightForDay(now)!.displayValue(store.unit, "cm"))} ${store.unit}',
+                          ),
+                          trailing: const Icon(Icons.add),
+                          onTap: () => showBodyMeasurementEditor(
+                            context,
+                            store,
+                            day: now,
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 22),
                       const BrandSectionLabel('Quick add'),
                       const SizedBox(height: 12),
@@ -799,9 +818,7 @@ class _RecoveryPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final value = checkIn;
     if (value == null) {
-      return const _EmptyPanel(
-        'Log sleep, stress, soreness, and bodyweight when useful.',
-      );
+      return const _EmptyPanel('Log sleep, stress, and soreness when useful.');
     }
     return LabPanel(
       accent: BrandColors.violet,
@@ -824,12 +841,6 @@ class _RecoveryPanel extends StatelessWidget {
           _RecoveryMetric(
             'SORENESS',
             value.soreness == null ? '—' : '${value.soreness}/5',
-          ),
-          _RecoveryMetric(
-            'BODYWEIGHT',
-            value.bodyWeight == null
-                ? '—'
-                : '${_number(value.bodyWeight!)} ${value.weightUnit ?? ''}',
           ),
           if (value.illness) const _RecoveryMetric('STATUS', 'ILLNESS'),
         ],
@@ -1412,9 +1423,6 @@ Future<void> showRecoveryCheckInSheet(
   final sleep = TextEditingController(
     text: current?.sleepHours == null ? '' : _number(current!.sleepHours!),
   );
-  final bodyweight = TextEditingController(
-    text: current?.bodyWeight == null ? '' : _number(current!.bodyWeight!),
-  );
   final notes = TextEditingController(text: current?.notes ?? '');
   var sleepQuality = current?.sleepQuality ?? 3;
   var stress = current?.stress ?? 3;
@@ -1440,14 +1448,14 @@ Future<void> showRecoveryCheckInSheet(
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: TextField(
-                  controller: bodyweight,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
+                child: TextButton.icon(
+                  onPressed: () => showBodyMeasurementEditor(
+                    context,
+                    store,
+                    day: current?.localDate ?? day,
                   ),
-                  decoration: InputDecoration(
-                    labelText: 'Bodyweight (${store.unit})',
-                  ),
+                  icon: const Icon(Icons.monitor_weight_outlined),
+                  label: const Text('Log body weight'),
                 ),
               ),
             ],
@@ -1491,9 +1499,7 @@ Future<void> showRecoveryCheckInSheet(
           final sleepValue = sleep.text.trim().isEmpty
               ? null
               : double.tryParse(sleep.text.trim());
-          final weightValue = bodyweight.text.trim().isEmpty
-              ? null
-              : double.tryParse(bodyweight.text.trim());
+          final weightValue = current?.bodyWeight;
           if (sleepValue != null &&
               (!sleepValue.isFinite || sleepValue < 0 || sleepValue > 24)) {
             _showInputError(context, 'Sleep hours must be between 0 and 24.');
@@ -1515,7 +1521,7 @@ Future<void> showRecoveryCheckInSheet(
               stress: stress,
               soreness: soreness,
               bodyWeight: weightValue,
-              weightUnit: weightValue == null ? null : store.unit,
+              weightUnit: current?.weightUnit,
               illness: illness,
               notes: notes.text.trim(),
               createdAt: current?.createdAt ?? now,
@@ -1533,7 +1539,6 @@ Future<void> showRecoveryCheckInSheet(
       _showInputError(context, 'The recovery check-in could not be saved.');
   } finally {
     sleep.dispose();
-    bodyweight.dispose();
     notes.dispose();
   }
 }
