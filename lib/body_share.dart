@@ -72,7 +72,9 @@ class BodyShareSnapshot {
     if (training.isNotEmpty) lines.add(training);
     return BodyShareSnapshot(
       title: title.trim().isEmpty ? 'My progress' : title.trim(),
-      interval: days == 0 ? 'One check-in' : '$days days of progress',
+      interval: dates
+          ? (days == 0 ? end : '$start → $end · $days days')
+          : (days == 0 ? 'One check-in' : '$days days of progress'),
       lines: lines,
       earlierLabel: dates ? start : 'Earlier',
       latestLabel: dates ? end : 'Latest',

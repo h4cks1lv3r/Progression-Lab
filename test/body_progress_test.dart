@@ -268,6 +268,32 @@ void main() {
       expect(snapshot().caption, isNot(contains('2026-09-01')));
     },
   );
+  test(
+    'exact dates appear only when selected, including photo-free and milestone subtitles',
+    () {
+      final selected = BodyShareSnapshot.build(
+        title: 'My progress',
+        start: '2026-09-01',
+        end: '2026-09-07',
+        measurements: [],
+        weightUnit: 'kg',
+        lengthUnit: 'cm',
+        dates: true,
+      );
+      expect(selected.interval, contains('2026-09-01'));
+      expect(selected.caption, contains('2026-09-07'));
+      final milestone = BodyShareSnapshot.build(
+        title: 'My progress',
+        start: '2026-09-07',
+        end: '2026-09-07',
+        measurements: [],
+        weightUnit: 'kg',
+        lengthUnit: 'cm',
+        dates: true,
+      );
+      expect(milestone.interval, '2026-09-07');
+    },
+  );
   test('failed body commits preserve measurements and journal', () async {
     final app = store();
     app.bodyMeasurements = [reading('original', '2026-09-01', 80)];
