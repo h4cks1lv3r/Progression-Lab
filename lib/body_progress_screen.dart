@@ -85,6 +85,37 @@ class _BodyProgressScreenState extends State<BodyProgressScreen>
   }
 
   Future<void> openEditor({BodyCheckIn? checkIn, bool resume = false}) async {
+    if (media.draft != null &&
+        checkIn != null &&
+        media.draft!['id'] != checkIn.id) {
+      final continueDraft = await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: const Text('Keep your unfinished check-in'),
+          content: const Text(
+            'Save or discard your unfinished check-in before editing another. Your current draft is still safe.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialog, false),
+              child: const Text('Back'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialog, true),
+              child: const Text('Resume draft'),
+            ),
+          ],
+        ),
+      );
+      if (continueDraft != true || !mounted) return;
+      checkIn = null;
+      resume = true;
+    }
+    resume =
+        resume ||
+        (media.draft != null &&
+            (checkIn == null || media.draft!['id'] == checkIn.id));
+    if (!mounted) return;
     await Navigator.push(
       context,
       bodyRoute(
@@ -92,7 +123,7 @@ class _BodyProgressScreenState extends State<BodyProgressScreen>
         (_) => BodyCheckInEditor(
           store: widget.store,
           checkIn: checkIn,
-          resume: resume || (checkIn == null && media.draft != null),
+          resume: resume,
         ),
       ),
     );
@@ -1464,7 +1495,10 @@ class _BodyCompareScreenState extends State<BodyCompareScreen> {
         .map(
           (c) => DropdownMenuItem(
             value: c.id,
-            child: Text('${c.date} • ${c.photos.length} views'),
+            child: Text(
+              '${c.date} • Check-in ${entries.indexOf(c) + 1} • ${c.photos.length} views',
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         )
         .toList(),
@@ -1596,6 +1630,36 @@ class _BodySettingsScreenState extends State<BodySettingsScreen> {
                 .toList();
             final ids = imported.map((r) => r.id).toSet(),
                 checkIds = checks.map((c) => c.id).toSet();
+            if (!mounted) {
+              await media.discardImport(token);
+              return;
+            }
+            final replacements = store.bodyMeasurements
+                .where((r) => ids.contains(r.id))
+                .length;
+            final approved = await showDialog<bool>(
+              context: context,
+              builder: (dialog) => AlertDialog(
+                title: const Text('Merge this body backup?'),
+                content: Text(
+                  '${checks.length} check-ins, ${checks.fold(0, (n, c) => n + c.photos.length)} photos, and ${imported.length} measurements.\n\n$replacements matching measurements will be updated. Other history is kept. Existing photos are kept when this backup excluded photos.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialog, false),
+                    child: const Text('Cancel'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(dialog, true),
+                    child: const Text('Merge backup'),
+                  ),
+                ],
+              ),
+            );
+            if (approved != true) {
+              await media.discardImport(token);
+              return;
+            }
             await store.commitBodyJournal(
               [
                 ...store.bodyMeasurements.where((r) => !ids.contains(r.id)),

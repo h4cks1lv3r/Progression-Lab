@@ -393,6 +393,49 @@ void main() {
       },
     );
   }
+  testWidgets('editing another check-in preserves the unfinished draft', (
+    tester,
+  ) async {
+    phone(tester);
+    final model = store();
+    journal = {
+      'version': 1,
+      'checkIns': [
+        {
+          'id': 'saved',
+          'date': '2026-08-01',
+          'photos': [],
+          'notes': 'Saved note',
+        },
+      ],
+      'draft': {
+        'id': 'unfinished',
+        'date': '2026-09-01',
+        'photos': [],
+        'notes': 'Unfinished note',
+      },
+    };
+    await tester.pumpWidget(app(BodyProgressScreen(store: model)));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('2026-08-01'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.text('2026-08-01'));
+    await tester.pumpAndSettle();
+    expect(find.text('Keep your unfinished check-in'), findsOneWidget);
+    expect(model.bodyMedia.draft!['id'], 'unfinished');
+    await tester.tap(find.text('Resume draft'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<BodyCheckInEditor>(find.byType(BodyCheckInEditor)).resume,
+      isTrue,
+    );
+    expect(model.bodyMedia.draft!['notes'], 'Unfinished note');
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+  });
   testWidgets(
     'saving a draft commits it once and does not recreate it when leaving',
     (tester) async {
