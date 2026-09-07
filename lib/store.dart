@@ -1,3 +1,5 @@
+import 'body_progress.dart';
+import 'body_media.dart';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -400,7 +402,10 @@ class DraftSetInput {
 class AppStore extends ChangeNotifier {
   Map<String, dynamic> integrationState = <String, dynamic>{};
   static const _channel = MethodChannel('iron_cadence/storage');
-  static const int schemaVersion = 17;
+  static const int schemaVersion = 18;
+  List<BodyMeasurement> bodyMeasurements = [];
+  Map<String, dynamic> bodySettings = {};
+  final bodyMedia = BodyMediaStore();
   static const double poundsToKilograms = 0.45359237;
   bool isLoaded = false;
   bool hadPersistedState = false;
@@ -502,6 +507,10 @@ class AppStore extends ChangeNotifier {
   }
 
   void _applyStateData(Map<String, dynamic> data) {
+    bodyMeasurements = migrateBodyMeasurements(data);
+    bodySettings = Map<String, dynamic>.from(
+      data['bodySettings'] as Map? ?? {},
+    );
     final storedDays = _readInt(data['days']) ?? 4;
     days = ProgramEngine.isSupportedDays(storedDays) ? storedDays : 4;
     week = ProgramEngine.clampWeek(_readInt(data['week']) ?? 1);
@@ -719,6 +728,8 @@ class AppStore extends ChangeNotifier {
 
   Map<String, dynamic> exportState() => {
     'integrationState': integrationState,
+    'bodyMeasurements': bodyMeasurements.map((r) => r.toJson()).toList(),
+    'bodySettings': bodySettings,
     'days': days,
     'week': week,
     'workout': workoutIndex,
@@ -1101,6 +1112,58 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> saveBodyMeasurements(
+    List<BodyMeasurement> values, {
+    Map<String, dynamic>? settings,
+  }) async {
+    if (values.any((v) => !v.valid))
+      throw ArgumentError('Enter valid positive measurements.');
+    final previous = bodyMeasurements;
+    final previousSettings = bodySettings;
+    bodyMeasurements = values;
+    if (settings != null) bodySettings = settings;
+    try {
+      await save();
+    } on Object {
+      bodyMeasurements = previous;
+      bodySettings = previousSettings;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> commitBodyJournal(
+    List<BodyMeasurement> values,
+    Map<String, dynamic> journal, {
+    String? token,
+    Map<String, dynamic>? settings,
+  }) async {
+    if (values.any((v) => !v.valid))
+      throw ArgumentError('The body archive contains invalid measurements.');
+    final previous = bodyMeasurements;
+    final previousSettings = bodySettings;
+    bodyMeasurements = values;
+    if (settings != null) bodySettings = settings;
+    final next = exportState();
+    final write = _writeQueue.then(
+      (_) => bodyMedia.commit(next, journal, token: token),
+    );
+    _writeQueue = write.catchError((Object _) {});
+    try {
+      await write;
+    } on Object {
+      bodyMeasurements = previous;
+      bodySettings = previousSettings;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  BodyMeasurement? bodyWeightForDay(DateTime date) => BodyAnalysis.dailyWeights(
+    bodyMeasurements,
+    source: bodySettings['weightSource'] as String? ?? 'manual',
+  ).where((r) => r.date == bodyDay(date)).firstOrNull;
+
   Future<void> saveRecoveryCheckIn(RecoveryCheckIn value) async {
     final ratings = [value.sleepQuality, value.stress, value.soreness];
     if (ratings.whereType<int>().any((rating) => rating < 1 || rating > 5)) {
@@ -1113,6 +1176,39 @@ class AppStore extends ChangeNotifier {
       throw ArgumentError('Sleep hours must be between 0 and 24.');
     }
     final previous = List<RecoveryCheckIn>.of(recoveryCheckIns);
+    final previousMeasurements = bodyMeasurements;
+    final oldRecovery = recoveryCheckIns
+        .where((r) => r.id == value.id)
+        .firstOrNull;
+    if (oldRecovery == null ||
+        oldRecovery.bodyWeight != value.bodyWeight ||
+        oldRecovery.weightUnit != value.weightUnit) {
+      final weightId = 'recovery-${value.id}';
+      bodyMeasurements = bodyMeasurements
+          .where((r) => r.id != weightId)
+          .toList();
+      if (value.bodyWeight != null) {
+        final r = BodyMeasurement(
+          id: weightId,
+          metric: BodyMetric.weight,
+          value: BodyMeasurement.canonical(
+            BodyMetric.weight,
+            value.bodyWeight!,
+            value.weightUnit ?? unit,
+          ),
+          date: bodyDay(value.localDate),
+          recordedAt: value.updatedAt,
+          originalValue: value.bodyWeight,
+          originalUnit: value.weightUnit ?? unit,
+          method: 'Manual',
+        );
+        if (!r.valid) {
+          bodyMeasurements = previousMeasurements;
+          throw ArgumentError('Enter a valid weight.');
+        }
+        bodyMeasurements.add(r);
+      }
+    }
     recoveryCheckIns.removeWhere(
       (item) => sameLocalDay(item.localDate, value.localDate),
     );
@@ -1121,6 +1217,7 @@ class AppStore extends ChangeNotifier {
       await save();
     } on Object {
       recoveryCheckIns = previous;
+      bodyMeasurements = previousMeasurements;
       rethrow;
     }
     notifyListeners();
@@ -2898,6 +2995,12 @@ class AppStore extends ChangeNotifier {
       data['schemaVersion'] = version;
     }
     data.putIfAbsent('integrationState', () => <String, dynamic>{});
+    if (version < 18) {
+      data['bodyMeasurements'] = migrateBodyMeasurements(
+        data,
+      ).map((r) => r.toJson()).toList();
+      data.putIfAbsent('bodySettings', () => <String, dynamic>{});
+    }
     data['schemaVersion'] = schemaVersion;
     return data;
   }

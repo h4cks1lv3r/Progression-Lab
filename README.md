@@ -1,5 +1,10 @@
 # Progression Lab
 
+## Version 2.4 — body progress
+
+Open **Progress → Body** for private progress photos, optional body measurements, weight trends, comparisons, and locally generated social images. Use **Body → settings** for Health Connect, optional device lock and reminders, and encrypted photo backup. Track's weight entry uses the same history. See [the body progress guide](docs/body-progress-2.4.md) for workflows, privacy, backup, and testing details.
+
+
 Progression Lab is an original, local-first strength, bodybuilding, and athletic-training application for Android and iOS.
 
 Current version: **2.2.0+16**

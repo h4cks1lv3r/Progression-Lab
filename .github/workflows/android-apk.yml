@@ -110,6 +110,33 @@ jobs:
           --build-name "${{ steps.version.outputs.name }}"
           --build-number "${{ steps.version.outputs.number }}"
 
+      - name: Test native body archive encryption
+        working-directory: android
+        run: ./gradlew testDebugUnitTest --no-daemon
+
+      - name: Enable emulator acceleration
+        run: sudo chmod 666 /dev/kvm
+
+      - name: Test Android photo storage, backup, and sharing
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: default
+          disable-animations: true
+          script: ./android/gradlew -p android connectedDebugAndroidTest --no-daemon
+
+      - name: Upload native test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-body-test-reports-${{ github.sha }}
+          path: |
+            build/app/reports/androidTests/
+            build/app/reports/tests/
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Prepare distributable
         shell: bash
         run: |

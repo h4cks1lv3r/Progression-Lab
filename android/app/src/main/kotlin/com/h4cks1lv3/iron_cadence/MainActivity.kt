@@ -34,6 +34,8 @@ import kotlinx.coroutines.launch
 
 class MainActivity : FlutterActivity() {
     private var integrationBridge: IntegrationBridge? = null
+    private var bodyMediaBridge: BodyMediaBridge? = null
+    private var bodyLaunchChannel: MethodChannel? = null
     private lateinit var durableStateStore: DurableStateStore
 
     private val aiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -50,6 +52,15 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         integrationBridge = IntegrationBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         durableStateStore = DurableStateStore(this)
+        bodyMediaBridge = BodyMediaBridge(this, flutterEngine.dartExecutor.binaryMessenger)
+        bodyLaunchChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "progression_lab/body_launch").also { channel ->
+            channel.setMethodCallHandler { call,result ->
+                if(call.method == "consumeLaunch") {
+                    val open=intent.getBooleanExtra("bodyProgress",false)
+                    intent.removeExtra("bodyProgress"); result.success(open)
+                } else result.notImplemented()
+            }
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "iron_cadence/storage")
             .setMethodCallHandler { call, result ->
                 try {
@@ -98,7 +109,7 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "saveImage" -> result.success(saveImage(bytes, fileName))
                 "shareImage" -> {
-                    shareBytes(bytes, fileName, "image/png", "Share workout", call.argument<String>("caption"))
+                    shareBytes(bytes, fileName, "image/png", "Share Progression Lab image", call.argument<String>("caption"))
                     result.success(null)
                 }
                 else -> result.notImplemented()
@@ -382,6 +393,7 @@ class MainActivity : FlutterActivity() {
 
     @Deprecated("Deprecated in Android; retained for native integration bridges.")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (bodyMediaBridge?.onActivityResult(requestCode, resultCode, data) == true) return
         if (integrationBridge?.onActivityResult(requestCode, resultCode, data) == true) {
             return
         }
@@ -610,6 +622,7 @@ class MainActivity : FlutterActivity() {
         MessageDigest.getInstance("SHA-256").digest(bytes)
 
     override fun onDestroy() {
+        bodyMediaBridge?.dispose()
         generationJob?.cancel()
         generativeModel?.close()
         generativeModel = null
@@ -628,6 +641,9 @@ class MainActivity : FlutterActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if(intent.getBooleanExtra("bodyProgress",false)) {
+            intent.removeExtra("bodyProgress"); bodyLaunchChannel?.invokeMethod("openBody",null)
+        }
         integrationBridge?.handleIntent(intent)
     }
 

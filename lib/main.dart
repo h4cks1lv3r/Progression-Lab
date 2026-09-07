@@ -16,6 +16,7 @@ import 'logged_sets.dart';
 import 'program.dart';
 import 'program_navigator.dart';
 import 'progress_hub.dart';
+import 'body_progress_screen.dart';
 import 'share_card.dart';
 import 'share_options.dart';
 import 'exercise_metrics.dart';
@@ -166,9 +167,33 @@ class _ShellState extends State<Shell> {
     ),
   ];
 
+  static const _bodyLaunch = MethodChannel('progression_lab/body_launch');
+  void _openBodyProgress() {
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BodyProgressScreen(store: widget.store),
+      ),
+    );
+  }
+
+  Future<void> _checkBodyLaunch() async {
+    try {
+      if (await _bodyLaunch.invokeMethod<bool>('consumeLaunch') == true)
+        _openBodyProgress();
+    } on MissingPluginException {
+      /* Android notification route. */
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _bodyLaunch.setMethodCallHandler((call) async {
+      if (call.method == 'openBody') _openBodyProgress();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkBodyLaunch());
     widget.store.addListener(_maybeStartStartupDataFlow);
     widget.store.addListener(_maybeStartAutomaticTour);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -196,6 +221,7 @@ class _ShellState extends State<Shell> {
   void dispose() {
     widget.store.removeListener(_maybeStartStartupDataFlow);
     widget.store.removeListener(_maybeStartAutomaticTour);
+    _bodyLaunch.setMethodCallHandler(null);
     super.dispose();
   }
 

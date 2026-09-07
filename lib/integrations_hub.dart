@@ -5,10 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'cloud_sync.dart';
-import 'daily_inputs.dart';
 import 'contextual_guides.dart';
 import 'external_workout_formats.dart';
 import 'health_sync.dart';
+import 'body_progress.dart';
 import 'lab_experiments.dart';
 import 'provider_integrations.dart';
 import 'safe_layout.dart';
@@ -187,53 +187,26 @@ class IntegrationPreferencesStore extends ChangeNotifier {
   }
 
   Future<void> addHealthBodyMetrics(Iterable<HealthBodyMetric> values) async {
-    final incoming = values.toList()
-      ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
-    final keys = healthBodyMetrics
-        .map(
-          (item) =>
-              '${item.type}|${item.recordedAt.toUtc().toIso8601String()}|${item.source}',
-        )
-        .toSet();
+    final incoming = values.toList();
+    String key(HealthBodyMetric value) => value.recordId.isNotEmpty
+        ? '${value.source}|${value.recordId}'
+        : '${value.type}|${value.recordedAt.toUtc().toIso8601String()}|${value.source}';
+    final rows = {for (final value in healthBodyMetrics) key(value): value};
     for (final value in incoming) {
-      final key =
-          '${value.type}|${value.recordedAt.toUtc().toIso8601String()}|${value.source}';
-      if (keys.add(key)) healthBodyMetrics.add(value);
-      if (value.type != 'bodyWeight' ||
-          !value.value.isFinite ||
-          value.value <= 0) {
-        continue;
-      }
-      final day = dateOnly(value.recordedAt.toLocal());
-      final existing = _store.recoveryForDay(day);
-      if (existing?.bodyWeight != null) continue;
-      var bodyWeight = value.value;
-      var weightUnit = value.unit;
-      if (value.unit == 'kg' && _store.unit == 'lb') {
-        bodyWeight = value.value / AppStore.poundsToKilograms;
-        weightUnit = 'lb';
-      } else if (value.unit == 'lb' && _store.unit == 'kg') {
-        bodyWeight = value.value * AppStore.poundsToKilograms;
-        weightUnit = 'kg';
-      }
-      final recordTime = value.recordedAt.toLocal();
-      await _store.saveRecoveryCheckIn(
-        RecoveryCheckIn(
-          id: existing?.id ?? createRecordId('recovery'),
-          localDate: day,
-          sleepHours: existing?.sleepHours,
-          sleepQuality: existing?.sleepQuality,
-          stress: existing?.stress,
-          soreness: existing?.soreness,
-          bodyWeight: bodyWeight,
-          weightUnit: weightUnit,
-          illness: existing?.illness ?? false,
-          notes: existing?.notes ?? '',
-          createdAt: existing?.createdAt ?? recordTime,
-          updatedAt: existing?.updatedAt ?? recordTime,
-        ),
-      );
+      rows[key(value)] = value;
     }
+    final canonical = incoming
+        .map((v) => measurementFromHealth(v.toJson()))
+        .whereType<BodyMeasurement>()
+        .toList();
+    final ids = canonical.map((v) => v.id).toSet();
+    await _store.saveBodyMeasurements([
+      ..._store.bodyMeasurements.where((v) => !ids.contains(v.id)),
+      ...canonical,
+    ]);
+    healthBodyMetrics
+      ..clear()
+      ..addAll(rows.values);
     await save();
     notifyListeners();
   }
