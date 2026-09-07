@@ -11,7 +11,7 @@ import java.time.Instant
 import java.time.ZoneId
 
 object BodyHealthReader {
-    private fun recordType(type: String) = when(type) {
+    private fun recordType(type: String): kotlin.reflect.KClass<out Record> = when(type) {
         "bodyWeight" -> WeightRecord::class
         "height" -> HeightRecord::class
         "bodyFatPercentage" -> BodyFatRecord::class

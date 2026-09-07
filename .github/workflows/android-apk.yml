@@ -112,7 +112,7 @@ jobs:
 
       - name: Test native body archive encryption
         working-directory: android
-        run: ./gradlew testDebugUnitTest --no-daemon
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
 
       - name: Enable emulator acceleration
         run: sudo chmod 666 /dev/kvm
@@ -124,7 +124,7 @@ jobs:
           arch: x86_64
           target: default
           disable-animations: true
-          script: ./android/gradlew -p android connectedDebugAndroidTest --no-daemon
+          script: ./android/gradlew -p android :app:connectedDebugAndroidTest --no-daemon
 
       - name: Upload native test reports
         if: always()
