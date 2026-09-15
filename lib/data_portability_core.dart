@@ -1735,6 +1735,8 @@ abstract final class ProgressionCsvExport {
       ],
     ];
     for (final record in _maps(state['workoutHistory'])) {
+      // A linked program slot references the original imported session.
+      if (record['importedWorkoutId'] != null) continue;
       rows.add([
         record['sessionId'] ??
             'strength-${record['loggedAt'] ?? record['date']}-${record['workout']}',

@@ -58,7 +58,9 @@ class LoggedWorkoutScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final logs = store.logs.where(_matches).toList();
     final exercises = logs.map((log) => log.exercise).toSet().toList();
-    final state = record.retroactive
+    final state = record.importedWorkoutId != null
+        ? 'IMPORTED · ${record.status.name.toUpperCase()}'
+        : record.retroactive
         ? 'RETROACTIVELY FILLED'
         : record.status == WorkoutStatus.skipped
         ? 'SKIPPED'
@@ -83,6 +85,32 @@ class LoggedWorkoutScreen extends StatelessWidget {
             'Logged ${_dateTime(record.loggedAt)}',
             style: const TextStyle(color: Colors.white38, fontSize: 12),
           ),
+          if (record.importedWorkoutId != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Performed ${_dateTime(record.date)} · Original imported sets',
+              style: const TextStyle(color: Colors.white60),
+            ),
+            TextButton.icon(
+              icon: const Icon(Icons.link_off),
+              label: const Text('Unlink from program'),
+              onPressed: () async {
+                try {
+                  await store.unlinkStrengthHistory(record);
+                  if (context.mounted) Navigator.pop(context);
+                } on Object {
+                  if (context.mounted)
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Could not unlink this workout. Try again.',
+                        ),
+                      ),
+                    );
+                }
+              },
+            ),
+          ],
           if (record.substitutions.isNotEmpty) ...[
             const SizedBox(height: 14),
             for (final replacement in record.substitutions.values)

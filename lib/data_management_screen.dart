@@ -8,6 +8,7 @@ import 'data_portability.dart';
 import 'data_portability_bridge.dart';
 import 'data_portability_core.dart';
 import 'store.dart';
+import 'program_navigator.dart';
 import 'contextual_guides.dart';
 import 'integrations_hub.dart';
 import 'body_progress_screen.dart';
@@ -244,6 +245,22 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               message:
                   'Export a full backup before moving devices. Use Cloud backup above to select a synced folder.',
             ),
+            if (widget.store.importedWorkouts.isNotEmpty)
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.playlist_add_check),
+                  title: const Text('Continue your strength program'),
+                  subtitle: const Text(
+                    'Choose any microcycle and link earlier imported workouts.',
+                  ),
+                  onTap: _busy
+                      ? null
+                      : () async {
+                          await showProgramPositionSheet(context, widget.store);
+                          if (mounted) setState(() {});
+                        },
+                ),
+              ),
             const _DataHeader(),
             const SizedBox(height: 22),
             const BrandSectionLabel('Automatic protection'),

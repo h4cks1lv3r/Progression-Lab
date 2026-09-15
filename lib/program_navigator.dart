@@ -5,6 +5,8 @@ import 'logged_sets.dart';
 import 'program.dart';
 import 'store.dart';
 import 'contextual_guides.dart';
+import 'strength_history_backfill.dart';
+import 'strength_history_review.dart';
 
 typedef OpenProgramWorkout =
     void Function(ProgramWeek week, int workoutIndex, bool retroactive);
@@ -339,6 +341,8 @@ Future<void> showProgramPositionSheet(
   var nextWorkoutDate = DateTime(now.year, now.month, now.day);
   var startNewRun = false;
   var saving = false;
+  var fillHistory = false;
+  StrengthHistorySelection? reviewedHistory;
 
   await showModalBottomSheet<void>(
     context: context,
@@ -368,7 +372,39 @@ Future<void> showProgramPositionSheet(
                   item.programRun == store.strengthProgramRun &&
                   !item.retroactive,
             );
-        final canSave = startNewRun || !targetHasHistory;
+        // Invalidate reviewed matches whenever their target or source changes.
+        final preview = fillHistory
+            ? store.previewStrengthHistory(
+                targetWeek: targetWeekNumber,
+                cadence: targetDays,
+                nextWorkoutIndex: selectedWorkout,
+                nextWorkoutDate: nextWorkoutDate,
+                startNewRun: startNewRun,
+              )
+            : null;
+        if (reviewedHistory != null &&
+            reviewedHistory!.preview.fingerprint != preview?.fingerprint) {
+          reviewedHistory = null;
+        }
+        final canSave =
+            (startNewRun || !targetHasHistory) &&
+            (!fillHistory || reviewedHistory != null);
+
+        Future<void> reviewHistory() async {
+          if (preview == null || saving) return;
+          final result = await Navigator.of(sheetContext)
+              .push<StrengthHistorySelection>(
+                MaterialPageRoute(
+                  builder: (_) => StrengthHistoryReviewScreen(
+                    preview: preview,
+                    initialAssignments: reviewedHistory?.assignments,
+                  ),
+                ),
+              );
+          if (sheetContext.mounted && result != null) {
+            setSheetState(() => reviewedHistory = result);
+          }
+        }
 
         Future<void> chooseDate() async {
           final chosen = await showDatePicker(
@@ -394,6 +430,7 @@ Future<void> showProgramPositionSheet(
               nextWorkoutIndex: selectedWorkout,
               nextWorkoutDate: nextWorkoutDate,
               startNewRun: startNewRun,
+              historyBackfill: fillHistory ? reviewedHistory : null,
             );
             if (sheetContext.mounted) Navigator.of(sheetContext).pop();
           } on StateError catch (error) {
@@ -502,7 +539,7 @@ Future<void> showProgramPositionSheet(
                                   setSheetState(() => targetPhase = phase),
                       ),
                       const SizedBox(height: 22),
-                      const _Eyebrow('CYCLE'),
+                      const _Eyebrow('MICROCYCLE'),
                       const SizedBox(height: 10),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 15),
@@ -528,7 +565,7 @@ Future<void> showProgramPositionSheet(
                                 DropdownMenuItem(
                                   value: cycle,
                                   child: Text(
-                                    'Cycle $cycle · Program week ${ProgramEngine.firstWeekOfPhase(targetPhase) + cycle - 1}',
+                                    'Microcycle $cycle · Week ${ProgramEngine.firstWeekOfPhase(targetPhase) + cycle - 1}',
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -622,6 +659,42 @@ Future<void> showProgramPositionSheet(
                             ? null
                             : () => setSheetState(() => startNewRun = true),
                       ),
+                      const SizedBox(height: 18),
+                      SwitchListTile.adaptive(
+                        key: const ValueKey('fill-imported-history'),
+                        contentPadding: EdgeInsets.zero,
+                        value: fillHistory,
+                        title: const Text(
+                          'Fill earlier workouts from imported history',
+                        ),
+                        subtitle: Text(
+                          store.importedWorkouts.isEmpty
+                              ? 'Import your previous workouts in More → Backup & data, then return here.'
+                              : 'Review matches for workouts before your selected starting point.',
+                        ),
+                        onChanged: saving || store.importedWorkouts.isEmpty
+                            ? null
+                            : (value) => setSheetState(() {
+                                fillHistory = value;
+                                reviewedHistory = null;
+                              }),
+                      ),
+                      if (fillHistory) ...[
+                        OutlinedButton.icon(
+                          key: const ValueKey('review-imported-history'),
+                          onPressed: saving ? null : reviewHistory,
+                          icon: const Icon(Icons.fact_check_outlined),
+                          label: Text(
+                            reviewedHistory == null
+                                ? 'REVIEW WORKOUT MATCHES'
+                                : 'REVIEW ${reviewedHistory!.assignments.length} MATCHES',
+                          ),
+                        ),
+                        const Text(
+                          'Only reviewed matches will be linked. Empty slots remain unfilled.',
+                          style: TextStyle(color: Colors.white60),
+                        ),
+                      ],
                       if (targetHasHistory && !startNewRun) ...[
                         const SizedBox(height: 14),
                         const _PositionWarning(
@@ -667,7 +740,7 @@ Future<void> showProgramPositionSheet(
                             ),
                             const SizedBox(height: 7),
                             Text(
-                              'Run ${startNewRun ? store.strengthProgramRun + 1 : store.strengthProgramRun} · Phase $targetPhase · Cycle $targetMicrocycle',
+                              'Run ${startNewRun ? store.strengthProgramRun + 1 : store.strengthProgramRun} · Phase $targetPhase · Microcycle $targetMicrocycle',
                               style: const TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w900,
@@ -1891,6 +1964,10 @@ class _WorkoutDetailCard extends StatelessWidget {
     );
     final status = record == null
         ? null
+        : record.importedWorkoutId != null
+        ? (record.status == WorkoutStatus.partial
+              ? 'IMPORTED · PARTIAL'
+              : 'IMPORTED')
         : record.retroactive
         ? 'RETRO FILLED'
         : record.status == WorkoutStatus.skipped

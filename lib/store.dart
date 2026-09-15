@@ -13,6 +13,7 @@ import 'data_portability_core.dart';
 import 'exercise_library.dart';
 import 'program.dart';
 import 'share_options.dart';
+import 'strength_history_backfill.dart';
 
 enum TrainingTrack { strength, athletic }
 
@@ -234,6 +235,7 @@ class WorkoutRecord {
     this.substitutions = const {},
     this.startedAt,
     this.elapsedSeconds = 0,
+    this.importedWorkoutId,
   }) : scheduledDate = scheduledDate ?? date,
        loggedAt = loggedAt ?? date;
 
@@ -251,6 +253,7 @@ class WorkoutRecord {
   final Map<int, String> substitutions;
   final DateTime? startedAt;
   final int elapsedSeconds;
+  final String? importedWorkoutId;
 
   Map<String, dynamic> toJson() => {
     'week': week,
@@ -265,6 +268,7 @@ class WorkoutRecord {
     'retroactive': retroactive,
     if (sessionId != null) 'sessionId': sessionId,
     'elapsedSeconds': elapsedSeconds,
+    if (importedWorkoutId != null) 'importedWorkoutId': importedWorkoutId,
     if (startedAt != null) 'startedAt': startedAt!.toIso8601String(),
     'substitutions': {
       for (final entry in substitutions.entries) '${entry.key}': entry.value,
@@ -279,6 +283,7 @@ class WorkoutRecord {
     status: WorkoutStatus.values.byName(json['status'] as String),
     startedAt: DateTime.tryParse('${json['startedAt']}'),
     elapsedSeconds: (json['elapsedSeconds'] as num?)?.toInt() ?? 0,
+    importedWorkoutId: json['importedWorkoutId'] as String?,
     programRun: json['programRun'] is num
         ? (json['programRun'] as num).toInt()
         : 1,
@@ -1481,6 +1486,7 @@ class AppStore extends ChangeNotifier {
   Future<void> undoLastImport() async {
     final batch = lastImportBatch;
     if (batch == null) throw StateError('There is no import to undo.');
+    final previousHistory = List<WorkoutRecord>.of(workoutHistory);
     final previousLogs = List<SetLog>.of(logs);
     final previousCustomExercises = List<CustomExercise>.of(customExercises);
     final previousImportedWorkouts = List<ImportedWorkoutRecord>.of(
@@ -1489,6 +1495,11 @@ class AppStore extends ChangeNotifier {
     final previousImportHistory = List<DataImportBatch>.of(importHistory);
     try {
       final sessionIds = batch.sessionIds.toSet();
+      workoutHistory.removeWhere(
+        (record) =>
+            record.importedWorkoutId != null &&
+            batch.workoutIds.contains(record.importedWorkoutId),
+      );
       logs.removeWhere(
         (log) =>
             log.importBatchId == batch.id ||
@@ -1510,6 +1521,7 @@ class AppStore extends ChangeNotifier {
       await createAutomaticBackup(reason: 'after-undo');
       notifyListeners();
     } on Object {
+      workoutHistory = previousHistory;
       logs = previousLogs;
       customExercises = previousCustomExercises;
       importedWorkouts = previousImportedWorkouts;
@@ -2044,10 +2056,10 @@ class AppStore extends ChangeNotifier {
       _ => throw ArgumentError.value(days, 'days'),
     };
     final index = targetWorkoutIndex.clamp(0, offsets.length - 1);
-    return _dateOnly(
-      programStartDate.add(
-        Duration(days: (weekNumber - 1) * 7 + offsets[index]),
-      ),
+    return DateTime(
+      programStartDate.year,
+      programStartDate.month,
+      programStartDate.day + (weekNumber - 1) * 7 + offsets[index],
     );
   }
 
@@ -2343,6 +2355,139 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Preview only: imported sets remain the single source of recorded work.
+  StrengthHistoryPreview previewStrengthHistory({
+    required int targetWeek,
+    required int cadence,
+    required int nextWorkoutIndex,
+    required DateTime nextWorkoutDate,
+    required bool startNewRun,
+  }) {
+    ProgramEngine.week(targetWeek, cadence);
+    if (nextWorkoutIndex < 0 || nextWorkoutIndex >= cadence) {
+      throw RangeError.range(nextWorkoutIndex, 0, cadence - 1);
+    }
+    final run = strengthProgramRun + (startNewRun ? 1 : 0);
+    final offsets = _strengthOffsetsForCadence(cadence);
+    final end = calendarDay(nextWorkoutDate);
+    final anchor = end.subtract(
+      Duration(days: (targetWeek - 1) * 7 + offsets[nextWorkoutIndex]),
+    );
+    final slots = <StrengthHistorySlot>[];
+    for (var w = 1; w <= targetWeek; w++) {
+      final plan = ProgramEngine.week(w, cadence);
+      for (var index = 0; index < cadence; index++) {
+        if (w == targetWeek && index >= nextWorkoutIndex) break;
+        final scheduled = anchor.add(
+          Duration(days: (w - 1) * 7 + offsets[index]),
+        );
+        final occupied = workoutHistory.any(
+          (r) =>
+              r.programRun == run &&
+              r.days == cadence &&
+              r.week == w &&
+              r.workoutIndex == index,
+        );
+        final hasDraft = [if (draft != null) draft!, ...drafts].any(
+          (d) =>
+              d.programRun == run &&
+              d.days == cadence &&
+              d.week == w &&
+              d.workoutIndex == index,
+        );
+        slots.add(
+          StrengthHistorySlot(
+            week: w,
+            workoutIndex: index,
+            workout: plan.workouts[index],
+            date: DateTime(scheduled.year, scheduled.month, scheduled.day),
+            blocked: occupied || hasDraft,
+          ),
+        );
+      }
+    }
+    final linkedIds = workoutHistory.map((r) => r.importedWorkoutId).toSet();
+    final linkedSessions = workoutHistory.map((r) => r.sessionId).toSet();
+    final seenSignatures = {
+      for (final source in importedWorkouts)
+        if (linkedIds.contains(source.id) ||
+            linkedSessions.contains(source.sessionId ?? source.id))
+          source.signature,
+    };
+    final bySession = <String, Map<String, int>>{};
+    for (final log in logs) {
+      if (log.sessionId == null ||
+          log.reps <= 0 ||
+          {'warmup', 'warm-up', 'warm up'}.contains(log.setType.toLowerCase()))
+        continue;
+      final counts = bySession.putIfAbsent(log.sessionId!, () => {});
+      final key = exerciseKey(log.exercise);
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    final sources = List<ImportedWorkoutRecord>.of(importedWorkouts)
+      ..sort((a, b) {
+        final order = a.startedAt.compareTo(b.startedAt);
+        return order != 0 ? order : a.id.compareTo(b.id);
+      });
+    final sessions = <StrengthHistorySession>[];
+    final seenSessions = <String>{};
+    for (final source in sources) {
+      final session = source.sessionId ?? source.id;
+      if (!calendarDay(source.startedAt).isBefore(end) ||
+          linkedIds.contains(source.id) ||
+          linkedSessions.contains(session) ||
+          (bySession[session]?.isEmpty ?? true) ||
+          !seenSignatures.add(source.signature) ||
+          !seenSessions.add(session))
+        continue;
+      sessions.add(
+        StrengthHistorySession(
+          id: source.id,
+          sessionId: session,
+          name: source.name,
+          source: source.source,
+          date: source.startedAt,
+          workingSets: Map.unmodifiable(bySession[session]!),
+        ),
+      );
+    }
+    return StrengthHistoryPreview(
+      fingerprint: jsonEncode([
+        targetWeek,
+        cadence,
+        nextWorkoutIndex,
+        end.toIso8601String(),
+        run,
+        days,
+        week,
+        workoutIndex,
+        strengthProgramRun,
+        importedWorkouts.map((r) => r.toJson()).toList(),
+        logs.map((r) => r.toJson()).toList(),
+        workoutHistory.map((r) => r.toJson()).toList(),
+        draft?.toJson(),
+        drafts.map((r) => r.toJson()).toList(),
+      ]),
+      slots: List.unmodifiable(slots),
+      sessions: List.unmodifiable(sessions),
+    );
+  }
+
+  /// Removes the program assignment, leaving the imported workout and sets.
+  Future<void> unlinkStrengthHistory(WorkoutRecord record) async {
+    if (record.importedWorkoutId == null || !workoutHistory.contains(record))
+      return;
+    final previous = List<WorkoutRecord>.of(workoutHistory);
+    workoutHistory.remove(record);
+    try {
+      await save();
+    } on Object {
+      workoutHistory = previous;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
   Future<void> setStrengthProgramPosition({
     required int phase,
     required int microcycle,
@@ -2350,6 +2495,7 @@ class AppStore extends ChangeNotifier {
     required int nextWorkoutIndex,
     required DateTime nextWorkoutDate,
     required bool startNewRun,
+    StrengthHistorySelection? historyBackfill,
   }) async {
     if (phase < 1 || phase > ProgramEngine.phaseCount) {
       throw RangeError.range(phase, 1, ProgramEngine.phaseCount, 'phase');
@@ -2385,6 +2531,23 @@ class AppStore extends ChangeNotifier {
       );
     }
 
+    StrengthHistoryPreview? verifiedPreview;
+    if (historyBackfill != null) {
+      verifiedPreview = previewStrengthHistory(
+        targetWeek: targetWeek,
+        cadence: cadence,
+        nextWorkoutIndex: nextWorkoutIndex,
+        nextWorkoutDate: nextWorkoutDate,
+        startNewRun: startNewRun,
+      );
+      if (verifiedPreview.fingerprint != historyBackfill.preview.fingerprint) {
+        throw StateError(
+          'History or starting point changed. Review the matches again.',
+        );
+      }
+      verifiedPreview.validate(historyBackfill.assignments);
+    }
+    final previousHistory = List<WorkoutRecord>.of(workoutHistory);
     final previousRun = strengthProgramRun;
     final previousDays = days;
     final previousWeek = week;
@@ -2398,15 +2561,51 @@ class AppStore extends ChangeNotifier {
     week = targetWeek;
     workoutIndex = nextWorkoutIndex;
     final offsets = _strengthOffsetsForCadence(cadence);
-    programStartDate = _dateOnly(nextWorkoutDate).subtract(
-      Duration(days: (targetWeek - 1) * 7 + offsets[nextWorkoutIndex]),
+    final targetDate = nextWorkoutDate.toLocal();
+    programStartDate = DateTime(
+      targetDate.year,
+      targetDate.month,
+      targetDate.day - (targetWeek - 1) * 7 - offsets[nextWorkoutIndex],
     );
     drafts = drafts.where((item) => item.retroactive).toList();
     draft = null;
 
+    if (verifiedPreview != null && historyBackfill != null) {
+      final sessions = {for (final item in importedWorkouts) item.id: item};
+      final candidates = {
+        for (final item in verifiedPreview.sessions) item.id: item,
+      };
+      for (final slot in verifiedPreview.slots) {
+        final id = historyBackfill.assignments[slot.id];
+        if (id == null) continue;
+        final source = sessions[id]!;
+        workoutHistory.add(
+          WorkoutRecord(
+            week: slot.week,
+            workoutIndex: slot.workoutIndex,
+            workout: slot.workout.name,
+            date: source.startedAt,
+            status: slot.hasAllWorkingSets(candidates[id]!)
+                ? WorkoutStatus.completed
+                : WorkoutStatus.partial,
+            programRun: strengthProgramRun,
+            days: cadence,
+            scheduledDate: slot.date,
+            loggedAt: DateTime.now(),
+            retroactive: true,
+            sessionId: source.sessionId ?? source.id,
+            importedWorkoutId: source.id,
+            startedAt: source.startedAt,
+            elapsedSeconds: source.durationSeconds ?? 0,
+          ),
+        );
+      }
+    }
+
     try {
       await save();
     } on Object {
+      workoutHistory = previousHistory;
       strengthProgramRun = previousRun;
       days = previousDays;
       week = previousWeek;

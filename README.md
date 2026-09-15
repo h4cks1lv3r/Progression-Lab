@@ -1,5 +1,13 @@
 # Progression Lab
 
+## Version 2.5 — continue from imported strength history
+
+Open **Programs → Strength → Change starting point** to choose any phase,
+microcycle, cadence, and next workout. Enable **Fill earlier workouts from
+imported history**, review the matches, then save the starting point. The same
+flow is available from **More → Backup & data → Continue your strength program**
+after importing workouts. See [the history matching guide](docs/strength-history-2.5.md).
+
 ## Version 2.4 — body progress
 
 Open **Progress → Body** for private progress photos, optional body measurements, weight trends, comparisons, and locally generated social images. Use **Body → settings** for Health Connect, optional device lock and reminders, and encrypted photo backup. Track's weight entry uses the same history. See [the body progress guide](docs/body-progress-2.4.md) for workflows, privacy, backup, and testing details.
@@ -7,7 +15,7 @@ Open **Progress → Body** for private progress photos, optional body measuremen
 
 Progression Lab is an original, local-first strength, bodybuilding, and athletic-training application for Android and iOS.
 
-Current version: **2.2.0+16**
+Current version: **2.5.0+19**
 
 The product combines a 48-week Strength program, a 12-week Athletic Functional Training program, a structured exercise library, Daily Inputs and recovery tracking, deterministic performance analysis, optional on-device Gemini narration, data portability, health and wearable integrations, personal experiments, and branded workout sharing.
 
