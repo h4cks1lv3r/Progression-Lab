@@ -446,7 +446,7 @@ void main() {
       );
       await tester.tap(find.text('Review'));
       await tester.pumpAndSettle();
-      expect(find.text('1 matched · 7 unfilled'), findsOneWidget);
+      expect(find.text('1 matched · 7 empty'), findsOneWidget);
       await tester.tap(find.text('Clear matches'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('confirm-history-matches')));

@@ -50,46 +50,46 @@ abstract final class FirstLaunchDataFlow {
         ),
         title: Text(
           damagedState
-              ? 'Saved data needs recovery'
+              ? 'Let us recover your saved data'
               : verifiedBackup != null && !hasValidState
-              ? 'A Progression Lab backup was found'
+              ? 'We found your backup'
               : hasValidState
-              ? 'Your saved data is ready'
-              : 'Bring your workout history?',
+              ? 'Your training data is ready'
+              : 'Bring your training with you',
         ),
         content: Text(
           damagedState
-              ? '${store.loadFailure ?? 'The primary state could not be validated.'}\n\n'
-                    '${verifiedBackup == null ? 'No verified automatic backup was found. You can import another backup or start fresh. The damaged file will be preserved before reset.' : 'A verified automatic backup is available. Restore it before starting fresh whenever possible.'}'
+              ? '${store.loadFailure ?? 'Your saved data could not be read.'}\n\n'
+                    '${verifiedBackup == null ? 'No usable automatic backup was found. Import another backup or start fresh. We will keep a copy of the damaged file before resetting.' : 'A checked automatic backup is ready to restore. Restore it to recover your training.'}'
               : verifiedBackup != null && !hasValidState
-              ? 'The primary state is empty, but ${verifiedBackup.name} passed checksum validation. Restore it, import another file, or explicitly start fresh.'
+              ? 'There is no training data on this device yet. ${verifiedBackup.name} passed its integrity check. Restore it, import another file, or start fresh.'
               : hasValidState
-              ? 'Progression Lab loaded the data already stored on this device. You can also import older history from Strong, Hevy, FitNotes, Fitbod, JEFIT, or a custom export. Nothing is replaced without confirmation.'
-              : 'Import a native FitNotes .fitnotes backup or a CSV, TSV, JSON, TXT, or ZIP export. Progression Lab previews the result, detects duplicates, and creates a safety backup before import.',
+              ? 'Your data on this device is ready. Add past workouts from Strong, Hevy, FitNotes, Fitbod, JEFIT, or a custom export. You will review changes before anything is replaced.'
+              : 'Pick a FitNotes .fitnotes backup or a CSV, TSV, JSON, TXT, or ZIP workout export. Review the workouts before importing. We check for duplicates and back up your current data first.',
         ),
         actions: [
           if (hasValidState)
             TextButton(
               onPressed: () =>
                   Navigator.pop(dialogContext, _StartupDataChoice.later),
-              child: const Text('NOT NOW'),
+              child: const Text('Not now'),
             )
           else
             TextButton(
               onPressed: () =>
                   Navigator.pop(dialogContext, _StartupDataChoice.fresh),
-              child: const Text('START FRESH'),
+              child: const Text('Start fresh'),
             ),
           OutlinedButton(
             onPressed: () =>
                 Navigator.pop(dialogContext, _StartupDataChoice.import),
-            child: const Text('IMPORT HISTORY'),
+            child: const Text('Import history'),
           ),
           if (verifiedBackup != null && !hasValidState)
             FilledButton(
               onPressed: () =>
                   Navigator.pop(dialogContext, _StartupDataChoice.restore),
-              child: const Text('RESTORE BACKUP'),
+              child: const Text('Restore backup'),
             ),
         ],
       ),
@@ -126,15 +126,9 @@ abstract final class FirstLaunchDataFlow {
       await store.markDataOnboardingSeen(version);
     } on Object catch (error) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '$error'
-                .replaceFirst('Exception: ', '')
-                .replaceFirst('Bad state: ', ''),
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(dataOperationErrorMessage(error))));
     }
   }
 }

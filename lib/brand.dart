@@ -494,34 +494,56 @@ class BrandSectionLabel extends StatelessWidget {
   final Widget? trailing;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Container(
-        width: 4,
-        height: 18,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [BrandColors.cyan, BrandColors.violet],
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final heading = Row(
+        children: [
+          Container(
+            width: 4,
+            height: 18,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [BrandColors.cyan, BrandColors.violet],
+              ),
+              borderRadius: BorderRadius.circular(4),
+            ),
           ),
-          borderRadius: BorderRadius.circular(4),
-        ),
-      ),
-      const SizedBox(width: 9),
-      Expanded(
-        child: Text(
-          text.toUpperCase(),
-          style: const TextStyle(
-            color: BrandColors.white,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.15,
-            fontSize: 12,
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              text.toUpperCase(),
+              style: const TextStyle(
+                color: BrandColors.white,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.15,
+                fontSize: 12,
+              ),
+            ),
           ),
-        ),
-      ),
-      ?trailing,
-    ],
+        ],
+      );
+      if (trailing == null) return heading;
+      if (constraints.maxWidth < 520 ||
+          MediaQuery.textScalerOf(context).scale(12) > 16) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            heading,
+            const SizedBox(height: 4),
+            Align(alignment: Alignment.centerRight, child: trailing!),
+          ],
+        );
+      }
+      return Row(
+        children: [
+          Expanded(child: heading),
+          const SizedBox(width: 12),
+          trailing!,
+        ],
+      );
+    },
   );
 }
 

@@ -16,7 +16,7 @@ String bodyNumber(double value) => value.toStringAsFixed(1);
 void bodyError(BuildContext context, Object error) {
   final message = error is PlatformException ? error.message : '$error';
   ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(message ?? 'The operation failed. Try again.')),
+    SnackBar(content: Text(message ?? 'Could not finish that. Try again.')),
   );
 }
 
@@ -91,9 +91,9 @@ class _BodyProgressScreenState extends State<BodyProgressScreen>
       final continueDraft = await showDialog<bool>(
         context: context,
         builder: (dialog) => AlertDialog(
-          title: const Text('Keep your unfinished check-in'),
+          title: const Text('Finish your current check-in'),
           content: const Text(
-            'Save or discard your unfinished check-in before editing another. Your current draft is still safe.',
+            'Save or discard your current check-in before editing another. You can resume your saved draft now.',
           ),
           actions: [
             TextButton(
@@ -174,7 +174,7 @@ class _BodyProgressScreenState extends State<BodyProgressScreen>
           ),
           const SizedBox(height: 8),
           const Text(
-            'Photos, measurements, and training tell different parts of your story. Track what is useful to you.',
+            'See your photos, measurements, and training progress over time. Track what matters to you.',
             style: TextStyle(color: BrandColors.muted),
           ),
           const SizedBox(height: 18),
@@ -197,7 +197,7 @@ class _BodyProgressScreenState extends State<BodyProgressScreen>
                   ),
                 ),
                 icon: const Icon(Icons.compare_outlined),
-                label: const Text('Compare / share'),
+                label: const Text('Compare and share'),
               ),
             ],
           ),
@@ -333,7 +333,7 @@ class BodyOverview extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    '7-DAY WEIGHT AVERAGE',
+                    '7-day weight average',
                     style: TextStyle(
                       color: BrandColors.muted,
                       fontSize: 12,
@@ -343,7 +343,7 @@ class BodyOverview extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     trend.mean == null
-                        ? 'Add readings when useful'
+                        ? 'Add weight when you want'
                         : '${bodyNumber(store.unit == 'lb' ? trend.mean! / .45359237 : trend.mean!)} ${store.unit}',
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
@@ -353,9 +353,9 @@ class BodyOverview extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     trend.mean == null
-                        ? 'Three distinct days are needed for this average. Weekly entries still appear in your history.'
+                        ? 'Log weight on 3 different days to see this average. Weekly entries still appear in your history.'
                         : previous.mean == null
-                        ? 'More prior readings are needed for a weekly comparison.'
+                        ? 'Add more readings from the previous week to compare.'
                         : '${_signed((trend.mean! - previous.mean!) * (store.unit == 'lb' ? 1 / .45359237 : 1))} ${store.unit} vs the prior 7-day window (${previous.days} days logged).',
                   ),
                   const SizedBox(height: 8),
@@ -1158,7 +1158,7 @@ class _BodyCheckInEditorState extends State<BodyCheckInEditor> {
                 OutlinedButton.icon(
                   onPressed: busy ? null : () => addPhoto(false),
                   icon: const Icon(Icons.photo_library_outlined),
-                  label: const Text('Import photo'),
+                  label: const Text('Choose photo'),
                 ),
               ],
             ),
@@ -1209,7 +1209,7 @@ class _BodyCheckInEditorState extends State<BodyCheckInEditor> {
                       }
                     },
                     icon: const Icon(Icons.crop),
-                    label: const Text('Frame / cover'),
+                    label: const Text('Crop and cover'),
                   ),
                   TextButton(
                     onPressed: () {
@@ -1553,7 +1553,7 @@ class _BodySettingsScreenState extends State<BodySettingsScreen> {
               children: [
                 Text(
                   restore
-                      ? 'Photos, check-ins, and measurements are merged by their saved IDs. Matching records are replaced.'
+                      ? 'Adds photos, check-ins, and measurements from this backup. Matching saved records are replaced.'
                       : 'Includes measurements and private notes. Keep the password: it cannot be reset. This backup is separate from workout backups.',
                 ),
                 TextField(
@@ -1753,7 +1753,7 @@ class _BodySettingsScreenState extends State<BodySettingsScreen> {
           if (store.bodySettings['showBmi'] == true)
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('I am age 20 or above'),
+              title: const Text('I am 20 or older'),
               subtitle: const Text(
                 'Enable CDC adult category labels. BMI still cannot separate muscle from fat.',
               ),

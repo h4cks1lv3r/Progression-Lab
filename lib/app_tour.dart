@@ -180,7 +180,6 @@ class _AppTourOverlayState extends State<AppTourOverlay>
 
   Rect _cardRect(Size size, Rect target) {
     const horizontalMargin = 16.0;
-    const cardHeight = 260.0;
     final width = math.min(382.0, size.width - horizontalMargin * 2);
     final left = ((target.center.dx - width / 2).clamp(
       horizontalMargin,
@@ -188,11 +187,22 @@ class _AppTourOverlayState extends State<AppTourOverlay>
     )).toDouble();
     final safeTop = MediaQuery.paddingOf(context).top + 12;
     final safeBottom = MediaQuery.paddingOf(context).bottom + 12;
+    final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
+    final cardHeight = math.min(
+      280.0 * textScale.clamp(1.0, 1.8),
+      math.max(0.0, size.height - safeTop - safeBottom),
+    );
     final below = target.bottom + 20;
     final above = target.top - cardHeight - 20;
-    final top = below + cardHeight < size.height - safeBottom
+    final preferredTop = below + cardHeight < size.height - safeBottom
         ? below
-        : math.max(safeTop, above);
+        : above;
+    final top = preferredTop
+        .clamp(
+          safeTop,
+          math.max(safeTop, size.height - safeBottom - cardHeight),
+        )
+        .toDouble();
     return Rect.fromLTWH(left, top, width, cardHeight);
   }
 
@@ -274,35 +284,50 @@ class _TourFactCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text(
-                '${index + 1} OF $count',
-                style: const TextStyle(
-                  color: BrandColors.cyan,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.1,
-                ),
-              ),
-              const Spacer(),
-              TextButton(onPressed: onSkip, child: const Text('SKIP TOUR')),
-            ],
-          ),
-          Text(
-            step.title,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              height: 1.05,
-            ),
-          ),
-          const SizedBox(height: 8),
           Expanded(
             child: SingleChildScrollView(
-              child: Text(
-                step.body,
-                style: const TextStyle(color: BrandColors.muted, height: 1.42),
+              key: ValueKey('tour-content-$index'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${index + 1} of $count',
+                          style: const TextStyle(
+                            color: BrandColors.cyan,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                      ),
+                      Flexible(
+                        child: TextButton(
+                          onPressed: onSkip,
+                          child: const Text('Skip tour'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    step.title,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      height: 1.05,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    step.body,
+                    style: const TextStyle(
+                      color: BrandColors.muted,
+                      height: 1.42,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -310,23 +335,24 @@ class _TourFactCard extends StatelessWidget {
           Row(
             children: [
               if (onBack != null)
-                TextButton.icon(
-                  onPressed: onBack,
-                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                  label: const Text('BACK'),
+                Expanded(
+                  child: TextButton(
+                    onPressed: onBack,
+                    child: const Text('Back'),
+                  ),
                 )
               else
-                const SizedBox.shrink(),
-              const Spacer(),
-              FilledButton.icon(
-                onPressed: onNext,
-                icon: Icon(
-                  index == count - 1
-                      ? Icons.check_rounded
-                      : Icons.arrow_forward_rounded,
-                  size: 18,
+                const Spacer(),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: FilledButton(
+                  onPressed: onNext,
+                  child: Text(
+                    index == count - 1 ? 'Finish tour' : 'Next',
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-                label: Text(index == count - 1 ? 'FINISH TOUR' : 'NEXT'),
               ),
             ],
           ),

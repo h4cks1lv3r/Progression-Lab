@@ -450,7 +450,7 @@ void main() {
     );
     await tester.tap(find.text('2026-08-01'));
     await tester.pumpAndSettle();
-    expect(find.text('Keep your unfinished check-in'), findsOneWidget);
+    expect(find.text('Finish your current check-in'), findsOneWidget);
     expect(model.bodyMedia.draft!['id'], 'unfinished');
     await tester.tap(find.text('Resume draft'));
     await tester.pumpAndSettle();

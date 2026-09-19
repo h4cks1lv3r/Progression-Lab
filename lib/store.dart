@@ -16,6 +16,7 @@ import 'share_options.dart';
 import 'strength_history_backfill.dart';
 import 'curated_programs.dart';
 import 'curated_training.dart';
+import 'open_workout.dart';
 
 enum TrainingTrack { strength, athletic }
 
@@ -409,8 +410,9 @@ class DraftSetInput {
 class AppStore extends ChangeNotifier {
   Map<String, dynamic> integrationState = <String, dynamic>{};
   static const _channel = MethodChannel('iron_cadence/storage');
-  static const int schemaVersion = 19;
+  static const int schemaVersion = 20;
   CuratedTrainingState curatedTraining = CuratedTrainingState();
+  OpenWorkoutState openWorkout = OpenWorkoutState();
   List<BodyMeasurement> bodyMeasurements = [];
   Map<String, dynamic> bodySettings = {};
   final bodyMedia = BodyMediaStore();
@@ -516,6 +518,7 @@ class AppStore extends ChangeNotifier {
 
   void _applyStateData(Map<String, dynamic> data) {
     curatedTraining = CuratedTrainingState.fromJson(data['curatedTraining']);
+    openWorkout = OpenWorkoutState.fromJson(data['openWorkout']);
     bodyMeasurements = migrateBodyMeasurements(data);
     bodySettings = Map<String, dynamic>.from(
       data['bodySettings'] as Map? ?? {},
@@ -738,6 +741,7 @@ class AppStore extends ChangeNotifier {
   Map<String, dynamic> exportState() => {
     'integrationState': integrationState,
     'curatedTraining': curatedTraining.toJson(),
+    'openWorkout': openWorkout.toJson(),
     'bodyMeasurements': bodyMeasurements.map((r) => r.toJson()).toList(),
     'bodySettings': bodySettings,
     'days': days,
@@ -1823,6 +1827,233 @@ class AppStore extends ChangeNotifier {
     return name;
   }
 
+  OpenWorkoutDraft? get openWorkoutDraft => openWorkout.draft;
+  List<OpenWorkoutRecord> get openWorkoutHistory => openWorkout.history;
+
+  Future<void> _openWrites = Future.value();
+  Future<T> _mutateOpen<T>(
+    T Function() change, {
+    bool changesLogs = false,
+    bool backup = false,
+  }) {
+    final operation = _openWrites.then((_) async {
+      final previous = openWorkout;
+      final previousLogs = changesLogs ? List<SetLog>.of(logs) : null;
+      try {
+        final result = change();
+        await save(createAutomaticBackup: backup);
+        notifyListeners();
+        return result;
+      } on Object {
+        openWorkout = previous;
+        if (previousLogs != null) logs = previousLogs;
+        notifyListeners();
+        rethrow;
+      }
+    });
+    _openWrites = operation.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return operation;
+  }
+
+  void _setOpenDraft(OpenWorkoutDraft draft) {
+    openWorkout = OpenWorkoutState(draft: draft, history: openWorkoutHistory);
+  }
+
+  OpenWorkoutDraft _activeOpenDraft(String sessionId) {
+    final draft = openWorkoutDraft;
+    if (draft == null || draft.sessionId != sessionId) {
+      throw StateError('This workout has changed. Open it again to continue.');
+    }
+    return draft;
+  }
+
+  Future<OpenWorkoutDraft> beginOpenWorkout() => _mutateOpen(() {
+    if (openWorkoutDraft != null) return openWorkoutDraft!;
+    final now = DateTime.now();
+    final draft = OpenWorkoutDraft(
+      sessionId: 'open-${now.microsecondsSinceEpoch}',
+      startedAt: now,
+    );
+    _setOpenDraft(draft);
+    return draft;
+  });
+
+  Future<void> addOpenWorkoutExercise({
+    required String sessionId,
+    required String exerciseId,
+  }) => _mutateOpen(() {
+    final draft = _activeOpenDraft(sessionId);
+    final existing = draft.exercises.indexWhere((e) => e.id == exerciseId);
+    if (existing >= 0 && existing == draft.selectedIndex) return;
+    final descriptor = exerciseDescriptor(id: exerciseId);
+    if (existing < 0 && descriptor == null) {
+      throw ArgumentError('Choose an exercise from your library.');
+    }
+    final exercises = [
+      ...draft.exercises,
+      if (existing < 0)
+        OpenWorkoutExercise(
+          id: descriptor!.id,
+          name: descriptor.name,
+          trackingType: descriptor.trackingType,
+        ),
+    ];
+    _setOpenDraft(
+      draft.copyWith(
+        exercises: exercises,
+        selectedIndex: existing >= 0 ? existing : exercises.length - 1,
+      ),
+    );
+  });
+
+  Future<void> selectOpenWorkoutExercise({
+    required String sessionId,
+    required int exerciseIndex,
+  }) => _mutateOpen(() {
+    final draft = _activeOpenDraft(sessionId);
+    if (exerciseIndex < 0 || exerciseIndex >= draft.exercises.length) {
+      throw ArgumentError('Choose an exercise in this workout.');
+    }
+    if (exerciseIndex == draft.selectedIndex) return;
+    _setOpenDraft(draft.copyWith(selectedIndex: exerciseIndex));
+  });
+
+  Future<void> saveOpenWorkoutInputs({
+    required String sessionId,
+    required int exerciseIndex,
+    required int setSequence,
+    required Map<String, String> inputs,
+  }) {
+    final copy = Map<String, String>.of(inputs);
+    return _mutateOpen(() {
+      final draft = openWorkoutDraft;
+      if (draft == null ||
+          draft.sessionId != sessionId ||
+          draft.selectedIndex != exerciseIndex ||
+          draft.nextSetSequence != setSequence) {
+        return;
+      }
+      _setOpenDraft(
+        draft.copyWith(
+          inputs: {
+            for (final entry in copy.entries)
+              if (const {
+                'weight',
+                'reps',
+                'seconds',
+                'meters',
+                'calories',
+                'notes',
+              }.contains(entry.key))
+                entry.key: entry.value,
+          },
+        ),
+      );
+    });
+  }
+
+  Future<void> logOpenWorkoutSet({
+    required String sessionId,
+    required int exerciseIndex,
+    required int setSequence,
+    double? weight,
+    int? reps,
+    int? seconds,
+    double? meters,
+    double? calories,
+    String notes = '',
+  }) => _mutateOpen(() {
+    final draft = _activeOpenDraft(sessionId);
+    // A duplicate tap or delayed retry must never create a second set.
+    if (setSequence < draft.nextSetSequence) return;
+    if (setSequence != draft.nextSetSequence ||
+        exerciseIndex != draft.selectedIndex ||
+        draft.selectedExercise == null) {
+      throw StateError('This exercise has changed. Try logging the set again.');
+    }
+    final exercise = draft.selectedExercise!;
+    final type = exercise.trackingType;
+    final load = type == ExerciseTrackingType.weightedBodyweight
+        ? weight ?? 0
+        : weight;
+    if (type.usesWeight &&
+        (load == null ||
+            !load.isFinite ||
+            (type.requiresPositiveWeight ? load <= 0 : load < 0))) {
+      throw ArgumentError(
+        type.requiresPositiveWeight
+            ? 'Enter a weight above zero.'
+            : 'Enter zero or a positive weight.',
+      );
+    }
+    if (type.usesReps && (reps == null || reps <= 0)) {
+      throw ArgumentError('Enter your completed reps.');
+    }
+    if (type.usesDuration && (seconds == null || seconds <= 0)) {
+      throw ArgumentError('Enter your time in seconds.');
+    }
+    if (type.usesDistance &&
+        (meters == null || !meters.isFinite || meters <= 0)) {
+      throw ArgumentError('Enter your distance in meters.');
+    }
+    if (type.usesCalories &&
+        (calories == null || !calories.isFinite || calories <= 0)) {
+      throw ArgumentError('Enter your calories above zero.');
+    }
+    final priorSets = logs.where(
+      (log) => log.sessionId == sessionId && log.exerciseIndex == exerciseIndex,
+    );
+    final order =
+        priorSets.fold<int>(
+          0,
+          (max, log) => (log.setOrder ?? 0) > max ? log.setOrder! : max,
+        ) +
+        1;
+    logs.add(
+      SetLog(
+        exercise: exercise.name,
+        exerciseId: exercise.id,
+        weight: type.usesWeight ? load! : 0,
+        reps: type.usesReps ? reps! : 0,
+        date: DateTime.now(),
+        workout: 'Open Workout',
+        notes: notes.trim(),
+        sessionId: sessionId,
+        exerciseIndex: exerciseIndex,
+        trackingType: type.name,
+        setOrder: order,
+        durationSeconds: type.usesDuration ? seconds : null,
+        distance: type.usesDistance ? meters : null,
+        distanceUnit: type.usesDistance ? 'm' : null,
+        calories: type.usesCalories ? calories : null,
+        sourceApp: 'progression_lab_open',
+        sourceId: '$sessionId:set:$setSequence',
+      ),
+    );
+    _setOpenDraft(draft.copyWith(nextSetSequence: setSequence + 1));
+  }, changesLogs: true);
+
+  Future<void> finishOpenWorkout(String sessionId) => _mutateOpen(() {
+    if (openWorkoutHistory.any((r) => r.sessionId == sessionId)) return;
+    final draft = _activeOpenDraft(sessionId);
+    if (!logs.any((log) => log.sessionId == sessionId)) {
+      throw StateError('Log at least one set before finishing.');
+    }
+    openWorkout = OpenWorkoutState(
+      history: [
+        ...openWorkoutHistory,
+        OpenWorkoutRecord(
+          sessionId: sessionId,
+          startedAt: draft.startedAt,
+          completedAt: DateTime.now(),
+        ),
+      ],
+    );
+  }, backup: true);
+
   CuratedProgress curatedProgressFor(String programId) =>
       curatedTraining.progress[programId] ?? const CuratedProgress();
   CuratedWorkoutDraft? curatedDraftFor(String programId) =>
@@ -2082,6 +2313,11 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> removeSet(SetLog log) async {
+    if (log.sourceApp == 'progression_lab_open') {
+      return _mutateOpen(() {
+        logs.remove(log);
+      }, changesLogs: true);
+    }
     if (log.sourceApp == 'progression_lab_curated') {
       return _mutateCurated(() {
         if (!logs.remove(log)) return;
@@ -2182,6 +2418,17 @@ class AppStore extends ChangeNotifier {
       calories: calories,
       notes: notes,
     );
+    if (original.sourceApp == 'progression_lab_open') {
+      return _mutateOpen(
+        () {
+          final index = logs.indexOf(original);
+          if (index < 0) throw StateError('The set no longer exists.');
+          logs[index] = updated;
+        },
+        changesLogs: true,
+        backup: true,
+      );
+    }
     if (original.sourceApp == 'progression_lab_curated') {
       return _mutateCurated(
         () {
@@ -3014,6 +3261,7 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> setUnit(String value) async {
+    await _openWrites;
     if (value != 'lb' && value != 'kg') {
       throw ArgumentError.value(value, 'value', 'Must be lb or kg');
     }
@@ -3026,6 +3274,7 @@ class AppStore extends ChangeNotifier {
     final factor = unit == 'lb' ? poundsToKilograms : 1 / poundsToKilograms;
     final previousUnit = unit;
     final previousCurated = curatedTraining;
+    final previousOpen = openWorkout;
     final previousLogs = logs;
     final previousDraft = draft;
     final previousDrafts = drafts;
@@ -3037,6 +3286,24 @@ class AppStore extends ChangeNotifier {
       return DraftSetInput.fromJson(data);
     }
 
+    final openDraft = openWorkoutDraft;
+    if (openDraft != null) {
+      _setOpenDraft(
+        openDraft.copyWith(
+          inputsByExercise: {
+            for (final entry in openDraft.inputsByExercise.entries)
+              entry.key: () {
+                final inputs = Map<String, String>.of(entry.value);
+                final weight = double.tryParse(inputs['weight'] ?? '');
+                if (weight != null && weight.isFinite) {
+                  inputs['weight'] = (weight * factor).toStringAsFixed(2);
+                }
+                return inputs;
+              }(),
+          },
+        ),
+      );
+    }
     curatedTraining = curatedTraining.copyWith(
       drafts: {
         for (final entry in curatedTraining.drafts.entries)
@@ -3059,6 +3326,7 @@ class AppStore extends ChangeNotifier {
     } on Object {
       unit = previousUnit;
       curatedTraining = previousCurated;
+      openWorkout = previousOpen;
       logs = previousLogs;
       draft = previousDraft;
       drafts = previousDrafts;
@@ -3516,6 +3784,7 @@ class AppStore extends ChangeNotifier {
       data.putIfAbsent('bodySettings', () => <String, dynamic>{});
     }
     data.putIfAbsent('curatedTraining', () => <String, dynamic>{});
+    data.putIfAbsent('openWorkout', () => <String, dynamic>{});
     data['schemaVersion'] = schemaVersion;
     return data;
   }

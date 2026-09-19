@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'app_tour.dart';
+import 'app_navigation.dart';
+import 'open_workout_screen.dart';
 import 'athletic_program.dart';
 import 'athletic_training.dart';
 import 'brand.dart';
@@ -96,75 +98,76 @@ class Shell extends StatefulWidget {
 }
 
 class _ShellState extends State<Shell> {
-  static const _tourVersion = 1;
+  static const _tourVersion = 2;
 
   final _homePrimaryKey = GlobalKey(debugLabel: 'home-primary');
   final _programsOverviewKey = GlobalKey(debugLabel: 'programs-overview');
   final _progressNavKey = GlobalKey(debugLabel: 'progress-nav');
   final _moreNavKey = GlobalKey(debugLabel: 'more-nav');
   final _helpGuidesKey = GlobalKey(debugLabel: 'help-guides');
+  final _dailyOverviewKey = GlobalKey(debugLabel: 'daily-overview');
 
   int index = 0;
   int? _tourStep;
   bool _autoTourHandled = false;
   bool _startupDataFlowHandled = false;
 
-  List<NavigationDestination> get _destinations => [
-    const NavigationDestination(icon: Icon(Icons.home_rounded), label: 'Home'),
-    const NavigationDestination(
-      icon: Icon(Icons.dashboard_customize_rounded),
-      label: 'Programs',
-    ),
-    const NavigationDestination(
-      icon: Icon(Icons.add_circle_outline_rounded),
-      label: 'Track',
-    ),
-    NavigationDestination(
-      icon: KeyedSubtree(
-        key: _progressNavKey,
-        child: const Icon(Icons.query_stats_rounded),
-      ),
-      label: 'Progress',
-    ),
-    NavigationDestination(
-      icon: KeyedSubtree(
-        key: _moreNavKey,
-        child: const Icon(Icons.more_horiz_rounded),
-      ),
-      label: 'More',
-    ),
-  ];
+  final _shellKey = GlobalKey<ScaffoldState>();
+  final _homeScroll = ScrollController();
+  final _programsScroll = ScrollController();
+  final _settingsScroll = ScrollController();
+
+  // Page targets follow the feature overview, not the order of the left menu.
+  static const _tourPages = [0, 1, 1, 3, 2, 4, 5, 5];
 
   List<AppTourStep> get _tourSteps => [
     AppTourStep(
       targetKey: _homePrimaryKey,
-      title: 'Start with the next session',
+      title: 'Choose how you train',
       body:
-          'Home keeps one clear action in front of you. Switch between Strength and Athletic only when you need to.',
+          'Open Workout: choose your exercises.\nIconic Builds: 12 five-day plans, with sources and adaptation notes.\nYear One Strength: 48 weeks.\nFunctional Training: 12 weeks of coached movement.\nEach keeps its own progress. Use the left menu to switch.',
     ),
     AppTourStep(
       targetKey: _programsOverviewKey,
-      title: 'Your programs live together',
+      title: 'Start where you are',
       body:
-          'Programs contains Strength, Athletic, and actor-inspired five-day plans. Each keeps its own progress.',
+          'In Year One Strength, choose 3, 4, or 5 training days and start at any microcycle (program week). Import past workouts, review suggested matches, and fill earlier sessions. You can move your starting point or begin a new run later.',
+    ),
+    AppTourStep(
+      targetKey: _programsOverviewKey,
+      title: 'Make every set count',
+      body:
+          'Search the exercise library, create your own exercises, or swap a movement in Strength. Log reps, weight, time, or distance as needed. Bodyweight sets need no added weight. Strength includes warm-ups, plate calculations, rest timers, and Undo. Unfinished workouts save so you can resume.',
     ),
     AppTourStep(
       targetKey: _progressNavKey,
-      title: 'See what is changing',
+      title: 'See your work add up',
       body:
-          'Progress brings together logged sets, records, workout history, charts, and Athletic field assessments.',
+          'Progress shows charts, personal bests, and workout history with editable sets. Functional Training adds performance checks. Open Body for private progress photos, measurements, comparisons, optional device lock, and check-in reminders.',
+    ),
+    AppTourStep(
+      targetKey: _dailyOverviewKey,
+      title: 'Check in with yourself',
+      body:
+          'Daily check-in tracks meals, supplements, water, sleep, recovery, and bodyweight. Add how a workout felt, too. Log what matters to you; these entries give the Lab more context.',
     ),
     AppTourStep(
       targetKey: _moreNavKey,
-      title: 'Tools stay out of the way',
+      title: 'Find what works for you',
       body:
-          'Track holds daily inputs. More holds preferences, connections, sharing defaults, backup, and help.',
+          'The Lab compares similar workouts to explore patterns in training, sleep, nutrition, and recovery. Run a personal experiment and review the results. Optional on-device AI summaries help explain the data when supported. Patterns are clues, not proof of cause.',
     ),
     AppTourStep(
       targetKey: _helpGuidesKey,
-      title: 'Replay this tour anytime',
+      title: 'Connect and share',
       body:
-          'Open More → Help & Guides → App Tour whenever you want this walkthrough again.',
+          'Settings → Connections offers Health Connect or Apple Health and wearable activity imports. You choose what to connect. Share Strength and Functional workout recaps or body comparisons. Choose the style and what appears, including weights, captions, and private details.',
+    ),
+    AppTourStep(
+      targetKey: _helpGuidesKey,
+      title: 'Keep your history with you',
+      body:
+          'Settings → Backup & data lets you import from other apps, review duplicates, undo an import, export records, and restore .plab backups. Set up automatic or cloud backups. Body photos and private notes have a separate encrypted backup in Body settings. Replay this overview from Settings → Help & guides → App tour.',
     ),
   ];
 
@@ -223,6 +226,9 @@ class _ShellState extends State<Shell> {
     widget.store.removeListener(_maybeStartStartupDataFlow);
     widget.store.removeListener(_maybeStartAutomaticTour);
     _bodyLaunch.setMethodCallHandler(null);
+    _homeScroll.dispose();
+    _programsScroll.dispose();
+    _settingsScroll.dispose();
     super.dispose();
   }
 
@@ -256,6 +262,7 @@ class _ShellState extends State<Shell> {
   }
 
   void _startTour() {
+    if (_homeScroll.hasClients) _homeScroll.jumpTo(0);
     setState(() {
       index = 0;
       _tourStep = 0;
@@ -263,12 +270,10 @@ class _ShellState extends State<Shell> {
   }
 
   void _showTourStep(int step) {
-    final page = switch (step) {
-      0 => 0,
-      1 => 1,
-      2 => 3,
-      _ => 4,
-    };
+    final page = _tourPages[step];
+    if (page == 0 && _homeScroll.hasClients) _homeScroll.jumpTo(0);
+    if (page == 1 && _programsScroll.hasClients) _programsScroll.jumpTo(0);
+    if (page == 5 && _settingsScroll.hasClients) _settingsScroll.jumpTo(0);
     setState(() {
       index = page;
       _tourStep = step;
@@ -292,7 +297,10 @@ class _ShellState extends State<Shell> {
   }
 
   Future<void> _closeTour({required bool skipped}) async {
-    setState(() => _tourStep = null);
+    setState(() {
+      _tourStep = null;
+      if (!skipped) index = 0;
+    });
     try {
       await widget.store.markOnboardingSeen(_tourVersion);
     } on Object {
@@ -301,7 +309,7 @@ class _ShellState extends State<Shell> {
     if (!mounted || !skipped) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Tour skipped. Replay it from More → Help & Guides.'),
+        content: Text('Tour skipped. Replay it from Settings → Help & guides.'),
       ),
     );
   }
@@ -347,23 +355,47 @@ class _ShellState extends State<Shell> {
     );
   }
 
+  void _openScreen(Widget screen) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+  }
+
+  void _openWorkout() => _openScreen(OpenWorkoutScreen(store: widget.store));
+  void _openIcons() => _openScreen(CuratedProgramsScreen(store: widget.store));
+
   @override
   Widget build(BuildContext context) {
     final pages = [
       TodayPage(
+        scrollController: _homeScroll,
         store: widget.store,
         primaryActionKey: _homePrimaryKey,
         onOpenPrograms: () => setState(() => index = 1),
+        onOpenWorkout: _openWorkout,
+        onOpenIcons: _openIcons,
+        onOpenStrength: _openStrengthProgram,
+        onOpenFunctional: _openAthleticProgram,
       ),
       ProgramsHubPage(
+        scrollController: _programsScroll,
         store: widget.store,
         overviewKey: _programsOverviewKey,
         onOpenStrength: _openStrengthProgram,
         onOpenAthletic: _openAthleticProgram,
       ),
-      DailyInputsScreen(store: widget.store, embedded: true),
-      ProgressHub(store: widget.store),
+      KeyedSubtree(
+        key: _dailyOverviewKey,
+        child: DailyInputsScreen(store: widget.store, embedded: true),
+      ),
+      KeyedSubtree(
+        key: _progressNavKey,
+        child: ProgressHub(store: widget.store),
+      ),
+      KeyedSubtree(
+        key: _moreNavKey,
+        child: LabHub(store: widget.store),
+      ),
       SettingsPage(
+        scrollController: _settingsScroll,
         store: widget.store,
         helpGuidesKey: _helpGuidesKey,
         onReplayTour: _startTour,
@@ -376,47 +408,67 @@ class _ShellState extends State<Shell> {
     );
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 760;
-        final destinations = _destinations;
-        final scaffold = wide
-            ? Scaffold(
-                body: Row(
+        final wide = constraints.maxWidth >= 1000;
+        void closeMenu() => _shellKey.currentState?.closeDrawer();
+        void openFromMenu(VoidCallback action) {
+          closeMenu();
+          action();
+        }
+
+        Widget menu() => AppNavigation(
+          selectedIndex: index,
+          onSelect: (value) {
+            closeMenu();
+            setState(() => index = value);
+          },
+          onOpenWorkout: () => openFromMenu(_openWorkout),
+          onOpenIcons: () => openFromMenu(_openIcons),
+          onOpenStrength: () => openFromMenu(_openStrengthProgram),
+          onOpenFunctional: () => openFromMenu(_openAthleticProgram),
+          onOpenExercises: () => openFromMenu(
+            () => _openScreen(ExerciseLibraryScreen(store: widget.store)),
+          ),
+          onClose: wide ? null : closeMenu,
+        );
+        final scaffold = Scaffold(
+          key: _shellKey,
+          appBar: wide
+              ? null
+              : AppBar(
+                  leading: IconButton(
+                    tooltip: 'Open menu',
+                    onPressed: () => _shellKey.currentState?.openDrawer(),
+                    icon: const Icon(Icons.menu_rounded),
+                  ),
+                  title: Text(
+                    const [
+                      'Home',
+                      'Workouts',
+                      'Daily check-in',
+                      'Progress',
+                      'Lab',
+                      'Settings',
+                    ][index],
+                  ),
+                ),
+          drawer: wide
+              ? null
+              : Drawer(
+                  width: constraints.maxWidth < 360
+                      ? constraints.maxWidth - 24
+                      : 320,
+                  child: menu(),
+                ),
+          body: wide
+              ? Row(
                   children: [
-                    SafeArea(
-                      child: NavigationRail(
-                        selectedIndex: index,
-                        onDestinationSelected: (value) =>
-                            setState(() => index = value),
-                        labelType: NavigationRailLabelType.all,
-                        leading: const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 18),
-                          child: _Mark(),
-                        ),
-                        destinations: destinations
-                            .map(
-                              (destination) => NavigationRailDestination(
-                                icon: destination.icon,
-                                selectedIcon: destination.selectedIcon,
-                                label: Text(destination.label),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ),
-                    const VerticalDivider(width: 1, color: Colors.white10),
+                    SizedBox(width: 264, child: menu()),
+                    const VerticalDivider(width: 1, color: BrandColors.line),
                     Expanded(child: body),
                   ],
-                ),
-              )
-            : Scaffold(
-                body: body,
-                bottomNavigationBar: NavigationBar(
-                  selectedIndex: index,
-                  onDestinationSelected: (value) =>
-                      setState(() => index = value),
-                  destinations: destinations,
-                ),
-              );
+                )
+              : body,
+        );
         return Stack(
           children: [
             scaffold,
@@ -438,14 +490,24 @@ class _ShellState extends State<Shell> {
 class TodayPage extends StatelessWidget {
   const TodayPage({
     super.key,
+    this.scrollController,
     required this.store,
     required this.primaryActionKey,
     required this.onOpenPrograms,
+    required this.onOpenWorkout,
+    required this.onOpenIcons,
+    required this.onOpenStrength,
+    required this.onOpenFunctional,
   });
 
   final AppStore store;
+  final ScrollController? scrollController;
   final GlobalKey primaryActionKey;
   final VoidCallback onOpenPrograms;
+  final VoidCallback onOpenWorkout;
+  final VoidCallback onOpenIcons;
+  final VoidCallback onOpenStrength;
+  final VoidCallback onOpenFunctional;
 
   @override
   Widget build(BuildContext context) {
@@ -456,202 +518,203 @@ class TodayPage extends StatelessWidget {
             .toInt()];
     final athleticWeek = AthleticProgram.week(store.athleticWeek);
     final athleticSession = athleticWeek.sessions[store.athleticSessionIndex];
-    final today = DateUtils.dateOnly(DateTime.now());
-    final weekStart = today.subtract(Duration(days: today.weekday - 1));
-    final weekEnd = weekStart.add(const Duration(days: 7));
-    final strengthDoneThisWeek = store.workoutHistory
-        .where(
-          (record) =>
-              record.status == WorkoutStatus.completed &&
-              !record.date.isBefore(weekStart) &&
-              record.date.isBefore(weekEnd),
-        )
-        .length;
-    final athleticDoneThisWeek = store.athleticHistory
-        .where(
-          (record) =>
-              record.isComplete &&
-              !record.completedAt.isBefore(weekStart) &&
-              record.completedAt.isBefore(weekEnd),
-        )
-        .length;
-
-    return CustomScrollView(
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
-          sliver: SliverToBoxAdapter(
-            child: Row(
-              children: [
-                const _Mark(),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      BrandWordmark(compact: true),
-                      SizedBox(height: 4),
-                      Text(
-                        'TEST · TRAIN · TRANSFORM',
-                        style: TextStyle(
-                          color: BrandColors.muted,
-                          fontSize: 12,
-                          letterSpacing: 1.35,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Quick help',
-                  onPressed: () => showModalBottomSheet(
-                    context: context,
-                    useSafeArea: true,
-                    builder: (_) => const _QuickHelp(),
-                  ),
-                  icon: const Icon(Icons.help_outline_rounded),
-                ),
-              ],
-            ),
-          ),
+    return ListView(
+      controller: scrollController,
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+      children: [
+        Text(
+          'Your training. Your way.',
+          key: primaryActionKey,
+          style: Theme.of(
+            context,
+          ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
         ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-          sliver: SliverList.list(
-            children: [
-              const BrandSectionLabel('Next session'),
-              const SizedBox(height: 14),
-              SegmentedButton<TrainingTrack>(
-                direction: MediaQuery.textScalerOf(context).scale(14) > 21
-                    ? Axis.vertical
-                    : Axis.horizontal,
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(
-                    value: TrainingTrack.strength,
-                    icon: Icon(Icons.fitness_center_rounded),
-                    label: Text('Strength'),
-                  ),
-                  ButtonSegment(
-                    value: TrainingTrack.athletic,
-                    icon: Icon(Icons.directions_run_rounded),
-                    label: Text('Athletic'),
-                  ),
-                ],
-                selected: {store.preferredTrack},
-                onSelectionChanged: (selection) {
-                  unawaited(
-                    store
-                        .setPreferredTrack(selection.first)
-                        .catchError((Object _) {}),
-                  );
-                },
-              ),
-              const SizedBox(height: 14),
-              KeyedSubtree(
-                key: primaryActionKey,
-                child: AnimatedSwitcher(
-                  duration: MediaQuery.disableAnimationsOf(context)
-                      ? Duration.zero
-                      : const Duration(milliseconds: 260),
-                  child: store.preferredTrack == TrainingTrack.strength
-                      ? _StrengthHomeCard(
-                          key: const ValueKey('strength-home-card'),
-                          store: store,
-                          week: strengthWeek,
-                          workout: strengthWorkout,
-                        )
-                      : _AthleticHomeCard(
-                          key: const ValueKey('athletic-home-card'),
-                          store: store,
-                          week: athleticWeek,
-                          session: athleticSession,
-                        ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              TodayInputsCard(store: store),
-              const SizedBox(height: 24),
-              BrandSectionLabel(
-                'This week',
-                trailing: TextButton(
-                  onPressed: onOpenPrograms,
-                  child: const Text('VIEW PROGRAMS'),
-                ),
-              ),
-              const SizedBox(height: 10),
-              LabPanel(
+        const SizedBox(height: 6),
+        const Text(
+          'Pick a plan or build today’s workout.',
+          style: TextStyle(color: muted),
+        ),
+        const SizedBox(height: 22),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final tiles = [
+              _TrainingChoice(
+                key: const ValueKey('home-open-workout'),
+                title: 'Open Workout',
+                description: 'Your exercises. Your pace.',
+                icon: Icons.add_rounded,
                 accent: BrandColors.cyan,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _HomeSummaryMetric(
-                        icon: Icons.fitness_center_rounded,
-                        value: '$strengthDoneThisWeek/${store.days}',
-                        label: 'STRENGTH',
-                      ),
-                    ),
-                    Container(width: 1, height: 54, color: BrandColors.line),
-                    Expanded(
-                      child: _HomeSummaryMetric(
-                        icon: Icons.directions_run_rounded,
-                        value:
-                            '$athleticDoneThisWeek/${AthleticProgram.sessionsPerWeek}',
-                        label: 'ATHLETIC',
-                      ),
-                    ),
-                  ],
-                ),
+                onTap: onOpenWorkout,
               ),
-              const SizedBox(height: 22),
-              LabPanel(
+              _TrainingChoice(
+                key: const ValueKey('home-iconic-builds'),
+                title: 'Iconic Builds',
+                description: '12 screen-inspired plans · 5 days a week',
+                icon: Icons.stars_rounded,
+                accent: BrandColors.magenta,
+                onTap: onOpenIcons,
+              ),
+              _TrainingChoice(
+                key: const ValueKey('home-year-one-strength'),
+                title: 'Year One Strength',
+                description: '48 weeks to build strength and muscle',
+                icon: Icons.fitness_center_rounded,
                 accent: BrandColors.violet,
-                onTap: onOpenPrograms,
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.dashboard_customize_rounded,
-                      color: BrandColors.violet,
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'PROGRAMS',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: .8,
-                            ),
-                          ),
-                          SizedBox(height: 3),
-                          Text(
-                            'Browse cycles, weeks, schedules, and past sessions.',
-                            style: TextStyle(
-                              color: BrandColors.muted,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.arrow_forward_rounded, color: BrandColors.muted),
-                  ],
-                ),
+                onTap: onOpenStrength,
               ),
-            ],
+              _TrainingChoice(
+                key: const ValueKey('home-functional-training'),
+                title: 'Functional Training',
+                description: '12 weeks of strength, speed, and movement',
+                icon: Icons.directions_run_rounded,
+                accent: BrandColors.blue,
+                onTap: onOpenFunctional,
+              ),
+            ];
+            final twoColumns =
+                constraints.maxWidth >= 680 &&
+                MediaQuery.textScalerOf(context).scale(14) <= 21;
+            return Column(
+              children: twoColumns
+                  ? [
+                      for (var row = 0; row < 2; row++)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(child: tiles[row * 2]),
+                                const SizedBox(width: 12),
+                                Expanded(child: tiles[row * 2 + 1]),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ]
+                  : [
+                      for (final tile in tiles)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: tile,
+                        ),
+                    ],
+            );
+          },
+        ),
+        const SizedBox(height: 18),
+        BrandSectionLabel(
+          'Keep going',
+          trailing: TextButton(
+            onPressed: onOpenPrograms,
+            child: const Text('All workouts'),
           ),
         ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          children: [
+            for (final track in TrainingTrack.values)
+              ChoiceChip(
+                label: Text(
+                  track == TrainingTrack.strength ? 'Strength' : 'Functional',
+                ),
+                selected: store.preferredTrack == track,
+                onSelected: (_) => unawaited(
+                  store.setPreferredTrack(track).catchError((Object _) {}),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (store.preferredTrack == TrainingTrack.strength)
+          _StrengthHomeCard(
+            store: store,
+            week: strengthWeek,
+            workout: strengthWorkout,
+          )
+        else
+          _AthleticHomeCard(
+            store: store,
+            week: athleticWeek,
+            session: athleticSession,
+          ),
+        const SizedBox(height: 20),
+        TodayInputsCard(store: store),
       ],
     );
   }
 }
 
+class _TrainingChoice extends StatelessWidget {
+  const _TrainingChoice({
+    super.key,
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.accent,
+    required this.onTap,
+  });
+  final String title;
+  final String description;
+  final IconData icon;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    child: LabPanel(
+      accent: accent,
+      padding: const EdgeInsets.all(18),
+      onTap: onTap,
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: .15),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: accent, size: 25),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    height: 1.15,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    color: muted,
+                    fontSize: 13,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(Icons.arrow_forward_rounded, size: 18, color: accent),
+        ],
+      ),
+    ),
+  );
+}
+
 class _StrengthHomeCard extends StatelessWidget {
   const _StrengthHomeCard({
-    super.key,
     required this.store,
     required this.week,
     required this.workout,
@@ -687,7 +750,7 @@ class _StrengthHomeCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'WEEK ${week.number} · PHASE ${week.phase}',
+                  'Week ${week.number} · Phase ${week.phase}',
                   style: const TextStyle(
                     color: BrandColors.cyan,
                     fontSize: 12,
@@ -699,7 +762,7 @@ class _StrengthHomeCard extends StatelessWidget {
               const SizedBox(width: 8),
               if (MediaQuery.textScalerOf(context).scale(14) <= 21)
                 Text(
-                  resuming ? 'IN PROGRESS' : 'READY',
+                  resuming ? 'In progress' : 'Ready',
                   style: const TextStyle(
                     color: BrandColors.violet,
                     fontSize: 12,
@@ -711,7 +774,7 @@ class _StrengthHomeCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Text(
-            workout.name.toUpperCase(),
+            workout.name,
             style: const TextStyle(
               fontSize: 31,
               height: 1,
@@ -720,7 +783,7 @@ class _StrengthHomeCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '${workout.exercises.length} exercises · $totalSets working sets · ${store.days}-day cadence',
+            '${workout.exercises.length} exercises · $totalSets working sets · ${store.days} days a week',
             style: const TextStyle(color: BrandColors.muted),
           ),
           const SizedBox(height: 18),
@@ -750,7 +813,7 @@ class _StrengthHomeCard extends StatelessWidget {
               tilePadding: EdgeInsets.zero,
               childrenPadding: EdgeInsets.zero,
               title: const Text(
-                'SESSION PREVIEW',
+                'Workout preview',
                 style: TextStyle(
                   color: BrandColors.muted,
                   fontSize: 12,
@@ -789,7 +852,6 @@ class _StrengthHomeCard extends StatelessWidget {
 
 class _AthleticHomeCard extends StatelessWidget {
   const _AthleticHomeCard({
-    super.key,
     required this.store,
     required this.week,
     required this.session,
@@ -810,28 +872,31 @@ class _AthleticHomeCard extends StatelessWidget {
           children: [
             const Icon(Icons.directions_run_rounded, color: BrandColors.cyan),
             const SizedBox(width: 8),
-            Text(
-              'WEEK ${week.number} · SESSION ${store.athleticSessionIndex + 1}',
-              style: const TextStyle(
-                color: BrandColors.cyan,
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1,
+            Expanded(
+              child: Text(
+                'Week ${week.number} · Session ${store.athleticSessionIndex + 1}',
+                style: const TextStyle(
+                  color: BrandColors.cyan,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
+                ),
               ),
             ),
-            const Spacer(),
-            Text(
-              '${(store.athleticProgress * 100).round()}%',
-              style: const TextStyle(
-                color: BrandColors.violet,
-                fontWeight: FontWeight.w900,
+            const SizedBox(width: 8),
+            if (MediaQuery.textScalerOf(context).scale(14) <= 21)
+              Text(
+                '${(store.athleticProgress * 100).round()}%',
+                style: const TextStyle(
+                  color: BrandColors.violet,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 14),
         Text(
-          session.name.toUpperCase(),
+          session.name,
           style: const TextStyle(
             fontSize: 31,
             height: 1,
@@ -850,8 +915,8 @@ class _AthleticHomeCard extends StatelessWidget {
                   store.athleticDraft?.sessionIndex ==
                       store.athleticSessionIndex &&
                   store.athleticDraft?.programRun == store.athleticProgramRun
-              ? 'Resume Athletic session'
-              : 'Start Athletic session',
+              ? 'Resume functional workout'
+              : 'Start functional workout',
           icon: Icons.play_arrow_rounded,
           onPressed: () => Navigator.push(
             context,
@@ -871,7 +936,7 @@ class _AthleticHomeCard extends StatelessWidget {
             tilePadding: EdgeInsets.zero,
             childrenPadding: EdgeInsets.zero,
             title: const Text(
-              'SESSION PREVIEW',
+              'Workout preview',
               style: TextStyle(
                 color: BrandColors.muted,
                 fontSize: 12,
@@ -910,42 +975,10 @@ class _AthleticHomeCard extends StatelessWidget {
   );
 }
 
-class _HomeSummaryMetric extends StatelessWidget {
-  const _HomeSummaryMetric({
-    required this.icon,
-    required this.value,
-    required this.label,
-  });
-
-  final IconData icon;
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      Icon(icon, color: BrandColors.cyan, size: 20),
-      const SizedBox(height: 7),
-      Text(
-        value,
-        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
-      ),
-      Text(
-        label,
-        style: const TextStyle(
-          color: BrandColors.muted,
-          fontSize: 12,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 1,
-        ),
-      ),
-    ],
-  );
-}
-
 class ProgramsHubPage extends StatelessWidget {
   const ProgramsHubPage({
     super.key,
+    this.scrollController,
     required this.store,
     required this.overviewKey,
     required this.onOpenStrength,
@@ -953,6 +986,7 @@ class ProgramsHubPage extends StatelessWidget {
   });
 
   final AppStore store;
+  final ScrollController? scrollController;
   final GlobalKey overviewKey;
   final VoidCallback onOpenStrength;
   final VoidCallback onOpenAthletic;
@@ -962,6 +996,7 @@ class ProgramsHubPage extends StatelessWidget {
     final strengthWeek = ProgramEngine.week(store.week, store.days);
     final athleticWeek = AthleticProgram.week(store.athleticWeek);
     return ListView(
+      controller: scrollController,
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 34),
       children: [
         const Row(
@@ -973,7 +1008,7 @@ class ProgramsHubPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'PROGRAMS',
+                    'Workouts',
                     style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900),
                   ),
                   SizedBox(height: 4),
@@ -1012,7 +1047,7 @@ class ProgramsHubPage extends StatelessWidget {
                 SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Strength, Athletic, and actor-inspired plans advance separately. Each keeps its own progress and workout history.',
+                    'Mix it up. Open Workout and each guided plan keep their own history, so you can switch without losing your place.',
                     style: TextStyle(color: BrandColors.muted, height: 1.4),
                   ),
                 ),
@@ -1021,31 +1056,42 @@ class ProgramsHubPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 18),
+        _TrainingChoice(
+          title: 'Open Workout',
+          description: 'Choose your exercises and log a workout as you go.',
+          icon: Icons.add_rounded,
+          accent: BrandColors.cyan,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => OpenWorkoutScreen(store: store)),
+          ),
+        ),
+        const SizedBox(height: 14),
         _ProgramTrackCard(
           accent: BrandColors.violet,
           icon: Icons.fitness_center_rounded,
-          eyebrow: '48-WEEK STRENGTH SYSTEM',
-          title: 'Strength Program',
+          eyebrow: '48-week plan',
+          title: 'Year One Strength',
           description:
-              'Periodized strength and hypertrophy with build, strength, and deload weeks.',
+              'Build strength and muscle with clear rep targets and planned lighter weeks.',
           progress: store.strengthCompletion,
           position:
               'Week ${store.week} · Phase ${strengthWeek.phase} · ${store.days} days/week',
-          actionLabel: 'OPEN STRENGTH PROGRAM',
+          actionLabel: 'Open strength plan',
           onTap: onOpenStrength,
         ),
         const SizedBox(height: 14),
         _ProgramTrackCard(
           accent: BrandColors.cyan,
           icon: Icons.directions_run_rounded,
-          eyebrow: '12-WEEK ATHLETIC SYSTEM',
-          title: 'Athletic Functional Training',
+          eyebrow: '12-week plan',
+          title: 'Functional Training',
           description:
-              'Gait, unilateral strength, rotation, elastic work, speed, and change of direction.',
+              'Build strength, balance, and speed for the way you move.',
           progress: store.athleticProgress,
           position:
               'Week ${store.athleticWeek} · ${athleticWeek.cycleName} · Session ${store.athleticSessionIndex + 1}',
-          actionLabel: 'OPEN ATHLETIC PROGRAM',
+          actionLabel: 'Open functional plan',
           onTap: onOpenAthletic,
         ),
         const SizedBox(height: 14),
@@ -1068,17 +1114,17 @@ class ProgramsHubPage extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'Actor-inspired programs',
+                'Iconic Builds',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 8),
               const Text(
-                'Explore 12 five-day plans inspired by superhero and action roles. Follow each session, log your sets, and resume where you left off.',
+                'Explore 12 five-day plans inspired by iconic screen roles. Follow the sessions, log your sets, and pick up where you left off.',
                 style: TextStyle(color: BrandColors.muted, height: 1.4),
               ),
               const SizedBox(height: 16),
               const Text(
-                'EXPLORE PLANS →',
+                'Explore builds →',
                 style: TextStyle(
                   color: BrandColors.purple,
                   fontWeight: FontWeight.w800,
@@ -1184,16 +1230,17 @@ class _ProgramTrackCard extends StatelessWidget {
         const SizedBox(height: 16),
         Row(
           children: [
-            Text(
-              actionLabel,
-              style: TextStyle(
-                color: accent,
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-                letterSpacing: .65,
+            Expanded(
+              child: Text(
+                actionLabel,
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .65,
+                ),
               ),
             ),
-            const Spacer(),
             Icon(Icons.arrow_forward_rounded, color: accent),
           ],
         ),
@@ -1724,11 +1771,11 @@ class _WorkoutScreenState extends State<WorkoutScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('KEEP TRAINING'),
+              child: const Text('Keep training'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('FINISH EARLY'),
+              child: const Text('Finish early'),
             ),
           ],
         ),
@@ -1756,11 +1803,11 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('KEEP TRAINING'),
+            child: const Text('Keep training'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('SKIP WORKOUT'),
+            child: const Text('Skip workout'),
           ),
         ],
       ),
@@ -1831,7 +1878,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     final exerciseCount = sessionLogs.map((log) => log.exercise).toSet().length;
     return WorkoutShareData(
       snapshot: ShareWorkoutSnapshot(
-        program: 'Strength Program',
+        program: 'Year One Strength',
         status: partial ? 'partial' : 'completed',
         workout: widget.workout.name,
         completedAt: DateTime.now(),
@@ -1852,7 +1899,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
             ),
         ],
       ),
-      program: 'Strength Program',
+      program: 'Year One Strength',
       title: widget.workout.name,
       contextLine:
           'Run ${widget.store.strengthProgramRun} · Week ${widget.week.number} · Phase ${widget.week.phase}',
@@ -1938,7 +1985,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         backgroundColor: Colors.transparent,
         title: Text(
           '${_clock(elapsed)}  •  ${widget.workout.name}'
-          '${widget.retroactive ? '  •  RETRO' : ''}',
+          '${widget.retroactive ? '  ·  Past workout' : ''}',
         ),
         actions: [
           PopupMenuButton<String>(
@@ -1950,12 +1997,12 @@ class _WorkoutScreenState extends State<WorkoutScreen>
             itemBuilder: (_) => widget.retroactive
                 ? const []
                 : const [
-                    PopupMenuItem(value: 'skip', child: Text('SKIP WORKOUT')),
+                    PopupMenuItem(value: 'skip', child: Text('Skip workout')),
                   ],
           ),
           TextButton(
             onPressed: finishing ? null : () => _finish(),
-            child: Text(finishing ? 'SAVING' : 'FINISH'),
+            child: Text(finishing ? 'Saving…' : 'Finish'),
           ),
         ],
       ),
@@ -2091,7 +2138,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
             ),
             const SizedBox(height: 12),
             Text(
-              'SET $set OF ${plan.sets}  •  $target',
+              'Set $set of ${plan.sets} · $target',
               style: const TextStyle(
                 color: cyan,
                 fontWeight: FontWeight.w800,
@@ -2101,7 +2148,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
             if (substitutions.containsKey(exercise)) ...[
               const SizedBox(height: 5),
               Text(
-                'SUBSTITUTED FOR ${widget.workout.exercises[exercise].name.toUpperCase()}',
+                'In place of ${widget.workout.exercises[exercise].name}',
                 style: const TextStyle(
                   color: Colors.white54,
                   fontSize: 12,
@@ -2143,7 +2190,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
             if (type.usesWeight) ...[
               const SizedBox(height: 8),
               Text(
-                'Starting load uses your last saved session for this movement. When you own the top of the prescribed rep range, add the smallest practical increment. Adjust for readiness and deloads.',
+                'Your starting weight comes from your last workout. When you can complete the top of the rep range with good form, try a small increase next time. Go lighter when you need to.',
                 style: const TextStyle(color: muted, fontSize: 13),
               ),
               Align(
@@ -2165,7 +2212,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
               minLines: 1,
               maxLines: 3,
               decoration: const InputDecoration(
-                labelText: 'SET NOTES',
+                labelText: 'Set notes',
                 hintText: 'Optional. Keep it useful.',
               ),
             ),
@@ -2182,7 +2229,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                     const Icon(Icons.timer_outlined, color: cyan),
                     const SizedBox(width: 12),
                     Text(
-                      'REST  ${_clock(rest)}',
+                      'Rest  ${_clock(rest)}',
                       style: const TextStyle(
                         color: cyan,
                         fontWeight: FontWeight.w900,
@@ -2198,7 +2245,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                         });
                         unawaited(_persistDraft());
                       },
-                      child: const Text('SKIP'),
+                      child: const Text('Skip rest'),
                     ),
                   ],
                 ),
@@ -2211,7 +2258,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                 initiallyExpanded: true,
                 leading: const Icon(Icons.history_rounded, color: cyan),
                 title: Text(
-                  'LOGGED SETS ($activeLogs)',
+                  'Logged sets ($activeLogs)',
                   style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
                 subtitle: Text('Saved for ${plan.name} in this workout'),
@@ -2229,7 +2276,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
             ),
             const SizedBox(height: 28),
             const Text(
-              'SESSION',
+              'Workout',
               style: TextStyle(
                 color: Colors.white38,
                 fontWeight: FontWeight.w800,
@@ -2312,14 +2359,14 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     }
     if (type.usesReps) {
       fields.add(
-        _WorkoutInput(controller: reps, label: 'REPS', decimal: false),
+        _WorkoutInput(controller: reps, label: 'Reps', decimal: false),
       );
     }
     if (type.usesDuration) {
       fields.add(
         _WorkoutInput(
           controller: duration,
-          label: 'DURATION',
+          label: 'Time',
           hint: 'seconds or mm:ss',
           decimal: false,
         ),
@@ -2329,14 +2376,14 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       fields.add(
         _WorkoutInput(
           controller: distance,
-          label: 'DISTANCE ($_defaultDistanceUnit)',
+          label: 'Distance ($_defaultDistanceUnit)',
           decimal: true,
         ),
       );
     }
     if (type.usesCalories) {
       fields.add(
-        _WorkoutInput(controller: calories, label: 'CALORIES', decimal: true),
+        _WorkoutInput(controller: calories, label: 'Calories', decimal: true),
       );
     }
     if (fields.length == 1) return fields.single;
@@ -2365,12 +2412,12 @@ class _WorkoutScreenState extends State<WorkoutScreen>
   String _targetLabel(ExercisePlan plan, ExerciseTrackingType type) =>
       switch (type) {
         ExerciseTrackingType.duration ||
-        ExerciseTrackingType.durationWeight => 'TARGET ${plan.reps}',
+        ExerciseTrackingType.durationWeight => 'Target ${plan.reps}',
         ExerciseTrackingType.distanceDuration ||
         ExerciseTrackingType.weightDistance ||
         ExerciseTrackingType.repsDistance ||
-        ExerciseTrackingType.distanceOnly => 'TARGET ${plan.reps}',
-        _ => 'TARGET ${plan.reps} REPS',
+        ExerciseTrackingType.distanceOnly => 'Target ${plan.reps}',
+        _ => 'Target ${plan.reps} reps',
       };
 
   String _clock(int seconds) =>
@@ -2449,7 +2496,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'FIND A SUBSTITUTE',
+                                'Swap exercise',
                                 style: TextStyle(
                                   fontSize: 21,
                                   fontWeight: FontWeight.w900,
@@ -2500,7 +2547,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                           return RadioListTile<String>(
                             value: prescribed.name,
                             groupValue: selected,
-                            title: Text('${prescribed.name} · prescribed'),
+                            title: Text('${prescribed.name} · in the plan'),
                             subtitle: const Text('Remove the substitution'),
                             onChanged: (value) {
                               setSheetState(() => selected = value);
@@ -2596,11 +2643,13 @@ class _WorkoutMetaChip extends StatelessWidget {
 class SettingsPage extends StatelessWidget {
   const SettingsPage({
     super.key,
+    this.scrollController,
     required this.store,
     required this.helpGuidesKey,
     required this.onReplayTour,
   });
   final AppStore store;
+  final ScrollController? scrollController;
   final GlobalKey helpGuidesKey;
   final VoidCallback onReplayTour;
   @override
@@ -2608,12 +2657,17 @@ class SettingsPage extends StatelessWidget {
     void open(Widget screen) =>
         Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
     return ListView(
+      controller: scrollController,
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
       children: [
-        Text('More', style: Theme.of(context).textTheme.headlineLarge),
+        Text(
+          'Settings',
+          key: helpGuidesKey,
+          style: Theme.of(context).textTheme.headlineLarge,
+        ),
         const SizedBox(height: 6),
         const Text(
-          'Preferences, connections, and your data',
+          'Your preferences, connected apps, and data',
           style: TextStyle(color: muted),
         ),
         const SizedBox(height: 28),
@@ -2666,12 +2720,11 @@ class SettingsPage extends StatelessWidget {
           onTap: () => open(DataManagementScreen(store: store)),
         ),
         const SizedBox(height: 28),
-        const BrandSectionLabel('Help & Guides'),
+        const BrandSectionLabel('Help & guides'),
         _Setting(
-          key: helpGuidesKey,
           icon: Icons.route_outlined,
-          title: 'App Tour',
-          subtitle: 'Find your way around all five tabs',
+          title: 'App tour',
+          subtitle: 'A quick guide to workouts and the Lab',
           available: true,
           onTap: onReplayTour,
         ),
@@ -2690,7 +2743,7 @@ class SettingsPage extends StatelessWidget {
         _Setting(
           icon: Icons.help_outline,
           title: 'How progression works',
-          subtitle: 'The Strength program and its rep targets',
+          subtitle: 'Year One Strength and its rep targets',
           available: true,
           onTap: () => showModalBottomSheet(
             context: context,
@@ -2699,17 +2752,10 @@ class SettingsPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-        const Text('Progression Lab 2.3.0', style: TextStyle(color: muted)),
+        const Text('Progression Lab 2.7.0', style: TextStyle(color: muted)),
       ],
     );
   }
-}
-
-class _Mark extends StatelessWidget {
-  const _Mark();
-
-  @override
-  Widget build(BuildContext context) => const LabMark(size: 44);
 }
 
 class _WarmupCard extends StatelessWidget {
@@ -2759,7 +2805,7 @@ class _WarmupCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'AUTOMATIC WARM-UP',
+                    'Your warm-up',
                     style: TextStyle(
                       fontWeight: FontWeight.w900,
                       letterSpacing: .9,
@@ -2778,7 +2824,7 @@ class _WarmupCard extends StatelessWidget {
               ),
             ),
             const Text(
-              'RAMP',
+              'Build up',
               style: TextStyle(
                 color: cyan,
                 fontSize: 12,
@@ -2808,7 +2854,7 @@ class _WarmupCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'WARM-UP ${i + 1} · ${recommendation.sets[i].percentage}%',
+                        'Warm-up ${i + 1} · ${recommendation.sets[i].percentage}%',
                         style: const TextStyle(
                           color: BrandColors.muted,
                           fontSize: 12,
@@ -2915,18 +2961,18 @@ class _Previous extends StatelessWidget {
   String _metric(SetLog log) => switch (log.resolvedTrackingType) {
     ExerciseTrackingType.weightReps ||
     ExerciseTrackingType.weightedBodyweight => 'e1RM ${log.e1rm.round()}',
-    ExerciseTrackingType.assistedBodyweight => 'LESS IS MORE',
+    ExerciseTrackingType.assistedBodyweight => 'Less assistance',
     ExerciseTrackingType.bodyweightReps ||
-    ExerciseTrackingType.repsOnly => 'REP PR',
+    ExerciseTrackingType.repsOnly => 'Rep best',
     ExerciseTrackingType.duration ||
-    ExerciseTrackingType.durationWeight => 'TIME PR',
+    ExerciseTrackingType.durationWeight => 'Time best',
     ExerciseTrackingType.distanceDuration ||
     ExerciseTrackingType.weightDistance ||
     ExerciseTrackingType.repsDistance ||
-    ExerciseTrackingType.distanceOnly => 'DISTANCE PR',
-    ExerciseTrackingType.caloriesDuration => 'OUTPUT PR',
-    ExerciseTrackingType.repsDuration => 'WORK PR',
-    ExerciseTrackingType.weightOnly => 'LOAD PR',
+    ExerciseTrackingType.distanceOnly => 'Distance best',
+    ExerciseTrackingType.caloriesDuration => 'Output best',
+    ExerciseTrackingType.repsDuration => 'Work best',
+    ExerciseTrackingType.weightOnly => 'Weight best',
   };
 
   String _durationLabel(int seconds) =>
@@ -2935,7 +2981,6 @@ class _Previous extends StatelessWidget {
 
 class _Setting extends StatelessWidget {
   const _Setting({
-    super.key,
     required this.icon,
     required this.title,
     required this.subtitle,
@@ -2976,19 +3021,19 @@ class _QuickHelp extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'HOW PROGRESSION WORKS',
+            'How progression works',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 14),
           const Text(
-            'Hit the prescribed reps with clean form and 1–2 reps in reserve. When you own the top of a rep range, add the smallest practical weight next time. Deload weeks reduce fatigue automatically.',
+            'Aim for the target reps with good form, stopping when you could still do 1–2 more. Once the top of the rep range feels solid, add a small amount of weight next time. Planned lighter weeks give you room to recover.',
           ),
           const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
             child: FilledButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('GOT IT'),
+              child: const Text('Got it'),
             ),
           ),
         ],

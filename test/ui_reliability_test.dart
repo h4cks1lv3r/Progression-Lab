@@ -452,7 +452,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.textContaining('1 OF '), findsOneWidget);
+    expect(find.textContaining('1 of '), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
     s.dispose();
@@ -490,7 +490,7 @@ void main() {
     );
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
-    final save = find.text('SAVE');
+    final save = find.text('Save');
     await tester.ensureVisible(save);
     await tester.tap(save);
     await tester.pumpAndSettle();

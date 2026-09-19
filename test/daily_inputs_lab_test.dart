@@ -240,7 +240,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Track'), findsOneWidget);
+    expect(find.text('Daily check-in'), findsOneWidget);
     expect(find.text('DAY AT A GLANCE'), findsOneWidget);
     expect(find.text('QUICK ADD'), findsOneWidget);
 
@@ -252,9 +252,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('THE LAB'), findsOneWidget);
-    expect(find.text('WHAT IS MOVING THE NEEDLE?'), findsOneWidget);
-    expect(find.text('Use AI Analysis'), findsOneWidget);
-    expect(find.text('EXPLAIN THESE RESULTS WITH GEMINI'), findsNothing);
+    expect(find.text('Training insights'), findsOneWidget);
+    expect(find.text('What is working for you?'), findsOneWidget);
+    expect(find.text('Explain with AI'), findsOneWidget);
+    expect(find.text('Explain my results'), findsNothing);
   });
 }

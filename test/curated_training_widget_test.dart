@@ -128,8 +128,11 @@ void main() {
     final program = CuratedPrograms.all.first;
     await tester.pumpWidget(app(CuratedProgramsScreen(store: store)));
     await tester.pumpAndSettle();
-    expect(find.text('Actor-inspired programs'), findsOneWidget);
-    expect(find.textContaining('not promises of an actor'), findsOneWidget);
+    expect(find.text('Iconic Builds'), findsOneWidget);
+    expect(
+      find.textContaining('Results vary from person to person'),
+      findsOneWidget,
+    );
     await tap(tester, 'curated-program-${program.id}');
     for (var index = 0; index < 5; index++) {
       await tester.scrollUntilVisible(
@@ -334,11 +337,11 @@ void main() {
       await tap(tester, 'curated-log-set');
       await tap(tester, 'curated-finish-partial');
       expect(store.curatedHistory, isEmpty);
-      await tester.tap(find.text('KEEP TRAINING'));
+      await tester.tap(find.text('Keep training'));
       await tester.pumpAndSettle();
       expect(store.curatedDraftFor(id), isNotNull);
       await tap(tester, 'curated-finish-partial');
-      await tester.tap(find.text('SAVE PARTIAL'));
+      await tester.tap(find.text('Save partial'));
       await tester.pumpAndSettle();
       expect(find.text('Partial workout saved'), findsOneWidget);
       expect(store.curatedHistory.single.status, 'partial');

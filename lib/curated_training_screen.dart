@@ -18,10 +18,10 @@ class CuratedProgramsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('Actor-inspired programs'),
+      title: const Text('Iconic Builds'),
       actions: [
         IconButton(
-          tooltip: 'Actor-inspired workout history',
+          tooltip: 'Iconic Builds history',
           icon: const Icon(Icons.history_rounded),
           onPressed: () => Navigator.push(
             context,
@@ -41,7 +41,7 @@ class CuratedProgramsScreen extends StatelessWidget {
           children: [
             const _Intro(),
             const SizedBox(height: 24),
-            const BrandSectionLabel('Choose your inspiration'),
+            const BrandSectionLabel('Find your inspiration'),
             const SizedBox(height: 14),
             for (final program in CuratedPrograms.all) ...[
               _ProgramCard(store: store, program: program),
@@ -66,7 +66,7 @@ class _Intro extends StatelessWidget {
         const Icon(Icons.bolt_rounded, color: BrandColors.cyan, size: 34),
         const SizedBox(height: 12),
         Text(
-          'TRAIN WITH\nA NEW PURPOSE',
+          'Your next build\nstarts here',
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.w900,
             height: 1.05,
@@ -74,15 +74,15 @@ class _Intro extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         const Text(
-          'Explore five-day plans inspired by screen heroes and martial artists. '
-          'Follow each session, log your actual work, and build your own progress.',
+          'Five-day workout plans inspired by screen icons and martial artists. '
+          'Pick a plan, follow each session, and make it your own.',
           style: TextStyle(height: 1.5),
         ),
         const SizedBox(height: 12),
         const Text(
-          'These are training adaptations, not promises of an actor’s physique. '
-          'Source strength and changes are shown with each plan. '
-          'Your Strength and Athletic program positions stay separate.',
+          'These plans adapt published training for the app. Results vary from person to person. '
+          'Each plan includes its sources and the changes we made. '
+          'Your progress here is separate from Year One Strength and Functional Training.',
           style: TextStyle(color: BrandColors.muted, height: 1.5),
         ),
         const SizedBox(height: 14),
@@ -92,7 +92,7 @@ class _Intro extends StatelessWidget {
           children: [
             _Badge('5 training days'),
             _Badge('2 recovery days'),
-            _Badge('Actual set logging'),
+            _Badge('Track every set'),
           ],
         ),
       ],
@@ -218,9 +218,7 @@ class _CuratedProgramScreenState extends State<CuratedProgramScreen> {
       );
     } on Object {
       if (mounted) {
-        setState(
-          () => _error = 'The workout could not be opened. Please try again.',
-        );
+        setState(() => _error = 'Couldn’t open this workout. Try again.');
       }
     } finally {
       if (mounted) setState(() => _starting = false);
@@ -247,10 +245,10 @@ class _CuratedProgramScreenState extends State<CuratedProgramScreen> {
           child: GradientAction(
             key: const ValueKey('curated-start'),
             label: _starting
-                ? 'OPENING WORKOUT…'
+                ? 'Opening workout…'
                 : draft != null
-                ? 'RESUME DAY ${dayIndex + 1}'
-                : 'START DAY ${dayIndex + 1}',
+                ? 'Resume day ${dayIndex + 1}'
+                : 'Start day ${dayIndex + 1}',
             icon: Icons.play_arrow_rounded,
             onPressed: _starting ? null : _start,
           ),
@@ -303,13 +301,13 @@ class _CuratedProgramScreenState extends State<CuratedProgramScreen> {
                     if (draft != null) ...[
                       const SizedBox(height: 8),
                       Text(
-                        '$loggedCount of ${draft.steps.length} sets saved. Resume where you stopped.',
+                        '$loggedCount of ${draft.steps.length} sets saved. Pick up where you left off.',
                         style: const TextStyle(color: BrandColors.muted),
                       ),
                     ],
                     const SizedBox(height: 10),
                     const Text(
-                      'Repeat the five sessions each week. Place two recovery days where you need them; days do not advance until you save a session.',
+                      'Follow these five workouts each week and fit in two recovery days where they work for you. Save a session to move to the next day.',
                       style: TextStyle(color: BrandColors.muted, height: 1.4),
                     ),
                   ],
@@ -324,7 +322,7 @@ class _CuratedProgramScreenState extends State<CuratedProgramScreen> {
                   ),
                 ),
               const SizedBox(height: 24),
-              const BrandSectionLabel('Five-day outline'),
+              const BrandSectionLabel('Your five-day plan'),
               const SizedBox(height: 12),
               for (final entry in program.days.asMap().entries)
                 _DayOutline(
@@ -338,7 +336,7 @@ class _CuratedProgramScreenState extends State<CuratedProgramScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const BrandSectionLabel('Evidence & adaptations'),
+                    const BrandSectionLabel('Behind the plan'),
                     const SizedBox(height: 12),
                     Text(program.evidence, style: const TextStyle(height: 1.5)),
                     const SizedBox(height: 10),
@@ -351,7 +349,7 @@ class _CuratedProgramScreenState extends State<CuratedProgramScreen> {
                     ),
                     const SizedBox(height: 14),
                     const Text(
-                      'SOURCE REFERENCES',
+                      'Sources',
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 12,
@@ -390,7 +388,7 @@ class _CuratedProgramScreenState extends State<CuratedProgramScreen> {
                   ),
                 ),
                 icon: const Icon(Icons.history_rounded),
-                label: const Text('VIEW WORKOUT HISTORY'),
+                label: const Text('View workout history'),
               ),
             ],
           ),
@@ -465,7 +463,7 @@ class _DayOutline extends StatelessWidget {
                   ),
                   if (movement.group != null)
                     Text(
-                      'Alternating group: ${movement.group}',
+                      'Alternate with: ${movement.group}',
                       style: const TextStyle(
                         color: BrandColors.muted,
                         fontSize: 12,
@@ -563,7 +561,7 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = 'This workout could not be loaded. Go back and try again.';
+          _error = 'Couldn’t load this workout. Go back and try again.';
         });
       }
     }
@@ -621,7 +619,8 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
         if (mounted) {
           setState(() {
             _inputWrites--;
-            _error = 'Input could not be saved. Tap Retry before leaving.';
+            _error =
+                'Couldn’t save your entries. Tap Retry save before leaving.';
           });
         }
       },
@@ -711,7 +710,7 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
       if (mounted) {
         setState(
           () => _error =
-              'The set was not saved. Your entries are still here. Please retry.',
+              'Couldn’t save this set. Your entries are still here—try again.',
         );
       }
     } finally {
@@ -733,18 +732,18 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Finish a partial workout?'),
+          title: const Text('Wrap up this workout?'),
           content: Text(
-            '$loggedCount of ${draft.steps.length} sets are logged. Save these sets as a partial session and move to the next training day?',
+            'You’ve logged $loggedCount of ${draft.steps.length} sets. Save this as a partial workout and move to the next training day?',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('KEEP TRAINING'),
+              child: const Text('Keep training'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('SAVE PARTIAL'),
+              child: const Text('Save partial'),
             ),
           ],
         ),
@@ -773,12 +772,12 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
           ),
           title: Text(isPartial ? 'Partial workout saved' : 'Workout complete'),
           content: Text(
-            '${_program.actor} · Week ${draft.week}, Day ${draft.dayIndex + 1}\n\n$loggedCount actual sets saved. Your next training day is ready.',
+            '${_program.actor} · Week ${draft.week}, Day ${draft.dayIndex + 1}\n\n$loggedCount sets saved. Your next training day is ready.',
           ),
           actions: [
             FilledButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('DONE'),
+              child: const Text('Done'),
             ),
           ],
         ),
@@ -793,7 +792,7 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
         setState(() {
           _busy = false;
           _error =
-              'The session could not be saved. Your logged sets are kept. Please retry.';
+              'Couldn’t finish saving this workout. Your logged sets are safe. Try again.';
         });
       }
     }
@@ -837,7 +836,7 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
               children: [
                 Text(
-                  'WEEK ${draft.week} · DAY ${draft.dayIndex + 1}',
+                  'Week ${draft.week} · Day ${draft.dayIndex + 1}',
                   style: const TextStyle(
                     color: BrandColors.cyan,
                     fontWeight: FontWeight.w800,
@@ -872,10 +871,10 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
                 const SizedBox(height: 4),
                 Text(
                   _inputWrites > 0
-                      ? 'Saving input…'
+                      ? 'Saving your entries…'
                       : _error != null
-                      ? 'Save needs attention · Retry below'
-                      : 'Progress saved · Leave and resume anytime',
+                      ? 'Couldn’t save · Retry below'
+                      : 'Progress saved · Pick this up anytime',
                   style: const TextStyle(
                     color: BrandColors.muted,
                     fontSize: 12,
@@ -909,7 +908,7 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
                         TextButton(
                           onPressed: () =>
                               setState(() => _dismissedRest = draft.restEndsAt),
-                          child: const Text('SKIP'),
+                          child: const Text('Skip rest'),
                         ),
                       ],
                     ),
@@ -941,10 +940,10 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
                         const SizedBox(height: 8),
                         Text(
                           loggedCount == draft.steps.length
-                              ? 'Finish the workout to save the session and unlock your next day.'
+                              ? 'Finish this workout to save it and move to your next day.'
                               : loggedCount > 0
-                              ? 'Save the remaining sets as a partial workout to move to your next day.'
-                              : 'No recorded sets remain. This session cannot count as a completed workout.',
+                              ? 'Save the sets you’ve logged as a partial workout to move to your next day.'
+                              : 'Log at least one set before saving this workout.',
                           style: const TextStyle(
                             color: BrandColors.muted,
                             height: 1.4,
@@ -971,7 +970,7 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
                               /* The inline error stays visible. */
                             }
                           },
-                    child: const Text('RETRY SAVE'),
+                    child: const Text('Retry save'),
                   ),
                 ],
                 const SizedBox(height: 16),
@@ -979,10 +978,10 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
                   GradientAction(
                     key: const ValueKey('curated-finish'),
                     label: _busy
-                        ? 'SAVING…'
+                        ? 'Saving…'
                         : loggedCount < draft.steps.length
-                        ? 'SAVE PARTIAL WORKOUT'
-                        : 'FINISH WORKOUT',
+                        ? 'Save partial workout'
+                        : 'Finish workout',
                     icon: Icons.check_rounded,
                     onPressed: _busy || loggedCount == 0 ? null : _finish,
                   )
@@ -990,13 +989,13 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
                   OutlinedButton(
                     key: const ValueKey('curated-finish-partial'),
                     onPressed: _busy ? null : _finish,
-                    child: const Text('FINISH AS PARTIAL'),
+                    child: const Text('Finish early'),
                   ),
                 if (loggedCount > 0) ...[
                   const SizedBox(height: 20),
                   ExpansionTile(
                     tilePadding: EdgeInsets.zero,
-                    title: const Text('Review logged sets'),
+                    title: const Text('Your logged sets'),
                     children: [
                       LoggedSetsEditor(
                         store: widget.store,
@@ -1054,7 +1053,7 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
             ),
             const SizedBox(height: 10),
             Text(
-              'TARGET · ${_targetText(step.target)}',
+              'Target · ${_targetText(step.target)}',
               style: const TextStyle(
                 color: BrandColors.cyan,
                 fontWeight: FontWeight.w800,
@@ -1067,7 +1066,7 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
             ),
             const SizedBox(height: 20),
             const Text(
-              'LOG WHAT YOU DID',
+              'Log your set',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w900,
@@ -1079,25 +1078,20 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
               _numberField(
                 'weight',
                 _weight,
-                'Actual weight (${widget.store.unit})',
+                'Weight (${widget.store.unit})',
                 whole: false,
               ),
               const SizedBox(height: 12),
             ],
             if (_usesReps(metric))
-              _numberField('reps', _reps, 'Actual reps', whole: true),
+              _numberField('reps', _reps, 'Reps', whole: true),
             if (metric == CuratedMetric.duration)
-              _numberField(
-                'seconds',
-                _seconds,
-                'Actual duration (seconds)',
-                whole: true,
-              ),
+              _numberField('seconds', _seconds, 'Time (seconds)', whole: true),
             if (_usesDistance(metric))
               _numberField(
                 'meters',
                 _meters,
-                'Actual distance (meters)',
+                'Distance (meters)',
                 whole: false,
               ),
             const SizedBox(height: 12),
@@ -1112,7 +1106,7 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
             const SizedBox(height: 18),
             GradientAction(
               key: const ValueKey('curated-log-set'),
-              label: _busy ? 'SAVING SET…' : 'LOG SET',
+              label: _busy ? 'Saving set…' : 'Log set',
               icon: Icons.add_task_rounded,
               onPressed: _busy ? null : _log,
             ),
@@ -1145,8 +1139,8 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
           : double.tryParse(value?.trim() ?? '');
       if (parsed == null || !parsed.isFinite || parsed <= 0) {
         return whole
-            ? 'Enter a whole number greater than zero.'
-            : 'Enter a number greater than zero.';
+            ? 'Enter a whole number above zero.'
+            : 'Enter a number above zero.';
       }
       return null;
     },
@@ -1161,7 +1155,7 @@ class CuratedHistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Actor-inspired history')),
+    appBar: AppBar(title: const Text('Iconic Builds history')),
     body: BrandBackdrop(
       child: AnimatedBuilder(
         animation: store,
@@ -1177,12 +1171,12 @@ class CuratedHistoryScreen extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
             children: [
-              const BrandSectionLabel('Your actual training'),
+              const BrandSectionLabel('Your workouts'),
               const SizedBox(height: 14),
               if (history.isEmpty)
                 const LabPanel(
                   child: Text(
-                    'No actor-inspired workouts saved yet. Choose a plan and log your first session.',
+                    'Your Iconic Builds workouts will appear here. Pick a plan to start your first session.',
                   ),
                 ),
               for (final record in history) ...[
@@ -1257,14 +1251,14 @@ class CuratedSessionHistoryScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           const Text(
-            'Recorded sets',
+            'Logged sets',
             style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 16),
           LoggedSetsEditor(
             store: store,
             predicate: (log) => log.sessionId == record.sessionId,
-            emptyMessage: 'No recorded sets remain for this session.',
+            emptyMessage: 'This workout has no logged sets.',
           ),
         ],
       ),

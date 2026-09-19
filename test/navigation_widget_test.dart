@@ -6,6 +6,10 @@ import 'package:progression_lab/brand.dart';
 import 'package:progression_lab/exercise_library_screen.dart';
 import 'package:progression_lab/logged_sets.dart';
 import 'package:progression_lab/main.dart';
+import 'package:progression_lab/app_navigation.dart';
+import 'package:progression_lab/curated_training_screen.dart';
+import 'package:progression_lab/open_workout_screen.dart';
+import 'package:progression_lab/progress_hub.dart';
 import 'package:progression_lab/program_navigator.dart';
 import 'package:progression_lab/progress_dashboard.dart';
 import 'package:progression_lab/safe_layout.dart';
@@ -74,15 +78,15 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('CHANGE STARTING POINT'));
+    await tester.tap(find.text('Change starting point'));
     await tester.pumpAndSettle();
 
     expect(
       find.byKey(const ValueKey('program-position-scroll')),
       findsOneWidget,
     );
-    expect(find.text('MOVE CURRENT POSITION'), findsOneWidget);
-    expect(find.text('START A NEW PROGRAM RUN'), findsOneWidget);
+    expect(find.text('Move within this run'), findsOneWidget);
+    expect(find.text('Start a new run'), findsOneWidget);
     Navigator.of(
       tester.element(find.byKey(const ValueKey('program-position-scroll'))),
     ).pop();
@@ -98,15 +102,15 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('CHANGE STARTING POINT'));
+    await tester.tap(find.text('Change starting point'));
     await tester.pumpAndSettle();
 
     expect(
       find.byKey(const ValueKey('athletic-position-scroll')),
       findsOneWidget,
     );
-    expect(find.text('MOVE CURRENT RUN'), findsOneWidget);
-    expect(find.text('START A NEW ATHLETIC RUN'), findsOneWidget);
+    expect(find.text('Move within this run'), findsOneWidget);
+    expect(find.text('Start a new run'), findsOneWidget);
   });
 
   testWidgets('progress dashboard renders honest empty and populated states', (
@@ -121,7 +125,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Strength signal'), findsOneWidget);
+    expect(find.text('Your strength progress'), findsOneWidget);
     expect(find.text('Your progress starts with a set'), findsOneWidget);
     expect(find.text('No exercises logged'), findsOneWidget);
 
@@ -177,7 +181,7 @@ void main() {
     expect(store.logs.single.weight, 185);
     expect(store.logs.single.notes, isEmpty);
 
-    await tester.tap(find.text('SAVE SET'));
+    await tester.tap(find.text('Save set'));
     await tester.pumpAndSettle();
 
     expect(store.logs.single.weight, 190);
@@ -198,7 +202,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('CREATE EXERCISE'), findsOneWidget);
+    expect(find.text('Create exercise'), findsOneWidget);
     final search = find.byType(TextField).first;
     await tester.enterText(search, 'Barbell Bench Press');
     await tester.pump();
@@ -225,21 +229,27 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('WEEK 5 OF 12'), findsOneWidget);
-    expect(find.text('LOADED GAIT & UNILATERAL STRENGTH'), findsOneWidget);
-    await tester.tap(find.text('START SESSION'));
+    expect(find.text('Week 5 of 12'), findsOneWidget);
+    expect(find.text('LOADED STEPS & SINGLE-LEG STRENGTH'), findsOneWidget);
+    await tester.tap(find.text('Start session'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Foot Rocker'), findsOneWidget);
   });
 
-  testWidgets('primary navigation and replayable tour remain available', (
+  AppStore readyStore() => AppStore()
+    ..isLoaded = true
+    ..dataOnboardingVersionSeen = 1
+    ..onboardingVersionSeen = 2
+    ..automaticBackupsEnabled = false
+    ..integrationState = {
+      'contextualGuides': {'tipsEnabled': false},
+    };
+
+  testWidgets('left menu reaches workouts, Lab, settings and replayable tour', (
     tester,
   ) async {
     usePhoneSurface(tester);
-    final store = AppStore()
-      ..isLoaded = true
-      ..onboardingVersionSeen = 1;
-
+    final store = readyStore();
     await tester.pumpWidget(
       MaterialApp(
         theme: ProgressionBrand.theme(),
@@ -248,27 +258,166 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final navigation = tester.widget<NavigationBar>(find.byType(NavigationBar));
-    expect(navigation.destinations, hasLength(5));
-    expect(find.text('Home'), findsOneWidget);
-    expect(find.text('Programs'), findsOneWidget);
-    expect(find.text('Progress'), findsOneWidget);
-    expect(find.text('More'), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+    await tester.tap(find.byTooltip('Open menu'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AppNavigation), findsOneWidget);
+    expect(tester.getTopLeft(find.byType(Drawer)).dx, 0);
+    await tester.tap(find.byKey(const ValueKey('menu-page-1')));
+    await tester.pumpAndSettle();
+    expect(find.text('Year One Strength'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Functional Training'),
+      300,
+      scrollable: find.descendant(
+        of: find.byType(ProgramsHubPage),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(find.text('Functional Training'), findsOneWidget);
 
-    await tester.tap(find.text('Programs'));
+    await tester.tap(find.byTooltip('Open menu'));
     await tester.pumpAndSettle();
-    expect(find.text('Strength Program'), findsOneWidget);
-    expect(find.text('Athletic Functional Training'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('menu-page-4')));
+    await tester.tap(find.byKey(const ValueKey('menu-page-4')));
+    await tester.pumpAndSettle();
+    expect(find.byType(LabHub), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(NavigationDestination, 'More'));
+    await tester.tap(find.byTooltip('Open menu'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('App Tour'));
-    await tester.tap(find.text('App Tour'));
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('menu-page-5')),
+      300,
+      scrollable: find.descendant(
+        of: find.byType(AppNavigation),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('menu-page-5')));
     await tester.pumpAndSettle();
-    expect(find.text('SKIP TOUR'), findsOneWidget);
-    await tester.tap(find.text('SKIP TOUR'));
+    await tester.ensureVisible(find.text('App tour'));
+    await tester.tap(find.text('App tour'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Replay it from More'), findsOneWidget);
+    expect(find.text('Choose how you train'), findsOneWidget);
+    for (var step = 0; step < 7; step++) {
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('Keep your history with you'), findsOneWidget);
+    await tester.tap(find.text('Skip tour'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Replay it from Settings'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    store.dispose();
+  });
+
+  testWidgets(
+    'all four home choices open real screens without moving program progress',
+    (tester) async {
+      usePhoneSurface(tester);
+      final store = readyStore()
+        ..week = 19
+        ..workoutIndex = 1;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ProgressionBrand.theme(),
+          home: Shell(store: store),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final choices = <String, Type>{
+        'home-open-workout': OpenWorkoutScreen,
+        'home-iconic-builds': CuratedProgramsScreen,
+        'home-year-one-strength': ProgramNavigatorPage,
+        'home-functional-training': AthleticTrainingPage,
+      };
+      for (final choice in choices.entries) {
+        final card = find.byKey(ValueKey(choice.key));
+        // Every entry is visible before any scrolling on a typical phone.
+        expect(card.hitTestable(), findsOneWidget);
+        await tester.tap(card);
+        await tester.pumpAndSettle();
+        expect(find.byType(choice.value), findsOneWidget);
+        expect(store.week, 19);
+        expect(store.workoutIndex, 1);
+        expect(store.logs, isEmpty);
+        Navigator.of(tester.element(find.byType(choice.value))).pop();
+        await tester.pumpAndSettle();
+      }
+      await tester.pumpWidget(const SizedBox());
+      store.dispose();
+    },
+  );
+
+  testWidgets('home and left menu fit a narrow phone with large text', (
+    tester,
+  ) async {
+    usePhoneSurface(tester, size: const Size(320, 700));
+    final store = readyStore()..preferredTrack = TrainingTrack.athletic;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ProgressionBrand.theme(),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(1.8)),
+          child: child!,
+        ),
+        home: Shell(store: store),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('home-functional-training')),
+    );
+    expect(tester.takeException(), isNull);
+    await tester.scrollUntilVisible(
+      find.text('Start functional workout'),
+      250,
+      scrollable: find.descendant(
+        of: find.byType(TodayPage),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byTooltip('Open menu'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('menu-page-5')),
+      300,
+      scrollable: find.descendant(
+        of: find.byType(AppNavigation),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('menu-page-5')));
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    store.dispose();
+  });
+
+  testWidgets('wide screen keeps the left menu visible', (tester) async {
+    usePhoneSurface(tester, size: const Size(1280, 900));
+    final store = readyStore();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ProgressionBrand.theme(),
+        home: Shell(store: store),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(AppNavigation), findsOneWidget);
+    expect(find.byType(Drawer), findsNothing);
+    expect(tester.getTopLeft(find.byType(AppNavigation)).dx, 0);
+    await tester.tap(find.byKey(const ValueKey('menu-page-4')));
+    await tester.pumpAndSettle();
+    expect(find.byType(LabHub), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    store.dispose();
   });
 
   testWidgets('safe bottom actions clear a simulated system navigation inset', (

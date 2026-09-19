@@ -137,7 +137,7 @@ class _ProgressHubState extends State<ProgressHub> {
                           onSelected: (_) => setState(() => athletic = false),
                         ),
                         ChoiceChip(
-                          label: const Text('Athletic'),
+                          label: const Text('Functional'),
                           selected: athletic,
                           onSelected: (_) => setState(() => athletic = true),
                         ),
@@ -204,7 +204,9 @@ class _AthleticProgressDashboardState extends State<AthleticProgressDashboard> {
     final names = catalog.keys.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     if (names.isEmpty) {
-      return const Center(child: Text('Functional drill catalog unavailable.'));
+      return const Center(
+        child: Text('The movement library is unavailable right now.'),
+      );
     }
     final active = _activeName(catalog, names);
     final planned = catalog[active]!;
@@ -232,7 +234,7 @@ class _AthleticProgressDashboardState extends State<AthleticProgressDashboard> {
           store: widget.store,
           id: ContextualGuideId.athleticAssessment,
           message:
-              'Use field assessments to compare balance, jumps, and speed. Drill history below shows only the drills you checked off.',
+              'Track balance, jumps, and speed with a fitness check. Your movement history shows the drills you have completed.',
         ),
         Wrap(
           spacing: 8,
@@ -246,7 +248,7 @@ class _AthleticProgressDashboardState extends State<AthleticProgressDashboard> {
                 ),
               ),
               icon: const Icon(Icons.speed_outlined),
-              label: const Text('Record assessment'),
+              label: const Text('Log a fitness check'),
             ),
             TextButton(
               onPressed: () => Navigator.push(
@@ -255,7 +257,7 @@ class _AthleticProgressDashboardState extends State<AthleticProgressDashboard> {
                   builder: (_) => AthleticHistoryScreen(store: widget.store),
                 ),
               ),
-              child: const Text('Assessment history'),
+              child: const Text('Past fitness checks'),
             ),
           ],
         ),
@@ -268,7 +270,7 @@ class _AthleticProgressDashboardState extends State<AthleticProgressDashboard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'FUNCTIONAL PROGRESS',
+                    'Functional progress',
                     style: TextStyle(
                       color: BrandColors.cyan,
                       fontSize: 12,
@@ -278,7 +280,7 @@ class _AthleticProgressDashboardState extends State<AthleticProgressDashboard> {
                   ),
                   const SizedBox(height: 6),
                   const Text(
-                    'Movement signal',
+                    'See how you move',
                     style: TextStyle(
                       fontSize: 32,
                       height: 1.05,
@@ -287,7 +289,7 @@ class _AthleticProgressDashboardState extends State<AthleticProgressDashboard> {
                   ),
                   const SizedBox(height: 7),
                   Text(
-                    '${names.length} programmed drills • ${widget.store.athleticHistory.where((r) => r.isComplete).length} completed sessions',
+                    '${names.length} movements • ${widget.store.athleticHistory.where((r) => r.isComplete).length} completed sessions',
                     style: const TextStyle(color: BrandColors.muted),
                   ),
                 ],
@@ -300,7 +302,7 @@ class _AthleticProgressDashboardState extends State<AthleticProgressDashboard> {
         LabPanel(
           accent: BrandColors.cyan,
           child: const Text(
-            'The drill list comes from the complete 12-week functional program. Finishing a session records every drill because the app requires every drill to be checked before completion.',
+            'Explore movements from all 12 weeks of Functional Training. Check off each drill during a session to save it in your history.',
             style: TextStyle(color: BrandColors.muted, height: 1.45),
           ),
         ),
@@ -336,24 +338,24 @@ class _AthleticProgressDashboardState extends State<AthleticProgressDashboard> {
           runSpacing: 10,
           children: [
             _Metric(
-              label: 'COMPLETIONS',
+              label: 'Completions',
               value: '${completed.length}',
               keyName: 'functional-completions-value',
             ),
             _Metric(
-              label: 'CURRENT RUN',
+              label: 'Current run',
               value: '$currentRun',
               keyName: 'functional-current-run-value',
             ),
             _Metric(
-              label: 'AVG EFFORT',
+              label: 'Avg effort',
               value: averageEffort == null
                   ? '—'
                   : '${averageEffort.toStringAsFixed(1)} / 10',
               keyName: 'functional-average-effort-value',
             ),
             _Metric(
-              label: 'LAST DONE',
+              label: 'Last done',
               value: completed.isEmpty
                   ? '—'
                   : _date(completed.first.record.completedAt),
@@ -376,7 +378,7 @@ class _AthleticProgressDashboardState extends State<AthleticProgressDashboard> {
               ),
               const SizedBox(height: 5),
               Text(
-                '${planned.length} programmed appearances',
+                '${planned.length} sessions in the plan',
                 style: const TextStyle(color: BrandColors.cyan),
               ),
               const SizedBox(height: 12),
@@ -386,19 +388,19 @@ class _AthleticProgressDashboardState extends State<AthleticProgressDashboard> {
               ),
               const SizedBox(height: 12),
               _detail(
-                'REFERENCE',
+                'In the plan',
                 'Week ${reference.week.number} • ${reference.session.day} • ${reference.session.name}',
               ),
-              _detail('PRESCRIPTION', reference.drill.prescription),
-              _detail('EQUIPMENT', reference.drill.equipment),
-              _detail('REGRESSION', reference.drill.regression),
-              _detail('PROGRESSION', reference.drill.progression),
+              _detail('What to do', reference.drill.prescription),
+              _detail('Equipment', reference.drill.equipment),
+              _detail('Make it easier', reference.drill.regression),
+              _detail('Make it harder', reference.drill.progression),
             ],
           ),
         ),
         const SizedBox(height: 22),
         BrandSectionLabel(
-          'Completed history',
+          'Completed sessions',
           trailing: Text(
             '${completed.length} TOTAL',
             style: const TextStyle(color: BrandColors.cyan, fontSize: 10),
@@ -408,7 +410,7 @@ class _AthleticProgressDashboardState extends State<AthleticProgressDashboard> {
         if (completed.isEmpty)
           LabPanel(
             child: Text(
-              '$active is programmed but has not been completed yet. Its first appearance is week ${planned.first.week.number}, ${planned.first.session.day}.',
+              '$active is in your plan. Your first session with it is week ${planned.first.week.number}, ${planned.first.session.day}.',
               style: const TextStyle(color: BrandColors.muted, height: 1.4),
             ),
           )
@@ -444,10 +446,10 @@ class _AthleticProgressDashboardState extends State<AthleticProgressDashboard> {
           child: ExpansionTile(
             key: PageStorageKey('functional-program-appearances-$active'),
             title: const Text(
-              'PROGRAM APPEARANCES',
+              'Program appearances',
               style: TextStyle(fontWeight: FontWeight.w900),
             ),
-            subtitle: Text('${planned.length} scheduled exposures'),
+            subtitle: Text('${planned.length} sessions in the plan'),
             children: [
               for (final item in planned)
                 ListTile(
@@ -615,6 +617,19 @@ const _month = [
 
 String _date(DateTime value) => '${_month[value.month - 1]} ${value.day}';
 
+/// The Lab can be opened directly from the main menu or within Progress.
+class LabHub extends StatelessWidget {
+  const LabHub({super.key, required this.store});
+
+  final AppStore store;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: BrandColors.ink,
+    child: SafeArea(child: _LabDestinations(store: store)),
+  );
+}
+
 class _LabDestinations extends StatelessWidget {
   const _LabDestinations({required this.store});
   final AppStore store;
@@ -623,32 +638,32 @@ class _LabDestinations extends StatelessWidget {
     padding: const EdgeInsets.all(20),
     children: [
       const Text(
-        'Understand your training',
+        'The Lab',
         style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
       ),
       const SizedBox(height: 8),
       const Text(
-        'Review evidence, compare inputs, and plan experiments.',
+        'Find patterns in your training, food, and recovery. Turn your own records into useful next steps.',
         style: TextStyle(color: BrandColors.muted),
       ),
       const SizedBox(height: 20),
       for (final entry in <(IconData, String, String, Widget)>[
         (
           Icons.auto_awesome_outlined,
-          'The Lab',
-          'Evidence and optional on-device AI',
+          'Training insights',
+          'Explore your results, with optional AI explanations on your device',
           LabScreen(store: store),
         ),
         (
           Icons.insights_outlined,
-          'Inputs & performance',
-          'Compare logged inputs with workout outcomes',
+          'Habits & performance',
+          'See how food, supplements, and recovery line up with your workouts',
           InputsPerformanceScreen(store: store),
         ),
         (
           Icons.biotech_outlined,
-          'Experiments & weekly review',
-          'Plan a comparison or review your last seven days',
+          'Try a change',
+          'Plan a personal experiment or review your last seven days',
           IntegrationsHubScreen(store: store, section: IntegrationSection.lab),
         ),
       ])

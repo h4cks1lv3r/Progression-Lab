@@ -25,6 +25,7 @@ abstract final class ComprehensivePortableExport {
       'workout_responses.csv': bytes(_workoutResponseRows(state)),
       'curated_progress.csv': bytes(_curatedProgressRows(state)),
       'curated_history.csv': bytes(_curatedHistoryRows(state)),
+      'open_workouts.csv': bytes(_openWorkoutRows(state)),
       'lab_preferences.csv': bytes(_labPreferenceRows(state)),
     };
   }
@@ -397,6 +398,19 @@ abstract final class ComprehensivePortableExport {
             record['totalSteps'],
           ],
       ];
+
+  static List<List<Object?>> _openWorkoutRows(Map<String, dynamic> state) => [
+    ['session_id', 'started_at', 'completed_at', 'logged_sets'],
+    for (final record in _maps(_map(state['openWorkout'])['history']))
+      [
+        record['sessionId'],
+        record['startedAt'],
+        record['completedAt'],
+        _maps(
+          state['logs'],
+        ).where((log) => log['s'] == record['sessionId']).length,
+      ],
+  ];
 
   static String _joinedList(Object? value) =>
       value is List ? value.map((item) => '$item').join('|') : '';

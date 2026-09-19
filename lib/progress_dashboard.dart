@@ -81,10 +81,10 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
               store: widget.store,
               id: ContextualGuideId.progressCharts,
               message:
-                  'Choose a movement and metric. Tap a chart point to inspect the saved set; personal records use the same rules as the workout logger.',
+                  'Choose an exercise and what to track. Tap a chart point to see that set. Personal records match the ones shown during your workout.',
             ),
             Text(
-              'Strength signal',
+              'Your strength progress',
               style: Theme.of(
                 context,
               ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
@@ -112,7 +112,7 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Complete a workout or import your history. Each exercise will show the metrics that fit its tracking type.',
+                      'Log a workout or import your history to see your progress. Each exercise shows the stats you track.',
                     ),
                     const SizedBox(height: 10),
                     const Text(
@@ -165,7 +165,7 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
                 const Padding(
                   padding: EdgeInsets.only(top: 8),
                   child: Text(
-                    'Less assistance is improvement when repetitions are maintained.',
+                    'Using less assistance with the same reps counts as progress.',
                     style: TextStyle(color: BrandColors.cyan),
                   ),
                 ),
@@ -174,7 +174,7 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
                 const Padding(
                   padding: EdgeInsets.only(top: 8),
                   child: Text(
-                    'Volume includes added load only. Bodyweight is excluded.',
+                    'Volume uses your added weight, without your bodyweight.',
                     style: TextStyle(color: BrandColors.muted),
                   ),
                 ),

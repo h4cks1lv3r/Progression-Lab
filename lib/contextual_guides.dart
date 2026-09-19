@@ -81,7 +81,7 @@ class FeatureTip extends StatelessWidget {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
-                              'Could not save the tip preference. Please retry.',
+                              'Could not save this setting. Try again.',
                             ),
                           ),
                         );
@@ -454,14 +454,14 @@ class _CoachCard extends StatelessWidget {
           const SizedBox(height: 18),
           Row(
             children: <Widget>[
-              TextButton(onPressed: onSkip, child: const Text('SKIP')),
+              TextButton(onPressed: onSkip, child: const Text('Skip')),
               const Spacer(),
               if (onBack != null)
-                TextButton(onPressed: onBack, child: const Text('BACK')),
+                TextButton(onPressed: onBack, child: const Text('Back')),
               const SizedBox(width: 8),
               FilledButton(
                 onPressed: onNext,
-                child: Text(index + 1 == count ? 'GOT IT' : 'NEXT'),
+                child: Text(index + 1 == count ? 'Got it' : 'Next'),
               ),
             ],
           ),

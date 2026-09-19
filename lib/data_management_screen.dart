@@ -13,6 +13,18 @@ import 'contextual_guides.dart';
 import 'integrations_hub.dart';
 import 'body_progress_screen.dart';
 
+String dataOperationErrorMessage(Object error) {
+  if (error is FormatException) return error.message;
+  if (error is PlatformException) {
+    return error.message ?? 'Could not finish this file action. Try again.';
+  }
+  if (error is StateError) return '${error.message}';
+  return '$error'.replaceFirst(
+    RegExp(r'^(?:FormatException|Exception|Bad state):\s*'),
+    '',
+  );
+}
+
 class DataManagementScreen extends StatefulWidget {
   const DataManagementScreen({super.key, required this.store});
 
@@ -35,7 +47,10 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
   }
 
   void _refreshBackups() {
-    setState(() => _backups = controller.automaticBackups());
+    final backups = controller.automaticBackups();
+    setState(() {
+      _backups = backups;
+    });
   }
 
   Future<void> _run(Future<void> Function() action, {String? success}) async {
@@ -49,10 +64,10 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
       ).showSnackBar(SnackBar(content: Text(success)));
     } on PlatformException catch (error) {
       if (!mounted) return;
-      _error(error.message ?? 'The file operation could not be completed.');
+      _error(error.message ?? 'Could not finish this file action. Try again.');
     } on Object catch (error) {
       if (!mounted) return;
-      _error('$error');
+      _error(error);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -61,10 +76,10 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
     }
   }
 
-  void _error(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message.replaceFirst('Exception: ', ''))),
-    );
+  void _error(Object error) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(dataOperationErrorMessage(error))));
   }
 
   Future<void> _pickImport() async {
@@ -83,10 +98,12 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
       }
     } on PlatformException catch (error) {
       if (mounted) {
-        _error(error.message ?? 'The selected file could not be opened.');
+        _error(
+          error.message ?? 'Could not open that file. Try selecting it again.',
+        );
       }
     } on Object catch (error) {
-      if (mounted) _error('$error');
+      if (mounted) _error(error);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -105,16 +122,16 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
         content: Text(
           '${candidate.file.name}\n\n'
           '$logCount logged sets • $importedCount imported workouts\n\n'
-          'A safety backup of the current app state will be created first.',
+          'This replaces your current app data with the backup. We will back up your current data first.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('CANCEL'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('RESTORE'),
+            child: const Text('Restore'),
           ),
         ],
       ),
@@ -122,9 +139,9 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
     if (confirmed != true || !mounted) return;
     await controller.restoreDocument(candidate.document);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Backup restored successfully.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Backup restored.')));
   }
 
   Future<void> _configureCsvImport(CsvImportCandidate candidate) async {
@@ -174,23 +191,23 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
       showDialog<String>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('What unit is the source weight?'),
+          title: const Text('Which weight unit does this file use?'),
           content: Text(
-            '${source.label} does not identify the weight unit in this file. '
-            'Choose the unit used when the data was exported.',
+            '${source.label} does not list a weight unit in this file. '
+            'Choose the unit you used in the original app.',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('CANCEL'),
+              child: const Text('Cancel'),
             ),
             OutlinedButton(
               onPressed: () => Navigator.pop(dialogContext, 'kg'),
-              child: const Text('KILOGRAMS'),
+              child: const Text('Kilograms'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, 'lb'),
-              child: const Text('POUNDS'),
+              child: const Text('Pounds'),
             ),
           ],
         ),
@@ -225,9 +242,9 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             Card(
               child: ListTile(
                 leading: const Icon(Icons.photo_library_outlined),
-                title: const Text('Body photos and encrypted backup'),
+                title: const Text('Photos, measurements & backup'),
                 subtitle: const Text(
-                  'Open Progress → Body for photos, measurements, and their separate backup.',
+                  'Manage body photos and measurements. Photos and private notes need a separate encrypted backup.',
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.push(
@@ -243,15 +260,15 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               store: widget.store,
               id: ContextualGuideId.dataBackup,
               message:
-                  'Export a full backup before moving devices. Use Cloud backup above to select a synced folder.',
+                  'Moving to a new phone? Save a full backup first. Use Cloud backup to choose a synced folder.',
             ),
             if (widget.store.importedWorkouts.isNotEmpty)
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.playlist_add_check),
-                  title: const Text('Continue your strength program'),
+                  title: const Text('Set your place in Year One Strength'),
                   subtitle: const Text(
-                    'Choose any microcycle and link earlier imported workouts.',
+                    'Choose a week or microcycle and match your earlier imported workouts.',
                   ),
                   onTap: _busy
                       ? null
@@ -263,7 +280,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               ),
             const _DataHeader(),
             const SizedBox(height: 22),
-            const BrandSectionLabel('Automatic protection'),
+            const BrandSectionLabel('Automatic backups'),
             const SizedBox(height: 10),
             LabPanel(
               accent: BrandColors.cyan,
@@ -278,7 +295,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                       style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                     subtitle: const Text(
-                      'Keep rolling app-local backups after meaningful data changes.',
+                      'Keep recent backups on this device when your data changes.',
                     ),
                     onChanged: _busy
                         ? null
@@ -300,8 +317,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                       final latest = backups.isEmpty ? null : backups.first;
                       return Text(
                         latest == null
-                            ? 'No automatic backup has been created yet.'
-                            : '${backups.length} retained • Latest ${_formatDateTime(latest.modifiedAt)}',
+                            ? 'No automatic backups yet.'
+                            : '${backups.length} saved • Latest ${_formatDateTime(latest.modifiedAt)}',
                         style: const TextStyle(
                           color: BrandColors.muted,
                           fontSize: 12,
@@ -324,7 +341,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                                   success: 'Automatic backup created.',
                                 ),
                           icon: const Icon(Icons.backup_rounded),
-                          label: const Text('BACK UP NOW'),
+                          label: const Text('Back up now'),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -341,7 +358,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                                   ),
                                 ).then((_) => _refreshBackups()),
                           icon: const Icon(Icons.history_rounded),
-                          label: const Text('VIEW BACKUPS'),
+                          label: const Text('View backups'),
                         ),
                       ),
                     ],
@@ -350,14 +367,14 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            const BrandSectionLabel('Exact backup & restore'),
+            const BrandSectionLabel('Back up & restore'),
             const SizedBox(height: 10),
             _ActionTile(
               icon: Icons.save_alt_rounded,
-              title: 'Export Progression Lab backup',
+              title: 'Save a full backup',
               subtitle:
-                  'A complete .plab archive that restores programs, logs, drafts, assessments, settings, and imports.',
-              badge: 'FULL',
+                  'A .plab file with your programs, logs, unfinished sessions, fitness checks, measurements, settings, and imports. Body photos and private notes use the separate encrypted backup above.',
+              badge: 'Full',
               onTap: _busy
                   ? null
                   : () => _run(() async {
@@ -368,8 +385,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               icon: Icons.ios_share_rounded,
               title: 'Share full backup',
               subtitle:
-                  'Send an exact .plab backup through the system share sheet without saving a second copy first.',
-              badge: 'SHARE',
+                  'Share a .plab backup using your phone. Body photos and private notes use their separate encrypted backup.',
+              badge: 'Share',
               onTap: _busy
                   ? null
                   : () => _run(
@@ -381,19 +398,19 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               icon: Icons.restore_rounded,
               title: 'Restore or import a file',
               subtitle:
-                  'Open a .plab backup, native .fitnotes backup, or a Strong, Hevy, Fitbod, JEFIT, CSV, TSV, JSON, TXT, or ZIP export.',
-              badge: 'IMPORT',
+                  'Choose a .plab or .fitnotes backup, or a CSV, TSV, JSON, TXT, or ZIP export from Strong, Hevy, Fitbod, JEFIT, or another app.',
+              badge: 'Import',
               onTap: _busy ? null : _pickImport,
             ),
             const SizedBox(height: 24),
-            const BrandSectionLabel('Portable exports'),
+            const BrandSectionLabel('Take your data with you'),
             const SizedBox(height: 10),
             _ActionTile(
               icon: Icons.folder_zip_rounded,
-              title: 'Export portable CSV package',
+              title: 'Export CSV files',
               subtitle:
-                  'Workouts, sets, custom exercises, Athletic sessions, and assessments in open UTF-8 CSV files.',
-              badge: 'OPEN',
+                  'Workouts, sets, custom exercises, Functional Training sessions, and fitness checks as CSV files.',
+              badge: 'Open',
               onTap: _busy
                   ? null
                   : () => _run(() async {
@@ -404,8 +421,8 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               icon: Icons.sync_alt_rounded,
               title: 'Export Strong-compatible CSV',
               subtitle:
-                  'Creates a Strong-style workout CSV accepted by compatible apps such as Hevy.',
-              badge: 'MIGRATE',
+                  'Save workouts in the Strong CSV format for apps that support it, including Hevy.',
+              badge: 'Migrate',
               onTap: _busy
                   ? null
                   : () => _run(() async {
@@ -421,14 +438,14 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                       onPressed: _busy
                           ? null
                           : () => _confirmUndoImport(context),
-                      child: const Text('UNDO LAST'),
+                      child: const Text('Undo last'),
                     ),
             ),
             const SizedBox(height: 10),
             if (widget.store.importHistory.isEmpty)
               const LabPanel(
                 child: Text(
-                  'No external workout files have been imported.',
+                  'Your imported workouts will appear here.',
                   style: TextStyle(color: BrandColors.muted),
                 ),
               )
@@ -446,7 +463,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Imports are processed locally. Progression Lab creates a safety backup before restore or import and skips detected duplicates by default.',
+                      'Files are imported on your device. We back up your current data before restoring or importing, and skip detected duplicates by default.',
                       style: TextStyle(color: BrandColors.muted, height: 1.4),
                     ),
                   ),
@@ -472,11 +489,11 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('CANCEL'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('UNDO IMPORT'),
+            child: const Text('Undo import'),
           ),
         ],
       ),
@@ -550,7 +567,7 @@ class _CsvMappingScreenState extends State<CsvMappingScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Map workout fields')),
+    appBar: AppBar(title: const Text('Match workout fields')),
     body: BrandBackdrop(
       child: SafeArea(
         top: false,
@@ -563,53 +580,53 @@ class _CsvMappingScreenState extends State<CsvMappingScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Map the workout date and exercise. Map repetitions, set duration, or distance as the recorded result.',
+              'Match the columns in your file to the fields below. Choose a workout date, exercise, and at least one result: reps, time, or distance.',
               style: TextStyle(color: BrandColors.muted),
             ),
             const SizedBox(height: 20),
-            _mapping('WORKOUT DATE *', date, (value) => date = value),
-            _mapping('WORKOUT END DATE', endDate, (value) => endDate = value),
-            _mapping('WORKOUT NAME', workout, (value) => workout = value),
-            _mapping('EXERCISE *', exercise, (value) => exercise = value),
-            _mapping('SET ORDER', setOrder, (value) => setOrder = value),
-            _mapping('WEIGHT', weight, (value) => weight = value),
+            _mapping('Workout date *', date, (value) => date = value),
+            _mapping('Workout end date', endDate, (value) => endDate = value),
+            _mapping('Workout name', workout, (value) => workout = value),
+            _mapping('Exercise *', exercise, (value) => exercise = value),
+            _mapping('Set order', setOrder, (value) => setOrder = value),
+            _mapping('Weight', weight, (value) => weight = value),
             _mapping(
-              'ALTERNATE WEIGHT',
+              'Alternate weight',
               alternateWeight,
               (value) => alternateWeight = value,
             ),
-            _mapping('WEIGHT UNIT', weightUnit, (value) => weightUnit = value),
-            _mapping('REPETITIONS', reps, (value) => reps = value),
-            _mapping('SET NOTES', notes, (value) => notes = value),
+            _mapping('Weight unit', weightUnit, (value) => weightUnit = value),
+            _mapping('Repetitions', reps, (value) => reps = value),
+            _mapping('Set notes', notes, (value) => notes = value),
             _mapping(
-              'WORKOUT NOTES',
+              'Workout notes',
               workoutNotes,
               (value) => workoutNotes = value,
             ),
             _mapping(
-              'WORKOUT DURATION',
+              'Workout duration',
               workoutDuration,
               (value) => workoutDuration = value,
             ),
             _mapping(
-              'SET DURATION',
+              'Set duration',
               setDuration,
               (value) => setDuration = value,
             ),
-            _mapping('DISTANCE', distance, (value) => distance = value),
+            _mapping('Distance', distance, (value) => distance = value),
             _mapping(
-              'DISTANCE UNIT',
+              'Distance unit',
               distanceUnit,
               (value) => distanceUnit = value,
             ),
-            _mapping('SET TYPE', setType, (value) => setType = value),
+            _mapping('Set type', setType, (value) => setType = value),
             _mapping('RPE', rpe, (value) => rpe = value),
             _mapping('RIR', rir, (value) => rir = value),
-            _mapping('SUPERSET ID', supersetId, (value) => supersetId = value),
-            _mapping('SOURCE ID', sourceId, (value) => sourceId = value),
+            _mapping('Superset ID', supersetId, (value) => supersetId = value),
+            _mapping('Source ID', sourceId, (value) => sourceId = value),
             const SizedBox(height: 18),
             GradientAction(
-              label: 'PREVIEW IMPORT',
+              label: 'Preview import',
               icon: Icons.preview_rounded,
               onPressed:
                   date == null ||
@@ -659,7 +676,7 @@ class _CsvMappingScreenState extends State<CsvMappingScreen> {
         items: [
           const DropdownMenuItem<String>(
             value: _unmapped,
-            child: Text('Not mapped'),
+            child: Text('Not selected'),
           ),
           for (final header in widget.inspection.headers)
             DropdownMenuItem<String>(
@@ -737,21 +754,21 @@ class _ImportPreviewScreenState extends State<ImportPreviewScreen> {
                   Expanded(
                     child: _PreviewMetric(
                       value: '${plan.workouts.length}',
-                      label: 'WORKOUTS',
+                      label: 'Workouts',
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: _PreviewMetric(
                       value: '${plan.setCount}',
-                      label: 'SETS',
+                      label: 'Sets',
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: _PreviewMetric(
                       value: '${plan.duplicateCount}',
-                      label: 'DUPLICATES',
+                      label: 'Duplicates',
                     ),
                   ),
                 ],
@@ -763,7 +780,7 @@ class _ImportPreviewScreenState extends State<ImportPreviewScreen> {
                   value: includeDuplicates,
                   title: const Text('Import detected duplicates'),
                   subtitle: const Text(
-                    'Off is safer. Existing imported signatures are skipped.',
+                    'Leave this off to skip workouts already found in your imported history.',
                   ),
                   onChanged: importing
                       ? null
@@ -783,15 +800,15 @@ class _ImportPreviewScreenState extends State<ImportPreviewScreen> {
                       const SizedBox(height: 7),
                       Text(
                         mappedCount == 0
-                            ? 'They will be created as custom exercises unless you map them to existing movements.'
-                            : '$mappedCount mapped • ${plan.unknownExercises.length - mappedCount} will be created as custom exercises.',
+                            ? 'Match these to exercises in your library, or keep them as new custom exercises.'
+                            : '$mappedCount mapped • ${plan.unknownExercises.length - mappedCount} will be saved as custom exercises.',
                         style: const TextStyle(color: BrandColors.muted),
                       ),
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
                         onPressed: importing ? null : _mapExercises,
                         icon: const Icon(Icons.account_tree_outlined),
-                        label: const Text('MAP EXERCISES'),
+                        label: const Text('Match exercises'),
                       ),
                     ],
                   ),
@@ -806,13 +823,13 @@ class _ImportPreviewScreenState extends State<ImportPreviewScreen> {
               ],
               const SizedBox(height: 22),
               GradientAction(
-                label: importing ? 'IMPORTING' : 'IMPORT $count WORKOUTS',
+                label: importing ? 'Importing' : 'IMPORT $count WORKOUTS',
                 icon: Icons.download_done_rounded,
                 onPressed: importing || count <= 0 ? null : _import,
               ),
               const SizedBox(height: 10),
               const Text(
-                'A verified safety backup is created before the import. You can undo the latest import from Backup & data.',
+                'We back up your current data first. You can undo your latest import in Backup & data.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: BrandColors.muted, fontSize: 12),
               ),
@@ -851,9 +868,9 @@ class _ImportPreviewScreenState extends State<ImportPreviewScreen> {
       if (mounted) Navigator.pop(context, batch);
     } on Object catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$error'.replaceFirst('Exception: ', ''))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(dataOperationErrorMessage(error))));
       setState(() => importing = false);
     }
   }
@@ -891,14 +908,14 @@ class _ExerciseMappingScreenState extends State<ExerciseMappingScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('Map exercises'),
+      title: const Text('Match exercises'),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, {
             for (final entry in selections.entries)
               if (entry.value != _createCustom) entry.key: entry.value,
           }),
-          child: const Text('DONE'),
+          child: const Text('Done'),
         ),
       ],
     ),
@@ -923,7 +940,7 @@ class _ExerciseMappingScreenState extends State<ExerciseMappingScreen> {
                   DropdownButtonFormField<String>(
                     initialValue: selections[source],
                     isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'IMPORT AS'),
+                    decoration: const InputDecoration(labelText: 'Import as'),
                     items: [
                       DropdownMenuItem<String>(
                         value: _createCustom,
@@ -969,8 +986,12 @@ class _AutomaticBackupsScreenState extends State<AutomaticBackupsScreen> {
     backups = widget.controller.automaticBackups();
   }
 
-  void refresh() =>
-      setState(() => backups = widget.controller.automaticBackups());
+  void refresh() {
+    final nextBackups = widget.controller.automaticBackups();
+    setState(() {
+      backups = nextBackups;
+    });
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -1023,14 +1044,14 @@ class _AutomaticBackupsScreenState extends State<AutomaticBackupsScreen> {
                       itemBuilder: (_) => const [
                         PopupMenuItem(
                           value: 'test',
-                          child: Text('TEST BACKUP'),
+                          child: Text('Test backup'),
                         ),
-                        PopupMenuItem(value: 'restore', child: Text('RESTORE')),
+                        PopupMenuItem(value: 'restore', child: Text('Restore')),
                         PopupMenuItem(
                           value: 'export',
-                          child: Text('EXPORT COPY'),
+                          child: Text('Export copy'),
                         ),
-                        PopupMenuItem(value: 'delete', child: Text('DELETE')),
+                        PopupMenuItem(value: 'delete', child: Text('Delete')),
                       ],
                     ),
                   ],
@@ -1069,11 +1090,11 @@ class _AutomaticBackupsScreenState extends State<AutomaticBackupsScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext, false),
-                  child: const Text('CANCEL'),
+                  child: const Text('Cancel'),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.pop(dialogContext, true),
-                  child: const Text('RESTORE'),
+                  child: const Text('Restore'),
                 ),
               ],
             ),
@@ -1098,7 +1119,7 @@ class _AutomaticBackupsScreenState extends State<AutomaticBackupsScreen> {
     } on Object catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$error'.replaceFirst('Exception: ', ''))),
+          SnackBar(content: Text(dataOperationErrorMessage(error))),
         );
       }
     } finally {
@@ -1120,7 +1141,7 @@ class _DataHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'YOUR DATA, YOURS',
+              'Your data goes with you',
               style: TextStyle(fontSize: 27, fontWeight: FontWeight.w900),
             ),
             SizedBox(height: 4),

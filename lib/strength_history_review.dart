@@ -52,14 +52,14 @@ class _StrengthHistoryReviewState extends State<StrengthHistoryReviewScreen> {
               const SizedBox(height: 12),
               ListTile(
                 leading: const Icon(Icons.remove_circle_outline),
-                title: const Text('Leave this workout unfilled'),
+                title: const Text('Leave this workout empty'),
                 onTap: () => Navigator.pop(context, ''),
               ),
               if (candidates.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(16),
                   child: Text(
-                    'No unused imported session has a matching exercise. Check exercise names in your import.',
+                    'No available imported workouts have a matching exercise. Check the exercise names in your import.',
                   ),
                 ),
               for (final session in candidates.reversed)
@@ -120,16 +120,16 @@ class _StrengthHistoryReviewState extends State<StrengthHistoryReviewScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${assignments.length} matched · $empty unfilled',
+                  '${assignments.length} matched · $empty empty',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 10),
                 const Text(
-                  'Suggestions use matching exercises and dates within 3 days of your schedule. Tap a workout to change its match. Keep sessions in date order. Missing workouts stay unfilled.',
+                  'We suggest workouts with matching exercises and dates within 3 days of your schedule. Tap a workout to change its match. Keep them in date order and leave gaps where needed.',
                 ),
                 const SizedBox(height: 10),
                 const Text(
-                  'Original dates, weights, reps, and notes are kept. Fewer working sets than planned are marked partial. Matches do not prove that the original workout followed the prescribed loads or rep targets.',
+                  'Your original dates, weights, reps, and notes stay the same. Workouts with fewer working sets than planned count as partial. A match links your history; it doesn’t mean every weight or rep target was met.',
                   style: TextStyle(color: BrandColors.muted),
                 ),
                 const SizedBox(height: 12),
@@ -168,10 +168,10 @@ class _StrengthHistoryReviewState extends State<StrengthHistoryReviewScreen> {
               title: Text(slot.label),
               subtitle: Text(
                 slot.blocked
-                    ? 'Existing workout or draft kept'
+                    ? 'Existing workout or draft saved'
                     : source == null
-                    ? '${_date(slot.date)} · Unfilled'
-                    : '${_date(source.date)} · ${source.name} (${source.source})\n${slot.matchedExercises(source)}/${slot.workout.exercises.length} exercises · ${slot.hasAllWorkingSets(source) ? 'Working sets covered' : 'Partial'}',
+                    ? '${_date(slot.date)} · Empty'
+                    : '${_date(source.date)} · ${source.name} (${source.source})\n${slot.matchedExercises(source)}/${slot.workout.exercises.length} exercises · ${slot.hasAllWorkingSets(source) ? 'All working sets matched' : 'Partial'}',
               ),
               isThreeLine: source != null,
               trailing: slot.blocked ? null : const Icon(Icons.edit_outlined),
@@ -186,7 +186,7 @@ class _StrengthHistoryReviewState extends State<StrengthHistoryReviewScreen> {
           key: const ValueKey('confirm-history-matches'),
           onPressed: confirm,
           icon: const Icon(Icons.check),
-          label: Text('USE ${assignments.length} MATCHES'),
+          label: Text('Use ${assignments.length} matches'),
         ),
       ),
     );

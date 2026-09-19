@@ -278,9 +278,9 @@ void main() {
         ),
       );
       await tester.enterText(weightField('ADDED WEIGHT'), '');
-      await tester.tap(find.text('SAVE SET'));
+      await tester.tap(find.text('Save set'));
       await tester.pumpAndSettle();
-      expect(find.text('SAVED'), findsOneWidget);
+      expect(find.text('Saved'), findsOneWidget);
       expect(store.logs.single.weight, 0);
       expect(store.logs.single.trackingType, 'weightedBodyweight');
       expect(store.logs.single.sourceId, 'source-set-1');

@@ -98,7 +98,7 @@ class _LabScreenState extends State<LabScreen> {
     setState(() => _status = status);
     if (!status.canGenerate) {
       _snack(
-        'Gemini Nano is not ready on this device. Lab Core remains available.',
+        'AI summaries aren’t ready on this device. Your training insights are still available.',
       );
       return;
     }
@@ -161,11 +161,11 @@ class _LabScreenState extends State<LabScreen> {
               slivers: [
                 SliverAppBar(
                   pinned: true,
-                  title: const Text('THE LAB'),
+                  title: const Text('Training insights'),
                   backgroundColor: BrandColors.ink.withValues(alpha: .94),
                   actions: [
                     IconButton(
-                      tooltip: 'View analysis data packet',
+                      tooltip: 'View data used for insights',
                       onPressed: () => _showDataPacket(context, report),
                       icon: const Icon(Icons.data_object_rounded),
                     ),
@@ -179,7 +179,7 @@ class _LabScreenState extends State<LabScreen> {
                         store: widget.store,
                         id: ContextualGuideId.labEvidence,
                         message:
-                            'Lab Core uses your saved records. Optional AI explains that evidence; missing data stays visible.',
+                            'These insights come from your saved records. Optional AI can explain them. You can always see where more data is needed.',
                       ),
                       const _LabHero(),
                       const SizedBox(height: 18),
@@ -195,7 +195,7 @@ class _LabScreenState extends State<LabScreen> {
                       _DataDomainPanel(store: widget.store),
                       const SizedBox(height: 22),
                       BrandSectionLabel(
-                        'Lab Core evidence',
+                        'Your training insights',
                         trailing: Text(
                           '${report.evidence.length} SIGNALS',
                           style: const TextStyle(
@@ -215,8 +215,8 @@ class _LabScreenState extends State<LabScreen> {
                       if (widget.store.aiAnalysisEnabled) ...[
                         GradientAction(
                           label: _generating
-                              ? 'ANALYZING ON DEVICE'
-                              : 'EXPLAIN THESE RESULTS WITH GEMINI',
+                              ? 'Working on your device…'
+                              : 'Explain my results',
                           icon: Icons.auto_awesome_rounded,
                           onPressed: _generating || _status?.canGenerate != true
                               ? null
@@ -236,7 +236,7 @@ class _LabScreenState extends State<LabScreen> {
                                 maxLines: 5,
                                 decoration: const InputDecoration(
                                   hintText:
-                                      'Example: Does caffeine appear to help my matched strength sessions?',
+                                      'Try: How does my sleep line up with my workouts?',
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -256,7 +256,7 @@ class _LabScreenState extends State<LabScreen> {
                                           _generate(question: text);
                                         },
                                   icon: const Icon(Icons.send_rounded),
-                                  label: const Text('ASK ON DEVICE'),
+                                  label: const Text('Ask the Lab'),
                                 ),
                               ),
                             ],
@@ -269,7 +269,7 @@ class _LabScreenState extends State<LabScreen> {
                               ? null
                               : TextButton(
                                   onPressed: () => _clearHistory(context),
-                                  child: const Text('CLEAR'),
+                                  child: const Text('Clear'),
                                 ),
                         ),
                         const SizedBox(height: 10),
@@ -277,7 +277,7 @@ class _LabScreenState extends State<LabScreen> {
                       ],
                       const SizedBox(height: 20),
                       const Text(
-                        'The Lab summarizes verified in-app calculations. It does not provide medical advice, prove causation, or recommend supplement doses.',
+                        'The Lab uses calculations from your logs. Its insights cannot prove cause and effect or replace medical advice. It does not recommend supplement doses.',
                         style: TextStyle(
                           color: BrandColors.muted,
                           fontSize: 11,
@@ -301,16 +301,16 @@ class _LabScreenState extends State<LabScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Clear Lab notes?'),
         content: const Text(
-          'This deletes saved AI summaries and questions. Workout and input data stay intact.',
+          'This deletes saved AI summaries and questions. Your workouts and daily logs will stay.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('CANCEL'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('CLEAR'),
+            child: const Text('Clear'),
           ),
         ],
       ),
@@ -319,7 +319,7 @@ class _LabScreenState extends State<LabScreen> {
     try {
       await widget.store.clearLabMessages();
     } on Object {
-      if (mounted) _snack('The saved Lab notes could not be cleared.');
+      if (mounted) _snack('Could not clear your Lab notes. Try again.');
     }
   }
 
@@ -347,7 +347,7 @@ class InputsPerformanceScreen extends StatelessWidget {
               slivers: [
                 SliverAppBar(
                   pinned: true,
-                  title: const Text('INPUTS & PERFORMANCE'),
+                  title: const Text('Habits & performance'),
                   backgroundColor: BrandColors.ink.withValues(alpha: .94),
                 ),
                 SliverPadding(
@@ -355,7 +355,7 @@ class InputsPerformanceScreen extends StatelessWidget {
                   sliver: SliverList.list(
                     children: [
                       const Text(
-                        'Deterministic comparisons connect logged supplements, meals, and recovery with similar workouts. No AI is required.',
+                        'Compare food, supplements, and recovery across similar workouts. These insights come directly from your logs and work with AI switched off.',
                         style: TextStyle(
                           color: BrandColors.muted,
                           height: 1.45,
@@ -479,7 +479,7 @@ class _LabHero extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'WHAT IS MOVING THE NEEDLE?',
+                'What is working for you?',
                 style: TextStyle(
                   fontSize: 21,
                   fontWeight: FontWeight.w900,
@@ -488,7 +488,7 @@ class _LabHero extends StatelessWidget {
               ),
               SizedBox(height: 8),
               Text(
-                'Lab Core calculates the evidence. Optional Gemini Nano explains it in plain language on supported Android devices.',
+                'Explore patterns in your training. On supported Android devices, optional Gemini Nano AI can explain your results in plain language.',
                 style: TextStyle(color: BrandColors.muted, height: 1.4),
               ),
             ],
@@ -519,9 +519,9 @@ class _AiControlPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final description = !enabled
-        ? 'Off. No model calls are made. Lab Core still works.'
+        ? 'AI is off. Your training insights still work.'
         : checking
-        ? 'Checking on-device Gemini Nano availability…'
+        ? 'Checking if your device supports Gemini Nano…'
         : _statusText(status);
     return LabPanel(
       accent: enabled ? BrandColors.cyan : BrandColors.line,
@@ -533,11 +533,11 @@ class _AiControlPanel extends StatelessWidget {
             onChanged: onChanged,
             secondary: const Icon(Icons.auto_awesome_rounded),
             title: const Text(
-              'Use AI Analysis',
+              'Explain with AI',
               style: TextStyle(fontWeight: FontWeight.w900),
             ),
             subtitle: const Text(
-              'Optional · off by default · no cloud fallback',
+              'Optional · off by default · runs on your device only',
             ),
           ),
           const Divider(),
@@ -573,7 +573,7 @@ class _AiControlPanel extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: onRefresh,
                     icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('CHECK STATUS'),
+                    label: const Text('Check status'),
                   ),
                 ),
                 if (status?.canDownload == true) ...[
@@ -582,7 +582,7 @@ class _AiControlPanel extends StatelessWidget {
                     child: FilledButton.icon(
                       onPressed: onDownload,
                       icon: const Icon(Icons.download_rounded),
-                      label: const Text('PREPARE MODEL'),
+                      label: const Text('Download AI'),
                     ),
                   ),
                 ],
@@ -608,11 +608,11 @@ class _DataDomainPanel extends StatelessWidget {
       childrenPadding: EdgeInsets.zero,
       leading: const Icon(Icons.tune_rounded, color: BrandColors.violet),
       title: const Text(
-        'DATA INCLUDED IN THE LAB',
+        'Data used for your insights',
         style: TextStyle(fontWeight: FontWeight.w900),
       ),
       subtitle: Text(
-        '${store.labDataDomains.length}/${LabDataDomain.values.length} categories enabled',
+        '${store.labDataDomains.length}/${LabDataDomain.values.length} categories included',
       ),
       children: [
         for (final domain in LabDataDomain.values)
@@ -640,10 +640,10 @@ class _ConfidenceChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = switch (confidence) {
-      LabConfidence.insufficient => 'NEED DATA',
-      LabConfidence.preliminary => 'PRELIMINARY',
-      LabConfidence.developing => 'DEVELOPING',
-      LabConfidence.stronger => 'STRONGER',
+      LabConfidence.insufficient => 'More data needed',
+      LabConfidence.preliminary => 'Early pattern',
+      LabConfidence.developing => 'Building evidence',
+      LabConfidence.stronger => 'Stronger evidence',
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
@@ -675,7 +675,7 @@ class _LabConversation extends StatelessWidget {
       return const LabPanel(
         accent: BrandColors.line,
         child: Text(
-          'No Gemini summaries have been saved yet.',
+          'Your AI explanations and questions will appear here.',
           style: TextStyle(color: BrandColors.muted),
         ),
       );
@@ -729,12 +729,12 @@ Future<void> _showDataPacket(BuildContext context, LabReport report) async {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'DATA USED FOR THIS ANALYSIS',
+                'Data behind these insights',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 8),
               const Text(
-                'This is the structured packet sent to Gemini Nano when AI analysis is enabled.',
+                'When AI is enabled, this is the data Gemini Nano receives on your device.',
                 style: TextStyle(color: BrandColors.muted),
               ),
               const SizedBox(height: 12),
@@ -765,15 +765,14 @@ String _statusText(GeminiNanoStatus? status) {
     GeminiNanoAvailability.available =>
       'Ready on device${status.modelName == null ? '' : ' · ${status.modelName}'}.',
     GeminiNanoAvailability.downloadable =>
-      'Supported. The on-device model needs to be prepared before use.',
-    GeminiNanoAvailability.downloading =>
-      'The on-device model is currently downloading.',
+      'Your device supports AI. Download the model to get started.',
+    GeminiNanoAvailability.downloading => 'Downloading AI to your device…',
     GeminiNanoAvailability.unavailable =>
       status.message ?? 'Gemini Nano is unavailable on this device.',
     GeminiNanoAvailability.unsupported =>
-      status.message ?? 'This device does not support Gemini Nano Prompt API.',
+      status.message ?? 'This device does not support Gemini Nano.',
     GeminiNanoAvailability.error =>
-      status.message ?? 'Gemini Nano status could not be determined.',
+      status.message ?? 'Could not check Gemini Nano. Try again.',
   };
 }
 
@@ -803,7 +802,7 @@ String _domainLabel(LabDataDomain domain) => switch (domain) {
   LabDataDomain.hydration => 'Hydration and electrolytes',
   LabDataDomain.recovery => 'Sleep, stress, soreness, and workout response',
   LabDataDomain.bodyMetrics => 'Bodyweight and measurements',
-  LabDataDomain.athletic => 'Athletic sessions and assessments',
+  LabDataDomain.athletic => 'Functional Training and fitness checks',
 };
 
 String _friendlyAiError(PlatformException error) {
@@ -819,7 +818,7 @@ String _friendlyAiError(PlatformException error) {
   }
   if (code.contains('cancel')) return 'The analysis was cancelled.';
   if (code.contains('unsupported') || code.contains('not_available')) {
-    return 'Gemini Nano narration is not supported on this device. Lab Core still works.';
+    return 'AI summaries aren’t supported on this device. You can still explore your training insights.';
   }
   return error.message ?? 'Gemini Nano could not complete the analysis.';
 }

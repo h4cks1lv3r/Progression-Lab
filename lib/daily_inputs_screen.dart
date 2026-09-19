@@ -113,7 +113,7 @@ class TodayInputsCard extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: () => showRecoveryCheckInSheet(context, store),
                 icon: const Icon(Icons.bedtime_rounded, size: 18),
-                label: const Text('Recovery'),
+                label: const Text('Check in'),
               ),
             ],
           ),
@@ -170,11 +170,11 @@ class _DailyInputsScreenState extends State<DailyInputsScreen> {
                 SliverAppBar(
                   pinned: true,
                   automaticallyImplyLeading: !widget.embedded,
-                  title: const Text('Track'),
+                  title: const Text('Daily check-in'),
                   backgroundColor: BrandColors.ink.withValues(alpha: .94),
                   actions: [
                     IconButton(
-                      tooltip: 'Manage supplement presets',
+                      tooltip: 'Edit saved supplements',
                       onPressed: () => Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -235,7 +235,7 @@ class _DailyInputsScreenState extends State<DailyInputsScreen> {
                         store: store,
                         id: ContextualGuideId.dailyInputs,
                         message:
-                            'Use the date above to log or edit a past day. Quick adds belong to the selected day.',
+                            'Choose a date to add or edit an entry. Quick add saves to that day too.',
                       ),
                       const BrandSectionLabel('Day at a glance'),
                       const SizedBox(height: 12),
@@ -247,7 +247,7 @@ class _DailyInputsScreenState extends State<DailyInputsScreen> {
                           title: const Text('Body weight'),
                           subtitle: Text(
                             store.bodyWeightForDay(now) == null
-                                ? 'Optional • one place for your weight history'
+                                ? 'Optional • keep your weight history together'
                                 : '${bodyNumber(store.bodyWeightForDay(now)!.displayValue(store.unit, "cm"))} ${store.unit}',
                           ),
                           trailing: const Icon(Icons.add),
@@ -272,7 +272,7 @@ class _DailyInputsScreenState extends State<DailyInputsScreen> {
                             day: selectedDay,
                           ),
                           icon: const Icon(Icons.add_rounded, size: 17),
-                          label: const Text('ADD'),
+                          label: const Text('Add'),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -299,7 +299,7 @@ class _DailyInputsScreenState extends State<DailyInputsScreen> {
                             day: selectedDay,
                           ),
                           icon: const Icon(Icons.add_rounded, size: 17),
-                          label: const Text('ADD'),
+                          label: const Text('Add'),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -323,7 +323,7 @@ class _DailyInputsScreenState extends State<DailyInputsScreen> {
                             day: selectedDay,
                           ),
                           icon: const Icon(Icons.add_rounded, size: 17),
-                          label: const Text('ADD'),
+                          label: const Text('Add'),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -356,14 +356,14 @@ class _DailyInputsScreenState extends State<DailyInputsScreen> {
                                 : Icons.edit_rounded,
                             size: 17,
                           ),
-                          label: Text(recovery == null ? 'ADD' : 'EDIT'),
+                          label: Text(recovery == null ? 'Add' : 'Edit'),
                         ),
                       ),
                       const SizedBox(height: 10),
                       _RecoveryPanel(checkIn: recovery),
                       const SizedBox(height: 18),
                       const Text(
-                        'Progression Lab reports associations, not proof that a supplement, meal, or recovery factor caused a performance change.',
+                        'Your logs can reveal patterns. They cannot prove that a food, supplement, or recovery habit caused a change in performance.',
                         style: TextStyle(
                           color: BrandColors.muted,
                           fontSize: 12,
@@ -397,7 +397,7 @@ class SupplementPresetsScreen extends StatelessWidget {
             slivers: [
               SliverAppBar(
                 pinned: true,
-                title: const Text('SUPPLEMENT PRESETS'),
+                title: const Text('Saved supplements'),
                 backgroundColor: BrandColors.ink.withValues(alpha: .94),
               ),
               SliverPadding(
@@ -405,12 +405,12 @@ class SupplementPresetsScreen extends StatelessWidget {
                 sliver: SliverList.list(
                   children: [
                     const Text(
-                      'Presets make daily logging fast. Caffeine stored inside a product is included once in your daily total.',
+                      'Save your regular supplements for faster logging. Any caffeine in a product counts once in your daily total.',
                       style: TextStyle(color: BrandColors.muted, height: 1.45),
                     ),
                     const SizedBox(height: 16),
                     GradientAction(
-                      label: 'CREATE PRESET',
+                      label: 'Save a supplement',
                       icon: Icons.add_rounded,
                       onPressed: () =>
                           showSupplementPresetSheet(context, store),
@@ -457,7 +457,7 @@ class SupplementPresetsScreen extends StatelessWidget {
                               onPressed: () => _confirmDelete(
                                 context,
                                 label: preset.name,
-                                actionLabel: 'ARCHIVE',
+                                actionLabel: 'Archive',
                                 onDelete: () =>
                                     store.archiveSupplementPreset(preset.id),
                               ),
@@ -497,29 +497,29 @@ class _DailySummaryPanel extends StatelessWidget {
           _SummaryMetric(
             icon: Icons.bolt_rounded,
             value: '${store.caffeineForDay(day).round()} mg',
-            label: 'CAFFEINE',
+            label: 'Caffeine',
           ),
           _SummaryMetric(
             icon: Icons.science_rounded,
             value: '${store.supplementEventsForDay(day).length}',
-            label: 'SUPPLEMENTS',
+            label: 'Supplements',
           ),
           _SummaryMetric(
             icon: Icons.restaurant_rounded,
             value: '${store.mealEventsForDay(day).length}',
-            label: 'MEALS',
+            label: 'Meals',
           ),
           _SummaryMetric(
             icon: Icons.water_drop_rounded,
             value: _formatMl(store.hydrationForDay(day)),
-            label: 'HYDRATION',
+            label: 'Hydration',
           ),
           _SummaryMetric(
             icon: Icons.bedtime_rounded,
             value: recovery?.sleepHours == null
                 ? '—'
                 : '${_number(recovery!.sleepHours!)} h',
-            label: 'SLEEP',
+            label: 'Sleep',
           ),
         ],
       ),
@@ -603,24 +603,24 @@ class _QuickAddPanel extends StatelessWidget {
               onPressed: () =>
                   showSupplementEntrySheet(context, store, day: day),
               icon: const Icon(Icons.science_rounded),
-              label: const Text('CUSTOM SUPPLEMENT'),
+              label: const Text('Add a supplement'),
             ),
             OutlinedButton.icon(
               onPressed: () => showMealEntrySheet(context, store, day: day),
               icon: const Icon(Icons.restaurant_rounded),
-              label: const Text('MEAL'),
+              label: const Text('Meal'),
             ),
             OutlinedButton.icon(
               onPressed: () =>
                   showHydrationEntrySheet(context, store, day: day),
               icon: const Icon(Icons.water_drop_rounded),
-              label: const Text('WATER'),
+              label: const Text('Water'),
             ),
             OutlinedButton.icon(
               onPressed: () =>
                   showRecoveryCheckInSheet(context, store, day: day),
               icon: const Icon(Icons.bedtime_rounded),
-              label: const Text('RECOVERY'),
+              label: const Text('Recovery'),
             ),
           ],
         ),
@@ -827,22 +827,22 @@ class _RecoveryPanel extends StatelessWidget {
         runSpacing: 16,
         children: [
           _RecoveryMetric(
-            'SLEEP',
+            'Sleep',
             value.sleepHours == null ? '—' : '${_number(value.sleepHours!)} h',
           ),
           _RecoveryMetric(
-            'QUALITY',
+            'Quality',
             value.sleepQuality == null ? '—' : '${value.sleepQuality}/5',
           ),
           _RecoveryMetric(
-            'STRESS',
+            'Stress',
             value.stress == null ? '—' : '${value.stress}/5',
           ),
           _RecoveryMetric(
-            'SORENESS',
+            'Soreness',
             value.soreness == null ? '—' : '${value.soreness}/5',
           ),
-          if (value.illness) const _RecoveryMetric('STATUS', 'ILLNESS'),
+          if (value.illness) const _RecoveryMetric('Status', 'Illness'),
         ],
       ),
     );
@@ -918,7 +918,7 @@ Future<void> showSupplementEntrySheet(
     isScrollControlled: true,
     builder: (sheetContext) => StatefulBuilder(
       builder: (context, setState) => _EntrySheet(
-        title: existing == null ? 'LOG SUPPLEMENT' : 'EDIT SUPPLEMENT',
+        title: existing == null ? 'Log supplement' : 'Edit supplement',
         children: [
           TextField(
             controller: name,
@@ -980,7 +980,7 @@ Future<void> showSupplementEntrySheet(
               contentPadding: EdgeInsets.zero,
               value: savePreset,
               onChanged: (value) => setState(() => savePreset = value ?? false),
-              title: const Text('Save as a quick-add preset'),
+              title: const Text('Save for quick add'),
             ),
         ],
         onSave: () {
@@ -1073,7 +1073,7 @@ Future<void> showSupplementPresetSheet(
     context: context,
     isScrollControlled: true,
     builder: (sheetContext) => _EntrySheet(
-      title: existing == null ? 'CREATE PRESET' : 'EDIT PRESET',
+      title: existing == null ? 'Save a supplement' : 'Edit saved supplement',
       children: [
         TextField(
           controller: name,
@@ -1203,7 +1203,7 @@ Future<void> showMealEntrySheet(
     isScrollControlled: true,
     builder: (sheetContext) => StatefulBuilder(
       builder: (context, setState) => _EntrySheet(
-        title: existing == null ? 'LOG MEAL' : 'EDIT MEAL',
+        title: existing == null ? 'Log meal' : 'Edit meal',
         children: [
           TextField(
             controller: name,
@@ -1354,7 +1354,7 @@ Future<void> showHydrationEntrySheet(
     isScrollControlled: true,
     builder: (sheetContext) => StatefulBuilder(
       builder: (context, setState) => _EntrySheet(
-        title: 'LOG HYDRATION',
+        title: 'Log water',
         children: [
           TextField(
             controller: amount,
@@ -1369,7 +1369,7 @@ Future<void> showHydrationEntrySheet(
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: electrolytes,
-            title: const Text('Included electrolytes'),
+            title: const Text('Contains electrolytes'),
             onChanged: (value) => setState(() => electrolytes = value),
           ),
           TextField(
@@ -1433,7 +1433,7 @@ Future<void> showRecoveryCheckInSheet(
     isScrollControlled: true,
     builder: (sheetContext) => StatefulBuilder(
       builder: (context, setState) => _EntrySheet(
-        title: 'RECOVERY CHECK-IN',
+        title: 'Recovery check-in',
         children: [
           Row(
             children: [
@@ -1561,13 +1561,13 @@ Future<void> showWorkoutResponseSheet(
     isScrollControlled: true,
     builder: (sheetContext) => StatefulBuilder(
       builder: (context, setState) => _EntrySheet(
-        title: 'HOW DID THE SESSION FEEL?',
-        saveLabel: 'SAVE CHECK-IN',
-        secondaryLabel: 'SKIP',
+        title: 'How did that feel?',
+        saveLabel: 'Save check-in',
+        secondaryLabel: 'Skip',
         onSecondary: () => Navigator.pop(sheetContext),
         children: [
           const Text(
-            'Optional ratings help the Lab compare supplements and recovery with matched workouts.',
+            'These optional ratings help the Lab compare your habits across similar workouts.',
             style: TextStyle(color: BrandColors.muted, height: 1.4),
           ),
           const SizedBox(height: 10),
@@ -1652,7 +1652,7 @@ class _EntrySheet extends StatelessWidget {
     required this.title,
     required this.children,
     required this.onSave,
-    this.saveLabel = 'SAVE',
+    this.saveLabel = 'Save',
     this.secondaryLabel,
     this.onSecondary,
   });
@@ -1757,7 +1757,7 @@ class _TimeRow extends StatelessWidget {
           DateTime(day.year, day.month, day.day, picked.hour, picked.minute),
         );
       },
-      child: const Text('CHANGE'),
+      child: const Text('Change'),
     ),
   );
 }
@@ -1866,7 +1866,7 @@ Future<void> _quickHydration(
     await store.addHydration(amountMl: amount);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${amount.round()} mL hydration logged.')),
+      SnackBar(content: Text('${amount.round()} mL water logged.')),
     );
   } on Object {
     if (context.mounted)
@@ -1878,17 +1878,17 @@ Future<void> _confirmDelete(
   BuildContext context, {
   required String label,
   required Future<void> Function() onDelete,
-  String actionLabel = 'DELETE',
+  String actionLabel = 'Delete',
 }) async {
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
       title: Text('$actionLabel $label?'),
-      content: const Text('This change is saved immediately.'),
+      content: const Text('This change saves right away.'),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('CANCEL'),
+          child: const Text('Cancel'),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, true),

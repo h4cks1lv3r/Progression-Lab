@@ -57,7 +57,7 @@ Future<void> showAthleticPositionSheet(
             initialDate: nextSessionDate,
             firstDate: DateTime(2000),
             lastDate: DateTime(now.year + 10, 12, 31),
-            helpText: 'Choose the date of the next athletic session',
+            helpText: 'Choose your next session date',
           );
           if (chosen != null && sheetContext.mounted) {
             setSheetState(() => nextSessionDate = chosen);
@@ -86,7 +86,9 @@ Future<void> showAthleticPositionSheet(
             setSheetState(() => saving = false);
             ScaffoldMessenger.of(sheetContext).showSnackBar(
               const SnackBar(
-                content: Text('The athletic position could not be changed.'),
+                content: Text(
+                  'Couldn’t update your starting point. Try again.',
+                ),
               ),
             );
           }
@@ -142,7 +144,7 @@ Future<void> showAthleticPositionSheet(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'CHANGE ATHLETIC START',
+                                  'Change starting point',
                                   style: TextStyle(
                                     fontSize: 22,
                                     fontWeight: FontWeight.w900,
@@ -150,7 +152,7 @@ Future<void> showAthleticPositionSheet(
                                 ),
                                 SizedBox(height: 4),
                                 Text(
-                                  'Choose the cycle, week, and next session that match your current training.',
+                                  'Pick the cycle, week, and next workout that fit where you are now.',
                                   style: TextStyle(
                                     color: BrandColors.muted,
                                     height: 1.35,
@@ -218,7 +220,7 @@ Future<void> showAthleticPositionSheet(
                           )
                             ChoiceChip(
                               selected: targetWeekInCycle == weekInCycle,
-                              label: Text('WEEK $weekInCycle'),
+                              label: Text('Week $weekInCycle'),
                               onSelected: saving
                                   ? null
                                   : (_) => setSheetState(
@@ -231,7 +233,7 @@ Future<void> showAthleticPositionSheet(
                       BrandSectionLabel(
                         'Next session',
                         trailing: Text(
-                          'PROGRAM WEEK $targetWeekNumber',
+                          'Week $targetWeekNumber of 12',
                           style: const TextStyle(
                             color: BrandColors.cyan,
                             fontSize: 12,
@@ -264,14 +266,14 @@ Future<void> showAthleticPositionSheet(
                         label: Text(_formatDate(nextSessionDate)),
                       ),
                       const SizedBox(height: 22),
-                      const BrandSectionLabel('How to apply it'),
+                      const BrandSectionLabel('How do you want to start?'),
                       const SizedBox(height: 10),
                       _AthleticPositionModeOption(
                         selected: !startNewRun,
                         icon: Icons.my_location_rounded,
-                        title: 'MOVE CURRENT RUN',
+                        title: 'Move within this run',
                         description:
-                            'Keep run ${store.athleticProgramRun} and move its active marker.',
+                            'Keep run ${store.athleticProgramRun} and choose where to continue.',
                         onTap: saving
                             ? null
                             : () => setSheetState(() => startNewRun = false),
@@ -280,9 +282,9 @@ Future<void> showAthleticPositionSheet(
                       _AthleticPositionModeOption(
                         selected: startNewRun,
                         icon: Icons.restart_alt_rounded,
-                        title: 'START A NEW ATHLETIC RUN',
+                        title: 'Start a new run',
                         description:
-                            'Create run ${store.athleticProgramRun + 1}. Existing sessions and assessments remain in history.',
+                            'Begin run ${store.athleticProgramRun + 1}. Keep your past sessions and performance checks.',
                         onTap: saving
                             ? null
                             : () => setSheetState(() => startNewRun = true),
@@ -309,7 +311,7 @@ Future<void> showAthleticPositionSheet(
                               SizedBox(width: 10),
                               Expanded(
                                 child: Text(
-                                  'This session is already complete in the current run. Start a new run to use it as the next session.',
+                                  'You’ve already finished this session in this run. Start a new run to do it again.',
                                   style: TextStyle(
                                     color: BrandColors.white,
                                     fontSize: 12,
@@ -328,7 +330,7 @@ Future<void> showAthleticPositionSheet(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'NEW STARTING POSITION',
+                              'Your new starting point',
                               style: TextStyle(
                                 color: BrandColors.cyan,
                                 fontSize: 12,
@@ -386,10 +388,10 @@ Future<void> showAthleticPositionSheet(
                               ),
                         label: Text(
                           saving
-                              ? 'SAVING'
+                              ? 'Saving…'
                               : startNewRun
-                              ? 'START NEW RUN HERE'
-                              : 'SET CURRENT POSITION',
+                              ? 'Start a new run here'
+                              : 'Use this starting point',
                           style: const TextStyle(
                             fontWeight: FontWeight.w900,
                             letterSpacing: .45,
@@ -635,7 +637,7 @@ class AthleticTrainingPage extends StatelessWidget {
                           const SizedBox(height: 12),
                           _WeekRoutine(store: store, week: week),
                           const SizedBox(height: 26),
-                          const BrandSectionLabel('Weekly rhythm'),
+                          const BrandSectionLabel('Your week at a glance'),
                           const SizedBox(height: 12),
                           const _WeeklyRhythmPanel(),
                           const SizedBox(height: 26),
@@ -649,18 +651,18 @@ class AthleticTrainingPage extends StatelessWidget {
                                       AthleticPlanScreen(store: store),
                                 ),
                               ),
-                              child: const Text('VIEW 12 WEEKS'),
+                              child: const Text('View 12 weeks'),
                             ),
                           ),
                           const SizedBox(height: 12),
                           _CycleCards(currentCycle: cycle.number),
                           const SizedBox(height: 26),
-                          const BrandSectionLabel('Performance targets'),
+                          const BrandSectionLabel('What you’ll build'),
                           const SizedBox(height: 12),
                           const _QualityGrid(),
                           const SizedBox(height: 26),
                           BrandSectionLabel(
-                            'Field measures',
+                            'Performance checks',
                             trailing: TextButton.icon(
                               onPressed: () => Navigator.push(
                                 context,
@@ -670,7 +672,7 @@ class AthleticTrainingPage extends StatelessWidget {
                                 ),
                               ),
                               icon: const Icon(Icons.science_rounded, size: 17),
-                              label: const Text('ASSESS'),
+                              label: const Text('Add check-in'),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -686,7 +688,7 @@ class AthleticTrainingPage extends StatelessWidget {
                           ),
                           const SizedBox(height: 20),
                           Text(
-                            'Training guidance only. Stop for sharp pain, dizziness, or loss of control. Field measures are repeatable performance markers, not medical screening or diagnosis.',
+                            'Stop if you feel sharp pain, dizziness, or loss of control. Performance checks help you track change over time; they don’t diagnose health conditions.',
                             style: TextStyle(
                               color: BrandColors.muted.withValues(alpha: .8),
                               fontSize: 12,
@@ -729,7 +731,7 @@ class _AthleticHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'ATHLETIC FUNCTIONAL',
+              'Functional',
               style: TextStyle(
                 color: BrandColors.white,
                 fontSize: 21,
@@ -739,7 +741,7 @@ class _AthleticHeader extends StatelessWidget {
               ),
             ),
             const Text(
-              'TRAINING',
+              'Training',
               style: TextStyle(
                 color: BrandColors.violet,
                 fontSize: 24,
@@ -757,7 +759,7 @@ class _AthleticHeader extends StatelessWidget {
         ),
       ),
       IconButton(
-        tooltip: 'Athletic history',
+        tooltip: 'Functional Training history',
         onPressed: () => Navigator.push(
           context,
           MaterialPageRoute(
@@ -806,7 +808,7 @@ class _ProgramProgressPanel extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'WEEK ${store.athleticWeek} OF ${AthleticProgram.totalWeeks}',
+                    'Week ${store.athleticWeek} of ${AthleticProgram.totalWeeks}',
                     style: const TextStyle(
                       fontWeight: FontWeight.w900,
                       letterSpacing: .8,
@@ -853,7 +855,7 @@ class _ProgramProgressPanel extends StatelessWidget {
           child: OutlinedButton.icon(
             onPressed: () => showAthleticPositionSheet(context, store),
             icon: const Icon(Icons.flag_circle_rounded, size: 18),
-            label: const Text('CHANGE STARTING POINT'),
+            label: const Text('Change starting point'),
           ),
         ),
       ],
@@ -894,10 +896,13 @@ class _NextAthleticSessionPanel extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        Wrap(
+          spacing: 16,
+          runSpacing: 6,
+          alignment: WrapAlignment.spaceBetween,
           children: [
             const Text(
-              'NEXT SESSION',
+              'Up next',
               style: TextStyle(
                 color: BrandColors.cyan,
                 fontSize: 12,
@@ -905,7 +910,6 @@ class _NextAthleticSessionPanel extends StatelessWidget {
                 letterSpacing: 1.25,
               ),
             ),
-            const Spacer(),
             Text(
               _formatDate(
                 store.athleticDateForSlot(
@@ -937,16 +941,16 @@ class _NextAthleticSessionPanel extends StatelessWidget {
           runSpacing: 7,
           children: [
             _InfoPill(Icons.calendar_today_rounded, session.day),
-            _InfoPill(Icons.timer_outlined, '${session.durationMinutes} MIN'),
+            _InfoPill(Icons.timer_outlined, '${session.durationMinutes} min'),
             _InfoPill(
               Icons.format_list_numbered_rounded,
-              '${session.drills.length} DRILLS',
+              '${session.drills.length} drills',
             ),
           ],
         ),
         const SizedBox(height: 18),
         GradientAction(
-          label: 'START SESSION',
+          label: 'Start session',
           icon: Icons.play_arrow_rounded,
           onPressed: () => Navigator.push(
             context,
@@ -981,19 +985,19 @@ class _ProgramCompletePanel extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         const Text(
-          '12-WEEK CYCLE COMPLETE',
+          '12 weeks complete',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 8),
         const Text(
-          'Review your field measures and session notes before beginning another run. History remains available after restart.',
+          'Look back at your performance checks and session notes before starting again. Your history stays saved.',
           textAlign: TextAlign.center,
           style: TextStyle(color: BrandColors.muted, height: 1.45),
         ),
         const SizedBox(height: 18),
         GradientAction(
-          label: 'RESTART AS A NEW RUN',
+          label: 'Start a new run',
           icon: Icons.restart_alt_rounded,
           onPressed: () => _confirmRestart(context),
         ),
@@ -1006,18 +1010,18 @@ class _ProgramCompletePanel extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Start a new athletic run?'),
+        title: const Text('Start Functional Training again?'),
         content: const Text(
-          'The position returns to week 1. Completed sessions and assessments from this run remain in history.',
+          'You’ll return to week 1. Your completed sessions and performance checks stay in history.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('CANCEL'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('START NEW RUN'),
+            child: const Text('Start new run'),
           ),
         ],
       ),
@@ -1027,7 +1031,7 @@ class _ProgramCompletePanel extends StatelessWidget {
       await store.restartAthleticProgram();
     } on Object {
       messenger.showSnackBar(
-        const SnackBar(content: Text('Could not restart the program.')),
+        const SnackBar(content: Text('Couldn’t restart the plan. Try again.')),
       );
     }
   }
@@ -1132,7 +1136,9 @@ class _RoutineSessionTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
                 children: [
                   Text(
                     session.day,
@@ -1144,9 +1150,8 @@ class _RoutineSessionTile extends StatelessWidget {
                     ),
                   ),
                   if (current) ...[
-                    const SizedBox(width: 8),
                     const Text(
-                      'CURRENT',
+                      'Current',
                       style: TextStyle(
                         color: BrandColors.violet,
                         fontSize: 12,
@@ -1315,14 +1320,18 @@ class _QualityGrid extends StatelessWidget {
   const _QualityGrid();
 
   static const items = [
-    (Icons.directions_walk_rounded, 'Gait', 'Cross-body timing'),
-    (Icons.accessibility_new_rounded, 'Mobility', 'Usable joint range'),
-    (Icons.balance_rounded, 'Balance', 'Single-leg control'),
-    (Icons.rotate_right_rounded, 'Rotation', 'Diagonal transfer'),
-    (Icons.flash_on_rounded, 'Elastic', 'Spring and landing'),
-    (Icons.speed_rounded, 'Speed', 'Acceleration mechanics'),
-    (Icons.turn_sharp_right_rounded, 'Agility', 'Brake and redirect'),
-    (Icons.battery_charging_full_rounded, 'Capacity', 'Repeat quality efforts'),
+    (Icons.directions_walk_rounded, 'Coordination', 'Move in sync'),
+    (Icons.accessibility_new_rounded, 'Mobility', 'Move with more range'),
+    (Icons.balance_rounded, 'Balance', 'Build single-leg control'),
+    (Icons.rotate_right_rounded, 'Rotation', 'Turn with control'),
+    (Icons.flash_on_rounded, 'Power', 'Jump and land well'),
+    (Icons.speed_rounded, 'Speed', 'Accelerate with control'),
+    (Icons.turn_sharp_right_rounded, 'Agility', 'Stop and change direction'),
+    (
+      Icons.battery_charging_full_rounded,
+      'Endurance',
+      'Keep your effort steady',
+    ),
   ];
 
   @override
@@ -1389,12 +1398,12 @@ class _AssessmentPanel extends StatelessWidget {
       children: [
         if (assessment == null) ...[
           const Text(
-            'NO FIELD MEASURES RECORDED',
+            'Your starting point goes here',
             style: TextStyle(fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 6),
           const Text(
-            'Record a repeatable baseline now, then retest at the end of weeks 4, 8, and 12 under similar conditions.',
+            'Log a few performance checks now, then repeat them after weeks 4, 8, and 12. Keep the conditions similar so you can compare.',
             style: TextStyle(color: BrandColors.muted, height: 1.45),
           ),
         ] else ...[
@@ -1404,12 +1413,12 @@ class _AssessmentPanel extends StatelessWidget {
               const SizedBox(width: 9),
               Expanded(
                 child: Text(
-                  'LATEST · ${_formatDate(assessment!.recordedAt)}',
+                  'Latest · ${_formatDate(assessment!.recordedAt)}',
                   style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
               ),
               Text(
-                'QUALITY ${assessment!.movementQuality}/5',
+                'Control ${assessment!.movementQuality}/5',
                 style: const TextStyle(
                   color: BrandColors.violet,
                   fontWeight: FontWeight.w900,
@@ -1424,19 +1433,19 @@ class _AssessmentPanel extends StatelessWidget {
             runSpacing: 8,
             children: [
               _MeasureChip(
-                'L BAL',
+                'Left balance',
                 _value(assessment!.leftBalanceSeconds, 's'),
               ),
               _MeasureChip(
-                'R BAL',
+                'Right balance',
                 _value(assessment!.rightBalanceSeconds, 's'),
               ),
               _MeasureChip(
-                'BROAD',
+                'Broad jump',
                 _value(assessment!.broadJumpCentimeters, 'cm'),
               ),
               _MeasureChip(
-                '10 M',
+                '10 m sprint',
                 _value(assessment!.sprint10MetersSeconds, 's'),
               ),
               _MeasureChip(
@@ -1452,7 +1461,7 @@ class _AssessmentPanel extends StatelessWidget {
           child: TextButton.icon(
             onPressed: onOpenHistory,
             icon: const Icon(Icons.history_rounded, size: 18),
-            label: const Text('SESSION & ASSESSMENT HISTORY'),
+            label: const Text('View sessions & check-ins'),
           ),
         ),
       ],
@@ -1611,7 +1620,7 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
     final progress = completedDrills.length / session.drills.length;
     return Scaffold(
       appBar: AppBar(
-        title: Text('${session.day} · WEEK ${widget.week.number}'),
+        title: Text('${session.day} · Week ${widget.week.number}'),
       ),
       body: BrandBackdrop(
         child: ListView(
@@ -1655,7 +1664,7 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
             ),
             const SizedBox(height: 7),
             Text(
-              '${completedDrills.length} OF ${session.drills.length} DRILLS COMPLETE',
+              '${completedDrills.length} of ${session.drills.length} drills complete',
               textAlign: TextAlign.right,
               style: const TextStyle(
                 color: BrandColors.muted,
@@ -1669,10 +1678,10 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
                 Expanded(
                   child: Text(
                     draftFailed
-                        ? 'Draft could not be saved'
+                        ? 'Couldn’t save your progress'
                         : draftSaving
-                        ? 'Saving draft…'
-                        : 'Draft saved · You can leave and resume',
+                        ? 'Saving your progress…'
+                        : 'Progress saved · Pick this up anytime',
                     style: TextStyle(
                       color: draftFailed
                           ? BrandColors.error
@@ -1690,7 +1699,7 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
               store: widget.store,
               id: ContextualGuideId.athleticSession,
               message:
-                  'Check off drills as you complete them. Your session resumes here, including after the app closes.',
+                  'Check off each drill as you go. Your place is saved, even if you close the app.',
             ),
             for (final entry in session.drills.asMap().entries) ...[
               _ActiveDrillCard(
@@ -1715,14 +1724,14 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
             ],
             const SizedBox(height: 22),
             GradientAction(
-              label: saving ? 'SAVING SESSION' : 'FINISH SESSION',
+              label: saving ? 'Saving session…' : 'Finish session',
               icon: Icons.check_circle_rounded,
               onPressed: saving ? null : _finish,
             ),
             if (completedDrills.length < session.drills.length) ...[
               const SizedBox(height: 10),
               const Text(
-                'Your checks are saved as you go. Finishing with drills remaining records a partial session; no drills records a skipped session.',
+                'Finish anytime. If you have drills left, the session saves as partial. If you haven’t completed any, it saves as skipped.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: BrandColors.muted, fontSize: 11),
               ),
@@ -1761,7 +1770,9 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
       setState(() => saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Could not save. Your draft is available to retry.'),
+          content: Text(
+            'Couldn’t save this session. Your progress is still here—try again.',
+          ),
         ),
       );
       return;
@@ -1775,7 +1786,7 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
         context,
         WorkoutShareData(
           snapshot: ShareWorkoutSnapshot(
-            program: 'Athletic Functional Training',
+            program: 'Functional Training',
             status: completedDrills.length == session.drills.length
                 ? 'completed'
                 : 'partial',
@@ -1795,7 +1806,7 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
             achievement: cycleComplete ? 'Cycle complete' : '',
             highlights: [ShareHighlight('Training focus', session.summary)],
           ),
-          program: 'Athletic Functional Training',
+          program: 'Functional Training',
           title: session.name,
           contextLine:
               '${widget.week.cycleName} · Week ${widget.week.number} · ${session.day}',
@@ -1880,12 +1891,12 @@ class _ActiveDrillCard extends StatelessWidget {
         ),
       ),
       children: [
-        _DrillDetail(label: 'PURPOSE', text: drill.purpose),
+        _DrillDetail(label: 'Why it’s here', text: drill.purpose),
         const SizedBox(height: 12),
         const Align(
           alignment: Alignment.centerLeft,
           child: Text(
-            'PRIMARY CUES',
+            'Keep in mind',
             style: TextStyle(
               color: BrandColors.violet,
               fontSize: 12,
@@ -1912,18 +1923,18 @@ class _ActiveDrillCard extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 8),
-        _DrillDetail(label: 'EQUIPMENT', text: drill.equipment),
+        _DrillDetail(label: 'What you need', text: drill.equipment),
         const SizedBox(height: 10),
-        _DrillDetail(label: 'REGRESSION', text: drill.regression),
+        _DrillDetail(label: 'Make it easier', text: drill.regression),
         const SizedBox(height: 10),
-        _DrillDetail(label: 'PROGRESSION', text: drill.progression),
+        _DrillDetail(label: 'Level it up', text: drill.progression),
         const SizedBox(height: 14),
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
             onPressed: () => onChanged(!complete),
             icon: Icon(complete ? Icons.undo_rounded : Icons.check_rounded),
-            label: Text(complete ? 'MARK NOT COMPLETE' : 'MARK COMPLETE'),
+            label: Text(complete ? 'Undo complete' : 'Mark complete'),
           ),
         ),
       ],
@@ -2003,20 +2014,20 @@ class _SessionFinishSheetState extends State<_SessionFinishSheet> {
             const SizedBox(height: 5),
             Text(
               widget.completed == widget.total
-                  ? 'All drills complete.'
+                  ? 'All drills done.'
                   : widget.completed == 0
-                  ? 'This session will be marked skipped.'
-                  : 'This session will be marked partial. Completed drills stay in history.',
+                  ? 'This session will save as skipped.'
+                  : 'This session will save as partial. Your completed drills stay in history.',
             ),
             const Text(
-              'Rate the whole session, not the hardest single drill.',
+              'How hard did the session feel overall?',
               style: TextStyle(color: BrandColors.muted),
             ),
             const SizedBox(height: 20),
             Row(
               children: [
                 const Text(
-                  'EFFORT',
+                  'Effort',
                   style: TextStyle(fontWeight: FontWeight.w900),
                 ),
                 const Spacer(),
@@ -2044,13 +2055,13 @@ class _SessionFinishSheetState extends State<_SessionFinishSheet> {
               minLines: 2,
               maxLines: 4,
               decoration: const InputDecoration(
-                labelText: 'SESSION NOTES',
-                hintText: 'Control, discomfort, wins, or changes for next time',
+                labelText: 'Session notes',
+                hintText: 'What felt good? What would you change next time?',
               ),
             ),
             const SizedBox(height: 18),
             GradientAction(
-              label: 'SAVE & ADVANCE',
+              label: 'Save & continue',
               icon: Icons.arrow_forward_rounded,
               onPressed: () => Navigator.pop(
                 context,
@@ -2091,7 +2102,7 @@ class AthleticSessionPreviewScreen extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              '${week.cycleName} · ${session.durationMinutes} min${completed ? ' · COMPLETED' : ''}',
+              '${week.cycleName} · ${session.durationMinutes} min${completed ? ' · Completed' : ''}',
               style: TextStyle(
                 color: completed ? BrandColors.success : BrandColors.cyan,
               ),
@@ -2121,15 +2132,18 @@ class AthleticSessionPreviewScreen extends StatelessWidget {
                   ),
                   childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   children: [
-                    _DrillDetail(label: 'PURPOSE', text: entry.value.purpose),
+                    _DrillDetail(
+                      label: 'Why it’s here',
+                      text: entry.value.purpose,
+                    ),
                     const SizedBox(height: 10),
                     _DrillDetail(
-                      label: 'REGRESSION',
+                      label: 'Make it easier',
                       text: entry.value.regression,
                     ),
                     const SizedBox(height: 10),
                     _DrillDetail(
-                      label: 'PROGRESSION',
+                      label: 'Level it up',
                       text: entry.value.progression,
                     ),
                   ],
@@ -2152,7 +2166,7 @@ class AthleticPlanScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('12-week athletic plan')),
+    appBar: AppBar(title: const Text('Functional Training · 12 weeks')),
     body: BrandBackdrop(
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -2205,8 +2219,8 @@ class AthleticPlanScreen extends StatelessWidget {
                       icon: const Icon(Icons.flag_circle_rounded, size: 18),
                       label: Text(
                         current
-                            ? 'EDIT STARTING POINT'
-                            : 'START FROM THIS WEEK',
+                            ? 'Edit starting point'
+                            : 'Start from this week',
                       ),
                     ),
                   ),
@@ -2295,7 +2309,7 @@ class _AthleticAssessmentScreenState extends State<AthleticAssessmentScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Athletic field measures')),
+    appBar: AppBar(title: const Text('Performance check-in')),
     body: BrandBackdrop(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -2303,12 +2317,12 @@ class _AthleticAssessmentScreenState extends State<AthleticAssessmentScreen> {
           const LabMark(size: 58),
           const SizedBox(height: 14),
           const Text(
-            'REPEATABLE FIELD MEASURES',
+            'Track what’s changing',
             style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 8),
           const Text(
-            'Use the same surface, footwear, warm-up, timing method, and test order. Record only tests that are appropriate for you today.',
+            'Keep the same surface, shoes, warm-up, timing method, and test order each time. Choose the checks that suit you today.',
             style: TextStyle(color: BrandColors.muted, height: 1.45),
           ),
           const SizedBox(height: 20),
@@ -2317,14 +2331,14 @@ class _AthleticAssessmentScreenState extends State<AthleticAssessmentScreen> {
               Expanded(
                 child: _MeasureField(
                   controller: leftBalance,
-                  label: 'LEFT BALANCE (SEC)',
+                  label: 'Left balance (sec)',
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: _MeasureField(
                   controller: rightBalance,
-                  label: 'RIGHT BALANCE (SEC)',
+                  label: 'Right balance (sec)',
                 ),
               ),
             ],
@@ -2332,21 +2346,21 @@ class _AthleticAssessmentScreenState extends State<AthleticAssessmentScreen> {
           const SizedBox(height: 12),
           _MeasureField(
             controller: broadJump,
-            label: 'STANDING BROAD JUMP (CM)',
+            label: 'Standing broad jump (cm)',
           ),
           const SizedBox(height: 12),
-          _MeasureField(controller: sprint, label: '10 M SPRINT (SEC)'),
+          _MeasureField(controller: sprint, label: '10 m sprint (sec)'),
           const SizedBox(height: 12),
           _MeasureField(
             controller: changeDirection,
-            label: '5-0-5 CHANGE OF DIRECTION (SEC)',
+            label: '5-0-5 direction change (sec)',
           ),
           const SizedBox(height: 20),
           Row(
             children: [
               const Expanded(
                 child: Text(
-                  'MOVEMENT QUALITY',
+                  'Movement control',
                   style: TextStyle(fontWeight: FontWeight.w900),
                 ),
               ),
@@ -2374,9 +2388,9 @@ class _AthleticAssessmentScreenState extends State<AthleticAssessmentScreen> {
             minLines: 3,
             maxLines: 5,
             decoration: const InputDecoration(
-              labelText: 'TEST CONDITIONS & NOTES',
+              labelText: 'Conditions & notes',
               hintText:
-                  'Surface, footwear, warm-up, symptoms, or timing method',
+                  'Surface, shoes, warm-up, how you felt, or timing method',
             ),
           ),
           if (error != null) ...[
@@ -2385,7 +2399,7 @@ class _AthleticAssessmentScreenState extends State<AthleticAssessmentScreen> {
           ],
           const SizedBox(height: 20),
           GradientAction(
-            label: saving ? 'SAVING MEASURES' : 'SAVE MEASURES',
+            label: saving ? 'Saving check-in…' : 'Save check-in',
             icon: Icons.save_rounded,
             onPressed: saving ? null : _save,
           ),
@@ -2415,11 +2429,13 @@ class _AthleticAssessmentScreenState extends State<AthleticAssessmentScreen> {
         );
     if (enteredInvalid ||
         values.whereType<double>().any((value) => value <= 0)) {
-      setState(() => error = 'Use positive numbers or leave a measure blank.');
+      setState(
+        () => error = 'Enter numbers above zero or leave the field blank.',
+      );
       return;
     }
     if (values.every((value) => value == null) && notes.text.trim().isEmpty) {
-      setState(() => error = 'Record at least one measure or a note.');
+      setState(() => error = 'Add at least one result or a note.');
       return;
     }
     setState(() {
@@ -2444,7 +2460,7 @@ class _AthleticAssessmentScreenState extends State<AthleticAssessmentScreen> {
       if (mounted) {
         setState(() {
           saving = false;
-          error = 'Could not save the measures. Try again.';
+          error = 'Couldn’t save your check-in. Try again.';
         });
       }
     }
@@ -2472,7 +2488,7 @@ class AthleticHistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Athletic history')),
+    appBar: AppBar(title: const Text('Functional Training history')),
     body: AnimatedBuilder(
       animation: store,
       builder: (context, _) {
@@ -2490,7 +2506,7 @@ class AthleticHistoryScreen extends StatelessWidget {
               if (records.isEmpty)
                 const LabPanel(
                   child: Text(
-                    'No athletic sessions completed yet.',
+                    'Your finished Functional Training sessions will appear here.',
                     style: TextStyle(color: BrandColors.muted),
                   ),
                 )
@@ -2500,12 +2516,12 @@ class AthleticHistoryScreen extends StatelessWidget {
                   if (record != records.last) const SizedBox(height: 10),
                 ],
               const SizedBox(height: 26),
-              const BrandSectionLabel('Field measures'),
+              const BrandSectionLabel('Performance checks'),
               const SizedBox(height: 12),
               if (assessments.isEmpty)
                 const LabPanel(
                   child: Text(
-                    'No field measures recorded yet.',
+                    'Your performance check-ins will appear here.',
                     style: TextStyle(color: BrandColors.muted),
                   ),
                 )
@@ -2606,19 +2622,19 @@ class _HistoryAssessmentCard extends StatelessWidget {
           runSpacing: 8,
           children: [
             _MeasureChip(
-              'L BAL',
+              'Left balance',
               _historyValue(assessment.leftBalanceSeconds, 's'),
             ),
             _MeasureChip(
-              'R BAL',
+              'Right balance',
               _historyValue(assessment.rightBalanceSeconds, 's'),
             ),
             _MeasureChip(
-              'BROAD',
+              'Broad jump',
               _historyValue(assessment.broadJumpCentimeters, 'cm'),
             ),
             _MeasureChip(
-              '10 M',
+              '10 m sprint',
               _historyValue(assessment.sprint10MetersSeconds, 's'),
             ),
             _MeasureChip(
