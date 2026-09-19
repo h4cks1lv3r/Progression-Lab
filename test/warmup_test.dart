@@ -110,7 +110,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('AUTOMATIC WARM-UP'), findsOneWidget);
+      expect(find.text('Your warm-up'), findsOneWidget);
       expect(find.text('95 lb × 6'), findsOneWidget);
       expect(find.text('130 lb × 4'), findsOneWidget);
 

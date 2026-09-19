@@ -405,7 +405,10 @@ class LabAnalysisEngine {
         .where(
           (record) =>
               record.status == WorkoutStatus.completed &&
-              !record.loggedAt.isBefore(start),
+              !(record.importedWorkoutId == null
+                      ? record.loggedAt
+                      : record.date)
+                  .isBefore(start),
         )
         .length;
     if (store.supplementEvents

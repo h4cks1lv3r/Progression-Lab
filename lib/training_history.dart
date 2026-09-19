@@ -4,6 +4,8 @@ import 'brand.dart';
 import 'daily_inputs_screen.dart';
 import 'logged_sets.dart';
 import 'store.dart';
+import 'curated_training_screen.dart';
+import 'open_workout_screen.dart';
 
 class TrainingHistoryScreen extends StatelessWidget {
   const TrainingHistoryScreen({super.key, required this.store});
@@ -13,6 +15,15 @@ class TrainingHistoryScreen extends StatelessWidget {
     animation: store,
     builder: (context, _) {
       final entries = <(DateTime, String, String, String?, String, Widget?)>[
+        for (final r in store.openWorkoutHistory)
+          (
+            r.completedAt,
+            'Open Workout',
+            '${store.logs.where((log) => log.sessionId == r.sessionId).length} saved sets',
+            r.sessionId,
+            'open',
+            OpenWorkoutHistoryScreen(store: store, record: r),
+          ),
         for (final r in store.workoutHistory)
           (
             r.date,
@@ -22,11 +33,20 @@ class TrainingHistoryScreen extends StatelessWidget {
             'strength',
             LoggedWorkoutScreen(store: store, record: r),
           ),
+        for (final r in store.curatedHistory)
+          (
+            r.completedAt,
+            r.title,
+            'Iconic Builds · ${r.status} · Week ${r.week} · Day ${r.dayIndex + 1} · ${r.setCount}/${r.totalSteps} sets',
+            r.sessionId,
+            'curated',
+            CuratedSessionHistoryScreen(store: store, record: r),
+          ),
         for (final r in store.athleticHistory)
           (
             r.completedAt,
             AthleticProgram.week(r.week).sessions[r.sessionIndex].name,
-            'Athletic · ${r.status} · ${r.completedDrills?.length ?? AthleticProgram.week(r.week).sessions[r.sessionIndex].drills.length} drills${r.status == 'skipped' ? '' : ' · ${r.effort}/10 effort'}',
+            'Functional Training · ${r.status} · ${r.completedDrills?.length ?? AthleticProgram.week(r.week).sessions[r.sessionIndex].drills.length} drills${r.status == 'skipped' ? '' : ' · ${r.effort}/10 effort'}',
             r.sessionId,
             'athletic',
             null,
@@ -41,7 +61,7 @@ class TrainingHistoryScreen extends StatelessWidget {
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 40),
                 child: Text(
-                  'Your saved sessions will appear here. Completed, partial, and skipped sessions stay distinct.',
+                  'Your workouts will appear here, including sessions you finished, saved early, or skipped.',
                 ),
               ),
             for (final e in entries)

@@ -65,6 +65,8 @@ abstract final class BuiltInExercises {
     primaryMuscle: MuscleGroup.chest,
     equipment: ExerciseEquipment.dipStation,
     movementPattern: MovementPattern.horizontalPush,
+    trackingType: ExerciseTrackingType.bodyweightReps,
+    aliases: const ['Dips', 'Bodyweight Dip', 'Bodyweight Dips'],
     secondaryMuscles: const [MuscleGroup.triceps, MuscleGroup.frontDelts],
   );
   static const standingMilitaryPress = BuiltInExercise(
@@ -562,6 +564,7 @@ abstract final class BuiltInExercises {
     BuiltInExercise(
       id: 'assisted_dip',
       name: 'Assisted Dip',
+      aliases: const ['Assisted Dips'],
       primaryMuscle: MuscleGroup.chest,
       equipment: ExerciseEquipment.dipStation,
       movementPattern: MovementPattern.horizontalPush,
@@ -592,6 +595,7 @@ abstract final class BuiltInExercises {
     BuiltInExercise(
       id: 'assisted_triceps_dip',
       name: 'Assisted Triceps Dip',
+      aliases: const ['Assisted Triceps Dips'],
       primaryMuscle: MuscleGroup.triceps,
       equipment: ExerciseEquipment.dipStation,
       movementPattern: MovementPattern.horizontalPush,
@@ -905,6 +909,8 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.triceps,
       equipment: ExerciseEquipment.dipStation,
       movementPattern: MovementPattern.horizontalPush,
+      trackingType: ExerciseTrackingType.bodyweightReps,
+      aliases: const ['Bench Dips'],
     ),
     BuiltInExercise(
       id: 'bent_knee_calf_raise',
@@ -1486,6 +1492,7 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.deepCore,
       equipment: ExerciseEquipment.bodyweight,
       movementPattern: MovementPattern.antiExtension,
+      trackingType: ExerciseTrackingType.bodyweightReps,
       secondaryMuscles: const [MuscleGroup.hipFlexors, MuscleGroup.obliques],
     ),
     BuiltInExercise(
@@ -2136,8 +2143,9 @@ abstract final class BuiltInExercises {
       id: 'hamstring_walkout',
       name: 'Hamstring Walkout',
       primaryMuscle: MuscleGroup.hamstrings,
-      equipment: ExerciseEquipment.rings,
+      equipment: ExerciseEquipment.bodyweight,
       movementPattern: MovementPattern.hinge,
+      trackingType: ExerciseTrackingType.bodyweightReps,
       secondaryMuscles: const [MuscleGroup.glutes, MuscleGroup.spinalErectors],
     ),
     BuiltInExercise(
@@ -4303,6 +4311,8 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.triceps,
       equipment: ExerciseEquipment.dipStation,
       movementPattern: MovementPattern.horizontalPush,
+      trackingType: ExerciseTrackingType.bodyweightReps,
+      aliases: const ['Triceps Dips'],
     ),
     BuiltInExercise(
       id: 'tuck_l_sit',
@@ -4374,9 +4384,9 @@ abstract final class BuiltInExercises {
       primaryMuscle: MuscleGroup.quads,
       equipment: ExerciseEquipment.bodyweight,
       movementPattern: MovementPattern.lunge,
+      trackingType: ExerciseTrackingType.bodyweightReps,
       secondaryMuscles: const [MuscleGroup.glutes],
       isPrimaryCompound: true,
-      warmupEligible: true,
     ),
     BuiltInExercise(
       id: 'wall_sit',
@@ -4442,6 +4452,7 @@ abstract final class BuiltInExercises {
     BuiltInExercise(
       id: 'weighted_dip',
       name: 'Weighted Dip',
+      aliases: const ['Weighted Dips'],
       primaryMuscle: MuscleGroup.chest,
       equipment: ExerciseEquipment.dipStation,
       movementPattern: MovementPattern.horizontalPush,
@@ -4544,6 +4555,7 @@ abstract final class BuiltInExercises {
     BuiltInExercise(
       id: 'weighted_triceps_dip',
       name: 'Weighted Triceps Dip',
+      aliases: const ['Weighted Triceps Dips'],
       primaryMuscle: MuscleGroup.triceps,
       equipment: ExerciseEquipment.dipStation,
       movementPattern: MovementPattern.horizontalPush,

@@ -37,7 +37,7 @@ class LoggedSetsScreen extends StatelessWidget {
           predicate: (log) =>
               log.exercise == exercise &&
               (workout == null || log.workout == workout),
-          emptyMessage: 'No sets have been logged here yet.',
+          emptyMessage: 'No sets logged yet.',
         ),
       ],
     ),
@@ -58,13 +58,15 @@ class LoggedWorkoutScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final logs = store.logs.where(_matches).toList();
     final exercises = logs.map((log) => log.exercise).toSet().toList();
-    final state = record.retroactive
-        ? 'RETROACTIVELY FILLED'
+    final state = record.importedWorkoutId != null
+        ? 'Imported · ${record.status.name}'
+        : record.retroactive
+        ? 'Added later'
         : record.status == WorkoutStatus.skipped
-        ? 'SKIPPED'
+        ? 'Skipped'
         : record.status == WorkoutStatus.partial
-        ? 'PARTIAL'
-        : 'COMPLETED';
+        ? 'Partial'
+        : 'Completed';
     return Scaffold(
       appBar: AppBar(title: const Text('Logged workout')),
       body: ListView(
@@ -76,18 +78,44 @@ class LoggedWorkoutScreen extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           Text(
-            'RUN ${record.programRun} • WEEK ${record.week} • $state • ${_date(record.scheduledDate)}',
+            'Run ${record.programRun} • Week ${record.week} • $state • ${_date(record.scheduledDate)}',
             style: const TextStyle(color: Colors.white60),
           ),
           Text(
             'Logged ${_dateTime(record.loggedAt)}',
             style: const TextStyle(color: Colors.white38, fontSize: 12),
           ),
+          if (record.importedWorkoutId != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Trained ${_dateTime(record.date)} · Imported sets',
+              style: const TextStyle(color: Colors.white60),
+            ),
+            TextButton.icon(
+              icon: const Icon(Icons.link_off),
+              label: const Text('Unlink from program'),
+              onPressed: () async {
+                try {
+                  await store.unlinkStrengthHistory(record);
+                  if (context.mounted) Navigator.pop(context);
+                } on Object {
+                  if (context.mounted)
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Could not unlink this workout. Try again.',
+                        ),
+                      ),
+                    );
+                }
+              },
+            ),
+          ],
           if (record.substitutions.isNotEmpty) ...[
             const SizedBox(height: 14),
             for (final replacement in record.substitutions.values)
               Text(
-                'Substitution: $replacement',
+                'Exercise swap: $replacement',
                 style: const TextStyle(color: Colors.white60),
               ),
           ],
@@ -95,13 +123,13 @@ class LoggedWorkoutScreen extends StatelessWidget {
           if (exercises.isEmpty)
             Text(
               record.status == WorkoutStatus.skipped
-                  ? 'This workout was skipped; no sets were logged.'
-                  : 'No sets were logged for this session.',
+                  ? 'Workout skipped. No sets were logged.'
+                  : 'No sets logged for this workout.',
               style: const TextStyle(color: Colors.white54),
             ),
           for (final exercise in exercises) ...[
             Text(
-              exercise.toUpperCase(),
+              exercise,
               style: const TextStyle(
                 fontWeight: FontWeight.w900,
                 letterSpacing: .8,
@@ -289,7 +317,7 @@ class _EditableSetCardState extends State<_EditableSetCard> {
 
   Future<void> _save() async {
     final type = _type;
-    final weight = type.usesWeight ? double.tryParse(_weight.text.trim()) : 0.0;
+    final weight = type.parseWeightInput(_weight.text);
     final reps = type.usesReps ? int.tryParse(_reps.text.trim()) : 0;
     final duration = type.usesDuration ? _parseDuration(_duration.text) : null;
     final distance = type.usesDistance
@@ -355,14 +383,14 @@ class _EditableSetCardState extends State<_EditableSetCard> {
         return 'Enter a weight above zero.';
       }
       if (!type.requiresPositiveWeight && weight < 0) {
-        return 'The value cannot be negative.';
+        return 'Enter zero or more.';
       }
     }
     if (type.usesReps && (reps == null || reps <= 0)) {
-      return 'Enter repetitions above zero.';
+      return 'Enter at least 1 rep.';
     }
     if (type.usesDuration && (duration == null || duration <= 0)) {
-      return 'Enter duration in seconds or mm:ss.';
+      return 'Enter a time in seconds or mm:ss.';
     }
     if (type.usesDistance &&
         (distance == null || !distance.isFinite || distance <= 0)) {
@@ -413,7 +441,7 @@ class _EditableSetCardState extends State<_EditableSetCard> {
               ),
             ),
             Text(
-              _type.label.toUpperCase(),
+              _type.label,
               style: const TextStyle(
                 color: Colors.white38,
                 fontSize: 9,
@@ -442,7 +470,7 @@ class _EditableSetCardState extends State<_EditableSetCard> {
           minLines: 1,
           maxLines: 3,
           decoration: const InputDecoration(
-            labelText: 'NOTES',
+            labelText: 'Notes',
             hintText: 'Optional set notes',
           ),
         ),
@@ -458,10 +486,10 @@ class _EditableSetCardState extends State<_EditableSetCard> {
             icon: Icon(_saved ? Icons.check_rounded : Icons.save_rounded),
             label: Text(
               _saving
-                  ? 'SAVING'
+                  ? 'Saving…'
                   : _saved
-                  ? 'SAVED'
-                  : 'SAVE SET',
+                  ? 'Saved'
+                  : 'Save set',
             ),
           ),
         ),
@@ -498,25 +526,28 @@ class _SetEditorFields extends StatelessWidget {
         _SetField(
           controller: weight,
           label: '${type.weightLabel} ($unit)',
+          hint: type == ExerciseTrackingType.weightedBodyweight
+              ? 'Leave blank for bodyweight only'
+              : null,
           decimal: true,
         ),
       if (type.usesReps)
-        _SetField(controller: reps, label: 'REPS', decimal: false),
+        _SetField(controller: reps, label: 'Reps', decimal: false),
       if (type.usesDuration)
         _SetField(
           controller: duration,
-          label: 'DURATION',
+          label: 'Duration',
           hint: 'seconds or mm:ss',
           decimal: false,
         ),
       if (type.usesDistance)
         _SetField(
           controller: distance,
-          label: 'DISTANCE ($distanceUnit)',
+          label: 'Distance ($distanceUnit)',
           decimal: true,
         ),
       if (type.usesCalories)
-        _SetField(controller: calories, label: 'CALORIES', decimal: true),
+        _SetField(controller: calories, label: 'Calories', decimal: true),
     ];
     if (fields.length == 1) return fields.single;
     return LayoutBuilder(

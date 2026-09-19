@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.7.0+22 — 2026-09-19
+
+- Put four training choices at the top of Home: Open Workout, Iconic Builds, Year One Strength (48 weeks), and Functional Training (12 weeks).
+- Add a left menu that opens as a drawer on phones and remains visible on large screens, with direct access to workouts and the Lab.
+- Add independent Open Workout logging with exercise search, metric-specific fields, autosaved drafts, editable history, and backup/export support.
+- Refresh visible language across training, progress, the Lab, exercise editing, data management, onboarding, and settings.
+- Make long labels and section actions wrap on narrow screens and at larger text sizes.
+- Expand the first-launch and replayable tour into eight quick steps covering all four workout modes, imported strength history, workout tools, body progress, daily check-ins, Lab experiments, connections, sharing, and backups.
+- Fix malformed import error text and backup-list refresh callbacks.
+- Advance app state to schema 20, preserving existing program progress and logs.
+
 ## 2.2.0+16 — 2026-09-03
 
 ### Added

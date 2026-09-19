@@ -23,6 +23,9 @@ abstract final class ComprehensivePortableExport {
       'recovery.csv': bytes(_recoveryRows(state)),
       'body_metrics.csv': bytes(_bodyMetricRows(state)),
       'workout_responses.csv': bytes(_workoutResponseRows(state)),
+      'curated_progress.csv': bytes(_curatedProgressRows(state)),
+      'curated_history.csv': bytes(_curatedHistoryRows(state)),
+      'open_workouts.csv': bytes(_openWorkoutRows(state)),
       'lab_preferences.csv': bytes(_labPreferenceRows(state)),
     };
   }
@@ -328,6 +331,86 @@ abstract final class ComprehensivePortableExport {
           _joinedList(state['labDataDomains']),
         ],
       ];
+
+  static Map<String, dynamic> _map(Object? value) =>
+      value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
+
+  static List<List<Object?>> _curatedProgressRows(Map<String, dynamic> state) {
+    final curated = _map(state['curatedTraining']);
+    final progress = _map(curated['progress']);
+    final drafts = _map(curated['drafts']);
+    final programIds = {...progress.keys, ...drafts.keys}.toList()..sort();
+    return <List<Object?>>[
+      <Object?>[
+        'program_id',
+        'program_run',
+        'finished_sessions',
+        'next_week',
+        'next_day',
+        'active_session_id',
+        'active_step_index',
+      ],
+      for (final id in programIds)
+        () {
+          final cursor = _map(progress[id]);
+          final draft = _map(drafts[id]);
+          final finished = (cursor['completedSessions'] as num?)?.toInt() ?? 0;
+          return <Object?>[
+            id,
+            cursor['run'] ?? draft['run'] ?? 1,
+            finished,
+            finished ~/ 5 + 1,
+            finished % 5 + 1,
+            draft['sessionId'] ?? '',
+            draft['nextStepIndex'] ?? '',
+          ];
+        }(),
+    ];
+  }
+
+  static List<List<Object?>> _curatedHistoryRows(Map<String, dynamic> state) =>
+      <List<Object?>>[
+        <Object?>[
+          'program_id',
+          'session_id',
+          'program_run',
+          'week',
+          'day',
+          'title',
+          'started_at',
+          'completed_at',
+          'status',
+          'logged_sets',
+          'planned_sets',
+        ],
+        for (final record in _maps(_map(state['curatedTraining'])['history']))
+          <Object?>[
+            record['programId'],
+            record['sessionId'],
+            record['run'],
+            record['week'],
+            ((record['dayIndex'] as num?)?.toInt() ?? 0) + 1,
+            record['title'],
+            record['startedAt'],
+            record['completedAt'],
+            record['status'],
+            record['setCount'],
+            record['totalSteps'],
+          ],
+      ];
+
+  static List<List<Object?>> _openWorkoutRows(Map<String, dynamic> state) => [
+    ['session_id', 'started_at', 'completed_at', 'logged_sets'],
+    for (final record in _maps(_map(state['openWorkout'])['history']))
+      [
+        record['sessionId'],
+        record['startedAt'],
+        record['completedAt'],
+        _maps(
+          state['logs'],
+        ).where((log) => log['s'] == record['sessionId']).length,
+      ],
+  ];
 
   static String _joinedList(Object? value) =>
       value is List ? value.map((item) => '$item').join('|') : '';

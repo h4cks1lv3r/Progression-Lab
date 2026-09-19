@@ -534,21 +534,7 @@ class IntegrationBridge(
                     return
                 }
                 pendingFileResult = result
-                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "*/*"
-                    putExtra(
-                        Intent.EXTRA_MIME_TYPES,
-                        arrayOf(
-                            "application/octet-stream",
-                            "application/vnd.ant.fit",
-                            "application/xml",
-                            "text/xml",
-                            "application/gpx+xml",
-                        ),
-                    )
-                }
-                activity.startActivityForResult(intent, REQUEST_WORKOUT_FILE)
+                activity.startActivityForResult(ImportDocumentPicker.createIntent(), REQUEST_WORKOUT_FILE)
             }
             else -> result.notImplemented()
         }

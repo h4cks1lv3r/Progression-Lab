@@ -133,7 +133,7 @@ class MainActivity : FlutterActivity() {
         try {
             when (call.method) {
                 "saveFile" -> beginSaveFile(call, result)
-                "pickFile" -> beginPickFile(call, result)
+                "pickFile" -> beginPickFile(result)
                 "convertFitNotes" -> {
                     val bytes = requiredBytes(call)
                     val fileName = safeFileName(
@@ -368,33 +368,14 @@ class MainActivity : FlutterActivity() {
         startActivityForResult(intent, REQUEST_CREATE_DOCUMENT)
     }
 
-    private fun beginPickFile(call: MethodCall, result: MethodChannel.Result) {
+    private fun beginPickFile(result: MethodChannel.Result) {
         if (pendingSaveResult != null || pendingOpenResult != null) {
             result.error("picker_busy", "Another file picker is already open.", null)
             return
         }
         pendingOpenResult = result
-        val extensions = call.argument<List<String>>("extensions") ?: emptyList()
-        val mimeTypes = extensions.flatMap { extension ->
-            when (extension.lowercase()) {
-                "csv" -> listOf("text/csv", "text/comma-separated-values", "application/csv")
-                "tsv" -> listOf("text/tab-separated-values", "text/plain")
-                "txt" -> listOf("text/plain")
-                "json" -> listOf("application/json", "text/json", "text/plain")
-                "zip", "plab" -> listOf("application/zip", "application/octet-stream")
-                "fitnotes", "fit" -> listOf("application/octet-stream")
-                "gpx" -> listOf("application/gpx+xml", "text/xml", "application/xml")
-                "tcx" -> listOf("application/vnd.garmin.tcx+xml", "text/xml", "application/xml")
-                else -> listOf("application/octet-stream")
-            }
-        }.distinct().toTypedArray()
-        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "*/*"
-            if (mimeTypes.isNotEmpty()) putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes)
-        }
         @Suppress("DEPRECATION")
-        startActivityForResult(intent, REQUEST_OPEN_DOCUMENT)
+        startActivityForResult(ImportDocumentPicker.createIntent(), REQUEST_OPEN_DOCUMENT)
     }
 
     @Deprecated("Deprecated in Android; retained for native integration bridges.")

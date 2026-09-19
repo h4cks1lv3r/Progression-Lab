@@ -472,7 +472,11 @@ abstract final class LabExperimentAnalyzer {
     final start = end.subtract(const Duration(days: 7));
     final workoutHistory = _maps(state['workoutHistory']).where((item) {
       if (item['status'] != 'completed') return false;
-      final date = _date(item['loggedAt'] ?? item['date']);
+      final date = _date(
+        item['importedWorkoutId'] == null
+            ? (item['loggedAt'] ?? item['date'])
+            : item['date'],
+      );
       return date != null && !date.isBefore(start) && !date.isAfter(end);
     }).toList();
     final athleticHistory = _maps(state['athleticHistory']).where((item) {
@@ -576,7 +580,11 @@ abstract final class LabExperimentAnalyzer {
     for (final item in history) {
       final status = '${item['status']}';
       if (status.isNotEmpty && status != 'completed') continue;
-      final occurredAt = _date(item['loggedAt'] ?? item['date']);
+      final occurredAt = _date(
+        item['importedWorkoutId'] == null
+            ? (item['loggedAt'] ?? item['date'])
+            : item['date'],
+      );
       if (occurredAt == null || occurredAt.isBefore(experiment.startedAt))
         continue;
       if (experiment.endedAt != null &&

@@ -20,16 +20,16 @@ enum AthleticQuality {
 
 extension AthleticQualityLabel on AthleticQuality {
   String get label => switch (this) {
-    AthleticQuality.gait => 'Gait',
+    AthleticQuality.gait => 'Coordination',
     AthleticQuality.mobility => 'Mobility',
-    AthleticQuality.unilateralStrength => 'Unilateral strength',
-    AthleticQuality.trunkControl => 'Trunk control',
+    AthleticQuality.unilateralStrength => 'Single-leg strength',
+    AthleticQuality.trunkControl => 'Core control',
     AthleticQuality.rotation => 'Rotation',
-    AthleticQuality.elasticStrength => 'Elastic strength',
+    AthleticQuality.elasticStrength => 'Jumping power',
     AthleticQuality.acceleration => 'Acceleration',
-    AthleticQuality.deceleration => 'Deceleration',
+    AthleticQuality.deceleration => 'Stopping control',
     AthleticQuality.changeOfDirection => 'Change of direction',
-    AthleticQuality.capacity => 'Athletic capacity',
+    AthleticQuality.capacity => 'Endurance',
   };
 }
 
@@ -177,41 +177,41 @@ abstract final class AthleticProgram {
   static const cycles = <AthleticCycle>[
     AthleticCycle(
       number: 1,
-      name: 'Foundation & Control',
+      name: 'Build Your Base',
       weeks: 'Weeks 1–4',
       description:
-          'Build dependable foot-to-hip alignment, cross-body timing, trunk control, unilateral strength, and landing positions before speed is added.',
+          'Build balance, core control, single-leg strength, and steady landings before adding speed.',
       aims: [
-        'Organize the foot, ankle, pelvis, and rib cage under low fatigue.',
-        'Build left-right balance and split-stance strength.',
-        'Coordinate opposite arm and leg actions used in walking and running.',
-        'Learn to absorb force without the knee, hip, or trunk collapsing.',
+        'Learn how your feet, hips, and core work together.',
+        'Build balanced strength on both sides.',
+        'Get your arms and legs moving in sync for walking and running.',
+        'Practice landing with control through your knees, hips, and core.',
       ],
     ),
     AthleticCycle(
       number: 2,
-      name: 'Elastic Strength & Rotation',
+      name: 'Build Power & Rotation',
       weeks: 'Weeks 5–8',
       description:
-          'Add spring, multiplanar loading, diagonal force transfer, rotational strength, and stronger braking while retaining clean positions.',
+          'Add more spring, stronger turns, and controlled stops. Keep your form steady as the challenge grows.',
       aims: [
-        'Increase ankle and lower-limb stiffness for efficient elastic contacts.',
-        'Produce and resist rotation through the hips and trunk.',
-        'Transfer force between the upper and lower body in diagonal patterns.',
-        'Improve lateral force absorption and re-acceleration.',
+        'Build a quick, controlled spring through your ankles and legs.',
+        'Turn through your hips and core, and stay steady when resisting a turn.',
+        'Connect your upper and lower body during cross-body movements.',
+        'Practice landing sideways, then pushing off again.',
       ],
     ),
     AthleticCycle(
       number: 3,
-      name: 'Speed & Integration',
+      name: 'Put It All Together',
       weeks: 'Weeks 9–12',
       description:
-          'Express the prior work through acceleration, faster directional changes, linked rotation, reactive movement, and repeat-effort conditioning.',
+          'Bring your strength and control into faster starts, direction changes, quick reactions, and repeated efforts.',
       aims: [
-        'Accelerate with a stable trunk and effective ground projection.',
-        'Brake and redirect without losing posture or foot control.',
-        'Link rotational power to sprinting and change-of-direction tasks.',
-        'Maintain movement quality across repeated high-intent efforts.',
+        'Start fast with a steady core and a strong push into the ground.',
+        'Stop and change direction while staying in control.',
+        'Use turning power during sprints and direction changes.',
+        'Keep your form steady across repeated hard efforts.',
       ],
     ),
   ];
@@ -227,35 +227,32 @@ abstract final class AthleticProgram {
     final weekInCycle = ((number - 1) % 4) + 1;
     final cycle = cycles[cycleIndex];
     final stage = switch (weekInCycle) {
-      1 => 'Learn & benchmark',
-      2 => 'Build volume',
-      3 => 'Raise intent',
-      _ => 'Consolidate & reassess',
+      1 => 'Learn & check in',
+      2 => 'Build consistency',
+      3 => 'Pick up the pace',
+      _ => 'Recover & check in',
     };
     final goal = switch ((cycleIndex, weekInCycle)) {
       (0, 1) =>
-        'Move slowly enough to own every position and establish clean baselines.',
-      (0, 2) =>
-        'Add one controlled exposure while keeping left and right sides even.',
+        'Take your time with each movement and record your starting point.',
+      (0, 2) => 'Build on last week’s work and keep both sides controlled.',
       (0, 3) =>
-        'Use more intent without sacrificing foot pressure, trunk control, or landing quality.',
+        'Add effort while keeping your feet steady, core controlled, and landings smooth.',
       (0, 4) =>
-        'Reduce fatigue, sharpen technique, and repeat the field measures.',
-      (1, 1) =>
-        'Introduce elastic and rotational actions at a submaximal speed.',
+        'Ease off, focus on technique, and repeat your performance checks.',
+      (1, 1) => 'Try springing and turning movements at a controlled pace.',
       (1, 2) =>
-        'Add contacts and loaded diagonal work while keeping the same mechanics.',
+        'Add jumps and weighted cross-body work while keeping your form steady.',
       (1, 3) =>
-        'Increase velocity and range only when the landings and trunk remain quiet.',
-      (1, 4) => 'Cut volume, retain speed, and compare control against week 4.',
-      (2, 1) =>
-        'Express acceleration and redirection with planned, predictable tasks.',
-      (2, 2) =>
-        'Add repeat efforts and slightly more reactive decision-making.',
+        'Add speed and range when you can keep your landings and core controlled.',
+      (1, 4) =>
+        'Do less overall work, keep movements quick, and compare your control with week 4.',
+      (2, 1) => 'Practice faster starts and planned direction changes.',
+      (2, 2) => 'Repeat your efforts and add a few quick reactions.',
       (2, 3) =>
-        'Use the highest safe intent of the program with complete recovery between quality efforts.',
+        'Give each effort your best controlled pace, with full recovery between attempts.',
       _ =>
-        'Taper, reassess, and finish with movement quality—not exhaustion—as the standard.',
+        'Ease off, repeat your performance checks, and finish with steady, controlled movement.',
     };
     final templates = switch (cycleIndex) {
       0 => _foundationSessions,
@@ -285,9 +282,9 @@ abstract final class AthleticProgram {
     _SessionTemplate(
       id: 'foundation-locomotion',
       day: 'MONDAY',
-      name: 'Locomotion & Unilateral Base',
+      name: 'Movement & Single-Leg Strength',
       summary:
-          'Foot control, gait timing, split-stance strength, and single-leg balance.',
+          'Build steady feet, coordinated steps, split-stance strength, and single-leg balance.',
       durationMinutes: 48,
       qualities: [
         AthleticQuality.gait,
@@ -415,9 +412,9 @@ abstract final class AthleticProgram {
     _SessionTemplate(
       id: 'foundation-rotation',
       day: 'WEDNESDAY',
-      name: 'Rotation & Integrated Strength',
+      name: 'Rotation & Full-Body Strength',
       summary:
-          'Thoracic motion, diagonal force transfer, pushing, pulling, and anti-rotation.',
+          'Move through your upper back, connect cross-body movements, push, pull, and keep your core steady.',
       durationMinutes: 50,
       qualities: [
         AthleticQuality.mobility,
@@ -545,9 +542,9 @@ abstract final class AthleticProgram {
     _SessionTemplate(
       id: 'foundation-deceleration',
       day: 'FRIDAY',
-      name: 'Landing & Deceleration',
+      name: 'Land & Stop with Control',
       summary:
-          'Ankle stiffness, quiet landings, frontal-plane control, and planned braking.',
+          'Build spring through your ankles, smooth landings, sideways control, and steady stops.',
       durationMinutes: 44,
       qualities: [
         AthleticQuality.elasticStrength,
@@ -675,9 +672,9 @@ abstract final class AthleticProgram {
     _SessionTemplate(
       id: 'foundation-acceleration',
       day: 'SATURDAY',
-      name: 'Acceleration Fundamentals & Capacity',
+      name: 'Speed Basics & Endurance',
       summary:
-          'Marching mechanics, short starts, lateral braking, crawling, and low-impact intervals.',
+          'Practice coordinated marching, quick starts, sideways stops, crawls, and low-impact intervals.',
       durationMinutes: 46,
       qualities: [
         AthleticQuality.gait,
@@ -808,9 +805,9 @@ abstract final class AthleticProgram {
     _SessionTemplate(
       id: 'elastic-locomotion',
       day: 'MONDAY',
-      name: 'Loaded Gait & Unilateral Strength',
+      name: 'Loaded Steps & Single-Leg Strength',
       summary:
-          'Stronger single-leg support, loaded marching, step-up drive, and diagonal trunk control.',
+          'Build stronger single-leg support with weighted marches, step-ups, and cross-body core work.',
       durationMinutes: 52,
       qualities: [
         AthleticQuality.gait,
@@ -939,9 +936,9 @@ abstract final class AthleticProgram {
     _SessionTemplate(
       id: 'elastic-rotation',
       day: 'WEDNESDAY',
-      name: 'Rotational Force Transfer',
+      name: 'Build Turning Power',
       summary:
-          'Hip-to-trunk rotation, medicine-ball intent, diagonal pulling, and pressing.',
+          'Connect your hips and core through medicine-ball work, cross-body pulls, and presses.',
       durationMinutes: 50,
       qualities: [
         AthleticQuality.rotation,
@@ -1069,9 +1066,9 @@ abstract final class AthleticProgram {
     _SessionTemplate(
       id: 'elastic-deceleration',
       day: 'FRIDAY',
-      name: 'Elastic Contacts & Braking',
+      name: 'Spring, Land & Stop',
       summary:
-          'Pogos, bounds, lateral landing, drop-to-sprint, and stronger deceleration.',
+          'Practice pogo jumps, bounds, sideways landings, sprint starts, and controlled stops.',
       durationMinutes: 47,
       qualities: [
         AthleticQuality.elasticStrength,
@@ -1199,9 +1196,9 @@ abstract final class AthleticProgram {
     _SessionTemplate(
       id: 'elastic-speed',
       day: 'SATURDAY',
-      name: 'Acceleration & Multidirectional Capacity',
+      name: 'Speed & Direction Changes',
       summary:
-          'Short sprints, curved running, planned cuts, crawling, and repeat-effort work.',
+          'Build up short sprints, curved runs, planned direction changes, crawls, and repeated efforts.',
       durationMinutes: 50,
       qualities: [
         AthleticQuality.acceleration,
@@ -1332,9 +1329,9 @@ abstract final class AthleticProgram {
     _SessionTemplate(
       id: 'integration-acceleration',
       day: 'MONDAY',
-      name: 'Acceleration & Unilateral Power',
+      name: 'Fast Starts & Single-Leg Power',
       summary:
-          'High-quality starts, resisted projection, unilateral force, and gait-linked trunk control.',
+          'Practice sharp starts, pushes against resistance, single-leg power, and core control as you move.',
       durationMinutes: 52,
       qualities: [
         AthleticQuality.acceleration,
@@ -1462,9 +1459,9 @@ abstract final class AthleticProgram {
     _SessionTemplate(
       id: 'integration-rotation',
       day: 'WEDNESDAY',
-      name: 'Integrated Rotation & Power',
+      name: 'Full-Body Rotation & Power',
       summary:
-          'Step-behind throws, dynamic chops, pressing, pulling, and diagonal force transfer.',
+          'Connect step-behind throws, moving chops, presses, and pulls into full-body power.',
       durationMinutes: 50,
       qualities: [
         AthleticQuality.rotation,
@@ -1592,9 +1589,9 @@ abstract final class AthleticProgram {
     _SessionTemplate(
       id: 'integration-change-direction',
       day: 'FRIDAY',
-      name: 'Reactive Braking & Change of Direction',
+      name: 'React, Stop & Change Direction',
       summary:
-          'Landing stiffness, approach braking, 45- and 90-degree cuts, and simple reaction cues.',
+          'Practice steady landings, controlled stops, 45- and 90-degree turns, and quick reactions.',
       durationMinutes: 48,
       qualities: [
         AthleticQuality.elasticStrength,
@@ -1722,9 +1719,9 @@ abstract final class AthleticProgram {
     _SessionTemplate(
       id: 'integration-capacity',
       day: 'SATURDAY',
-      name: 'Speed Integration & Repeat Effort',
+      name: 'Speed & Repeat Efforts',
       summary:
-          'Short acceleration, controlled top-speed exposure, curved running, and repeat-sprint quality.',
+          'Build from quick starts to controlled faster running, curved runs, and steady repeat sprints.',
       durationMinutes: 52,
       qualities: [
         AthleticQuality.acceleration,

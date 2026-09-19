@@ -32,7 +32,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('FUNCTIONAL PROGRESS'), findsOneWidget);
+    expect(find.text('Functional progress'), findsOneWidget);
     expect(find.text('No exercises logged'), findsNothing);
     final dropdownFinder = find.byKey(
       const ValueKey('functional-drill-dropdown'),
@@ -138,13 +138,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Strength signal'), findsOneWidget);
+      expect(find.text('Your strength progress'), findsOneWidget);
       expect(find.text('No exercises logged'), findsOneWidget);
 
-      await tester.tap(find.text('Athletic'));
+      await tester.tap(find.text('Functional'));
       await tester.pumpAndSettle();
 
-      expect(find.text('FUNCTIONAL PROGRESS'), findsOneWidget);
+      expect(find.text('Functional progress'), findsOneWidget);
       expect(find.text('No exercises logged'), findsNothing);
     },
   );

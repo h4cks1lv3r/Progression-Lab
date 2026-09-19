@@ -277,8 +277,8 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
   String get _title => switch (widget.section) {
     IntegrationSection.connections => 'Connections',
     IntegrationSection.backup => 'Cloud backup',
-    IntegrationSection.sharing => 'Sharing defaults',
-    IntegrationSection.lab => 'Experiments & weekly review',
+    IntegrationSection.sharing => 'Sharing preferences',
+    IntegrationSection.lab => 'Experiments and weekly review',
     IntegrationSection.help => 'Feature tips',
   };
   String? _message;
@@ -400,13 +400,13 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
       children: <Widget>[
         _Hero(
           icon: Icons.favorite_rounded,
-          eyebrow: 'PLATFORM HEALTH',
+          eyebrow: 'Health connection',
           title: name,
           description:
-              'Read and write workout summaries, bodyweight, and body-fat percentage. Progression Lab remains the source of truth for detailed sets and private daily inputs.',
+              'Sync workout summaries, bodyweight, and body-fat readings. Your detailed sets and daily check-ins stay in Progression Lab.',
         ),
         _StatusCard(
-          title: status.available ? 'AVAILABLE' : 'NOT AVAILABLE',
+          title: status.available ? 'Available' : 'Unavailable',
           detail: status.message.isNotEmpty
               ? status.message
               : 'Authorization: ${status.authorization.name}',
@@ -420,10 +420,10 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
                   final granted = await _health.requestAuthorization();
                   _message = granted
                       ? '$name access is ready.'
-                      : '$name access was not granted. Local tracking is unchanged.';
+                      : '$name access was not granted. You can keep tracking in the app.';
                 }),
           icon: const Icon(Icons.security_rounded),
-          label: const Text('REVIEW HEALTH PERMISSIONS'),
+          label: const Text('Review health access'),
         ),
         const SizedBox(height: 12),
         OutlinedButton.icon(
@@ -437,7 +437,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
                   );
                   await _preferences.addExternalWorkouts(workouts);
                   _message =
-                      '${workouts.length} health workouts reviewed. Duplicate IDs were skipped.';
+                      'Checked ${workouts.length} health workouts. Existing workouts were kept without duplicates.';
                 }),
           icon: const Icon(Icons.sync_rounded),
           label: const Text('Import recent workout summaries'),
@@ -460,10 +460,10 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
                   );
                   await _preferences.addHealthBodyMetrics(metrics);
                   _message =
-                      '${metrics.length} body metric records reviewed. Existing local bodyweight entries were preserved.';
+                      'Checked ${metrics.length} measurements. Your saved bodyweight entries were kept.';
                 }),
           icon: const Icon(Icons.monitor_weight_outlined),
-          label: const Text('IMPORT RECENT BODY METRICS'),
+          label: const Text('Import recent measurements'),
         ),
         const SizedBox(height: 12),
         OutlinedButton.icon(
@@ -481,11 +481,11 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
                     ),
                   );
                   _message = written
-                      ? 'Latest local bodyweight was written to $name.'
-                      : 'The latest local bodyweight was not written.';
+                      ? 'Latest bodyweight synced to $name.'
+                      : 'Could not sync your latest bodyweight. Try again.';
                 }),
           icon: const Icon(Icons.upload_rounded),
-          label: const Text('WRITE LATEST LOCAL BODYWEIGHT'),
+          label: const Text('Sync latest bodyweight'),
         ),
         const SizedBox(height: 12),
         OutlinedButton.icon(
@@ -493,7 +493,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
               ? null
               : _writeBodyFatReading,
           icon: const Icon(Icons.percent_rounded),
-          label: const Text('ADD & WRITE BODY-FAT READING'),
+          label: const Text('Add and sync body-fat reading'),
         ),
         if (recentHealthMetrics.isNotEmpty) ...<Widget>[
           const SizedBox(height: 18),
@@ -502,12 +502,12 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 const Text(
-                  'BODY METRIC ARCHIVE',
+                  'Measurement history',
                   style: TextStyle(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '${recentHealthMetrics.length} unique records',
+                  '${recentHealthMetrics.length} saved readings',
                   style: const TextStyle(color: Colors.white60),
                 ),
                 const Divider(height: 24),
@@ -539,7 +539,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
         const _Info(
           title: 'What is shared',
           text:
-              'Workout summaries can be read or written. Bodyweight and body-fat percentage can be imported or written after you approve access. Imported bodyweight fills only an empty Daily Inputs bodyweight field; existing local values, detailed sets, notes, substitutions, supplements, meals, hydration, and recovery ratings stay unchanged.',
+              'You choose access for workout summaries and body measurements. Imported bodyweight fills an empty Daily check-in weight field. Existing entries, detailed sets, notes, exercise swaps, meals, supplements, water, and recovery ratings stay as you saved them.',
         ),
       ],
     );
@@ -549,10 +549,10 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
     children: <Widget>[
       const _Hero(
         icon: Icons.hub_rounded,
-        eyebrow: 'CONNECTED TRAINING',
+        eyebrow: 'Training connections',
         title: 'Strava & Garmin',
         description:
-            'Connect through a secure OAuth broker when provider credentials are configured. No client secret is stored in the app.',
+            'Connect your account to bring in activity summaries. Connection availability depends on your app version.',
       ),
       for (final provider in TrainingProvider.values) ...<Widget>[
         _providerCard(provider),
@@ -561,7 +561,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
       const _Info(
         title: 'No account connection required',
         text:
-            'FIT, TCX, GPX, Strava bulk exports, and Garmin original activity files can be imported from the Import tab without OAuth or a cloud account.',
+            'You can also import FIT, TCX, and GPX activity files without connecting an account. Open Activity import to get started. For a ZIP export, extract the individual activity files first.',
       ),
     ],
   );
@@ -570,8 +570,8 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
     final status = _providers.statuses[provider]!;
     final config = ProviderConfiguration.forProvider(provider);
     final title = provider == TrainingProvider.strava
-        ? 'STRAVA'
-        : 'GARMIN CONNECT';
+        ? 'Strava'
+        : 'Garmin Connect';
     return _Panel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -610,7 +610,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
           if (!config.configured) ...<Widget>[
             const SizedBox(height: 14),
             const Text(
-              'Provider configuration is not present in this build. Add the broker URL through a protected build variable; manual file import is already available.',
+              'Account connection is unavailable in this app version. You can still import activity files from the Activity import tab.',
               style: TextStyle(color: Colors.white60, height: 1.4),
             ),
           ],
@@ -626,7 +626,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
                             await _providers.connect(provider);
                             _message = '$title connected.';
                           }),
-                    child: const Text('CONNECT'),
+                    child: const Text('Connect'),
                   ),
                 )
               else ...<Widget>[
@@ -647,7 +647,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
                             _message =
                                 '${page.workouts.length} $title activities imported.';
                           }),
-                    child: const Text('SYNC'),
+                    child: const Text('Sync'),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -655,7 +655,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
                   onPressed: _providers.busy
                       ? null
                       : () => _run(() => _providers.disconnect(provider)),
-                  child: const Text('DISCONNECT'),
+                  child: const Text('Disconnect'),
                 ),
               ],
             ],
@@ -669,10 +669,10 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
     children: <Widget>[
       const _Hero(
         icon: Icons.file_open_rounded,
-        eyebrow: 'WEARABLE & ENDURANCE FILES',
+        eyebrow: 'Activity files',
         title: 'FIT, TCX & GPX',
         description:
-            'Import common Garmin, Strava, cycling, running, swimming, and wearable activity files locally. Nothing is uploaded to a server.',
+            'Bring in runs, rides, swims, and other activities from Garmin, Strava, or your wearable. Files are processed on your device.',
       ),
       FilledButton.icon(
         onPressed: _fileBusy ? null : _pickWorkoutFile,
@@ -682,7 +682,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             : const Icon(Icons.add_rounded),
-        label: const Text('CHOOSE WORKOUT FILE'),
+        label: const Text('Choose activity file'),
       ),
       const SizedBox(height: 18),
       _Panel(
@@ -690,12 +690,12 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             const Text(
-              'IMPORTED ACTIVITY ARCHIVE',
+              'Imported activities',
               style: TextStyle(fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 8),
             Text(
-              '${_preferences.externalWorkouts.length} unique activities',
+              '${_preferences.externalWorkouts.length} saved activities',
               style: const TextStyle(color: Colors.white60),
             ),
             if (_preferences.externalWorkouts.isNotEmpty) ...<Widget>[
@@ -722,7 +722,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
       const _Info(
         title: 'Strength data',
         text:
-            'Use Strong, Hevy, FitNotes, or generic CSV import under Data & Backup for set-by-set gym history. FIT, TCX, and GPX are best for timed activities and wearable sensor data.',
+            'For detailed gym sets from Strong, Hevy, FitNotes, or CSV, open Backup & data in Settings. Use FIT, TCX, and GPX for timed activities and wearable data.',
       ),
     ],
   );
@@ -731,13 +731,15 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
     children: <Widget>[
       const _Hero(
         icon: Icons.cloud_sync_rounded,
-        eyebrow: 'USER-CONTROLLED CLOUD BACKUP',
-        title: 'Your folder. Your data.',
+        eyebrow: 'Cloud backup',
+        title: 'Back up to your own folder',
         description:
             'Choose a folder from Files. Android can use Drive, OneDrive, Dropbox, or another document provider. iOS can use iCloud Drive or another Files provider.',
       ),
       _StatusCard(
-        title: _cloud.status.configured ? 'FOLDER READY' : 'NO FOLDER SELECTED',
+        title: _cloud.status.configured
+            ? 'Folder connected'
+            : 'Choose a backup folder',
         detail: _cloud.status.configured
             ? '${_cloud.status.displayName} · ${_cloud.status.provider.name}'
             : 'Choose a folder before enabling automatic sync.',
@@ -755,15 +757,15 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
               }),
         icon: const Icon(Icons.folder_open_rounded),
         label: Text(
-          _cloud.status.configured ? 'CHANGE FOLDER' : 'CHOOSE FOLDER',
+          _cloud.status.configured ? 'Change folder' : 'Choose folder',
         ),
       ),
       const SizedBox(height: 12),
       SwitchListTile.adaptive(
         contentPadding: EdgeInsets.zero,
-        title: const Text('AUTOMATIC CLOUD BACKUP'),
+        title: const Text('Automatic cloud backup'),
         subtitle: const Text(
-          'Upload after saved data changes. Local workout saves never wait for cloud sync.',
+          'Back up when you save changes. Your workouts save on your device first.',
         ),
         value: _cloud.automaticSyncEnabled,
         onChanged: _cloud.status.configured && !_cloud.busy
@@ -781,7 +783,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
                   final restore = await _confirm(
                     'Cloud backup is newer',
                     'Restore ${preview.remote!.name}? A verified safety backup will be created first.',
-                    confirmLabel: 'RESTORE',
+                    confirmLabel: 'Restore',
                   );
                   if (restore) await _cloud.restoreRemote(preview.remote!);
                 } else if (preview.direction == CloudSyncDirection.upload) {
@@ -790,7 +792,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
                 _message = preview.reason;
               }),
         icon: const Icon(Icons.sync_rounded),
-        label: const Text('REVIEW & SYNC NOW'),
+        label: const Text('Review and sync'),
       ),
       const SizedBox(height: 12),
       if (_cloud.status.configured)
@@ -799,7 +801,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
               ? null
               : () => _run(() => _cloud.disconnectFolder()),
           icon: const Icon(Icons.link_off_rounded),
-          label: const Text('DISCONNECT FOLDER'),
+          label: const Text('Disconnect folder'),
         ),
     ],
   );
@@ -810,18 +812,18 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
       children: <Widget>[
         const _Hero(
           icon: Icons.auto_awesome_rounded,
-          eyebrow: 'WORKOUT STORY CARDS',
-          title: 'Share the signal',
+          eyebrow: 'Workout cards',
+          title: 'Share your progress',
           description:
-              'Choose a branded template, output format, and privacy level. Images are generated on-device.',
+              'Pick a style and image size, then choose which stats to share. Your card is made on your device.',
         ),
         _choice<WorkoutShareTemplate>(
-          title: 'TEMPLATE',
+          title: 'Style',
           values: WorkoutShareTemplate.values,
           selected: preferences.template,
           label: (value) => switch (value) {
             WorkoutShareTemplate.cleanPerformance => 'Clean performance',
-            WorkoutShareTemplate.achievement => 'PR / achievement',
+            WorkoutShareTemplate.achievement => 'Personal record',
             WorkoutShareTemplate.sessionRecap => 'Session recap',
           },
           onSelected: (value) => _saveShare(
@@ -835,7 +837,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
         ),
         const SizedBox(height: 16),
         _choice<WorkoutShareAspect>(
-          title: 'FORMAT',
+          title: 'Image size',
           values: WorkoutShareAspect.values,
           selected: preferences.aspect,
           label: (value) => switch (value) {
@@ -859,7 +861,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
               const Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'PRIVACY',
+                  'Privacy',
                   style: TextStyle(fontWeight: FontWeight.w900),
                 ),
               ),
@@ -884,12 +886,12 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
                 (value) => _privacy(preferences, showBodyweight: value),
               ),
               _privacySwitch(
-                'Completion-only mode',
+                'Show completion only',
                 preferences.privacy.completionOnly,
                 (value) => _privacy(preferences, completionOnly: value),
               ),
               _privacySwitch(
-                'Create caption text',
+                'Include a caption',
                 preferences.includeCaption,
                 (value) => _saveShare(
                   WorkoutSharePreferences(
@@ -911,15 +913,15 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
     children: <Widget>[
       const _Hero(
         icon: Icons.science_rounded,
-        eyebrow: 'PERSONAL EXPERIMENTS',
-        title: 'Run the next test',
+        eyebrow: 'Your experiments',
+        title: 'Find what works for you',
         description:
-            'Define comparison conditions before interpreting the data. Lab Core calculates the result; optional AI explains verified evidence.',
+            'Choose a habit to compare across your logged days. Results show patterns in your data, with optional AI summaries.',
       ),
       FilledButton.icon(
         onPressed: _newExperiment,
         icon: const Icon(Icons.add_rounded),
-        label: const Text('START AN EXPERIMENT'),
+        label: const Text('Start an experiment'),
       ),
       const SizedBox(height: 12),
       OutlinedButton.icon(
@@ -936,7 +938,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
         const _Info(
           title: 'No experiments yet',
           text:
-              'Start with caffeine timing, creatine consistency, meal timing, or a sleep target. Results remain labeled as associations.',
+              'Explore caffeine timing, creatine consistency, meal timing, or sleep. Results can show patterns, but do not prove cause and effect.',
         ),
     ],
   );
@@ -944,7 +946,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
   Widget _guidesTab() => _ScrollSection(
     children: [
       const Text(
-        'CONTEXTUAL GUIDES',
+        'Feature tips',
         style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5),
       ),
       const SizedBox(height: 8),
@@ -957,14 +959,14 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
       OutlinedButton.icon(
         onPressed: () => _run(() async {
           await _guides.resetAllTips();
-          _message = 'All feature tips are ready to appear again.';
+          _message = 'Feature tips will appear again as you explore.';
         }),
         icon: const Icon(Icons.restart_alt_rounded),
-        label: const Text('RESET ALL TIPS'),
+        label: const Text('Show tips again'),
       ),
       const SizedBox(height: 12),
       Text(
-        '${_guides.seen.length} of ${ContextualGuideId.values.length} contextual guides completed',
+        '${_guides.seen.length} of ${ContextualGuideId.values.length} feature tips seen',
         style: const TextStyle(color: Colors.white54),
       ),
     ],
@@ -991,7 +993,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
               ),
               const SizedBox(height: 16),
               Text(
-                '${review.completedStrengthWorkouts} Strength workouts · ${review.completedAthleticSessions} Athletic sessions',
+                '${review.completedStrengthWorkouts} strength workouts · ${review.completedAthleticSessions} functional sessions',
               ),
               Text(
                 '${review.workingSets} working sets · ${review.personalRecords} records',
@@ -1019,7 +1021,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
               ],
               const SizedBox(height: 20),
               const Text(
-                'Based on your saved records. Associations do not establish cause and effect.',
+                'Based on your saved workouts and check-ins. These patterns do not prove cause and effect.',
               ),
               const SizedBox(height: 16),
               FilledButton(
@@ -1056,7 +1058,8 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
             r.durationSeconds > 0)
           HealthWorkoutWriteRequest(
             externalId: 'athletic-${r.sessionId}',
-            title: 'Athletic week ${r.week}${r.isComplete ? '' : ' (partial)'}',
+            title:
+                'Functional Training · Week ${r.week}${r.isComplete ? '' : ' (partial)'}',
             sport: 'functionalStrength',
             startedAt: r.startedAt!,
             endedAt: r.startedAt!.add(Duration(seconds: r.durationSeconds)),
@@ -1097,8 +1100,8 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
     await _run(() async {
       final success = await _health.writeWorkout(choice);
       _message = success
-          ? 'Workout summary exported. Re-exporting uses the same record ID.'
-          : 'Export was not saved. Review health permissions and retry.';
+          ? 'Workout summary exported. Exporting it again will update the same record.'
+          : 'Could not export this workout. Review health access and try again.';
     });
   }
 
@@ -1141,7 +1144,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
             children: <Widget>[
               _Chip('${result.samplesA.length} A'),
               _Chip('${result.samplesB.length} B'),
-              _Chip(result.confidence.name.toUpperCase()),
+              _Chip(result.confidence.name),
               if (result.percentDifference != null)
                 _Chip('${result.percentDifference!.toStringAsFixed(1)}%'),
             ],
@@ -1183,10 +1186,12 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
           children: <Widget>[
             const ListTile(
               title: Text(
-                'START AN EXPERIMENT',
+                'Start an experiment',
                 style: TextStyle(fontWeight: FontWeight.w900),
               ),
-              subtitle: Text('Choose a predefined, deterministic comparison.'),
+              subtitle: Text(
+                'Choose a habit to compare using your saved data.',
+              ),
             ),
             for (final value in <LabExperimentTemplate>[
               LabExperimentTemplate.caffeineTiming,
@@ -1237,19 +1242,19 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
           autofocus: true,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: const InputDecoration(
-            labelText: 'BODY-FAT PERCENTAGE',
+            labelText: 'Body-fat percentage',
             suffixText: '%',
           ),
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('CANCEL'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () =>
                 Navigator.pop(dialogContext, controller.text.trim()),
-            child: const Text('SAVE & WRITE'),
+            child: const Text('Save and sync'),
           ),
         ],
       ),
@@ -1274,8 +1279,8 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
       await _preferences.addHealthBodyMetrics(<HealthBodyMetric>[metric]);
       final written = await _health.writeBodyFat(metric);
       _message = written
-          ? 'Body-fat reading was saved locally and written to the health platform.'
-          : 'Body-fat reading was saved locally but was not written.';
+          ? 'Body-fat reading saved and synced to your health app.'
+          : 'Body-fat reading saved on this device. Sync to your health app failed.';
     });
   }
 
@@ -1368,7 +1373,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('CANCEL'),
+              child: const Text('Cancel'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
@@ -1541,7 +1546,7 @@ class _Info extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
-          title.toUpperCase(),
+          title,
           style: const TextStyle(
             color: Color(0xffa855f7),
             fontWeight: FontWeight.w900,

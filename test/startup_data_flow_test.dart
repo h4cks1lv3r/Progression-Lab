@@ -67,11 +67,11 @@ void main() {
       await store.load();
       await pumpFlow(tester, store);
 
-      expect(find.text('Bring your workout history?'), findsOneWidget);
-      expect(find.text('IMPORT HISTORY'), findsOneWidget);
-      expect(find.text('START FRESH'), findsOneWidget);
+      expect(find.text('Bring your training with you'), findsOneWidget);
+      expect(find.text('Import history'), findsOneWidget);
+      expect(find.text('Start fresh'), findsOneWidget);
 
-      await tester.tap(find.text('START FRESH'));
+      await tester.tap(find.text('Start fresh'));
       await tester.pumpAndSettle();
 
       expect(store.primaryStateLoaded, isTrue);
@@ -110,10 +110,10 @@ void main() {
     await pumpFlow(tester, store);
 
     expect(store.primaryStateLoaded, isTrue);
-    expect(find.text('Your saved data is ready'), findsOneWidget);
-    expect(find.text('NOT NOW'), findsOneWidget);
+    expect(find.text('Your training data is ready'), findsOneWidget);
+    expect(find.text('Not now'), findsOneWidget);
 
-    await tester.tap(find.text('NOT NOW'));
+    await tester.tap(find.text('Not now'));
     await tester.pumpAndSettle();
     expect(store.dataOnboardingVersionSeen, FirstLaunchDataFlow.version);
   });

@@ -5,6 +5,8 @@ import 'logged_sets.dart';
 import 'program.dart';
 import 'store.dart';
 import 'contextual_guides.dart';
+import 'strength_history_backfill.dart';
+import 'strength_history_review.dart';
 
 typedef OpenProgramWorkout =
     void Function(ProgramWeek week, int workoutIndex, bool retroactive);
@@ -68,7 +70,7 @@ Future<void> showCadenceSwitchSheet(
             setSheetState(() => saving = false);
             ScaffoldMessenger.of(sheetContext).showSnackBar(
               const SnackBar(
-                content: Text('The cadence could not be changed. Try again.'),
+                content: Text('Couldn’t update your schedule. Try again.'),
               ),
             );
           }
@@ -124,7 +126,7 @@ Future<void> showCadenceSwitchSheet(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'CHANGE CADENCE',
+                                  'Change your schedule',
                                   style: TextStyle(
                                     fontSize: 22,
                                     fontWeight: FontWeight.w900,
@@ -133,7 +135,7 @@ Future<void> showCadenceSwitchSheet(
                                 ),
                                 SizedBox(height: 4),
                                 Text(
-                                  'Choose the schedule that fits your life now.',
+                                  'Choose how many days you want to train each week.',
                                   style: TextStyle(color: Colors.white60),
                                 ),
                               ],
@@ -184,7 +186,7 @@ Future<void> showCadenceSwitchSheet(
                                     ),
                                     const TextSpan(
                                       text:
-                                          'is preserved. Only the weekly cadence and next workout change.',
+                                          'stays the same. You’re choosing a new weekly schedule and next workout.',
                                       style: TextStyle(
                                         color: Colors.white70,
                                         height: 1.35,
@@ -198,7 +200,7 @@ Future<void> showCadenceSwitchSheet(
                         ),
                       ),
                       const SizedBox(height: 22),
-                      const _Eyebrow('DAYS PER WEEK'),
+                      const _Eyebrow('Days per week'),
                       const SizedBox(height: 10),
                       _DaySelector(
                         selected: targetDays,
@@ -220,7 +222,7 @@ Future<void> showCadenceSwitchSheet(
                       Row(
                         children: [
                           const Expanded(
-                            child: _Eyebrow('CHOOSE NEXT WORKOUT'),
+                            child: _Eyebrow('Choose your next workout'),
                           ),
                           Text(
                             '${targetWeek.workouts.length} sessions',
@@ -234,7 +236,7 @@ Future<void> showCadenceSwitchSheet(
                       ),
                       const SizedBox(height: 5),
                       const Text(
-                        'The closest match is selected. Change it if another workout should come next.',
+                        'We’ve picked the closest match. Choose another workout if that fits better.',
                         style: TextStyle(
                           color: Colors.white54,
                           fontSize: 13,
@@ -292,10 +294,10 @@ Future<void> showCadenceSwitchSheet(
                             : const Icon(Icons.check_rounded),
                         label: Text(
                           saving
-                              ? 'SAVING'
+                              ? 'Saving…'
                               : targetDays == originalDays
-                              ? 'KEEP $targetDays-DAY CADENCE'
-                              : 'SWITCH TO $targetDays DAYS',
+                              ? 'Keep $targetDays days a week'
+                              : 'Switch to $targetDays days',
                           style: const TextStyle(
                             fontWeight: FontWeight.w900,
                             letterSpacing: .5,
@@ -339,6 +341,8 @@ Future<void> showProgramPositionSheet(
   var nextWorkoutDate = DateTime(now.year, now.month, now.day);
   var startNewRun = false;
   var saving = false;
+  var fillHistory = false;
+  StrengthHistorySelection? reviewedHistory;
 
   await showModalBottomSheet<void>(
     context: context,
@@ -368,7 +372,39 @@ Future<void> showProgramPositionSheet(
                   item.programRun == store.strengthProgramRun &&
                   !item.retroactive,
             );
-        final canSave = startNewRun || !targetHasHistory;
+        // Invalidate reviewed matches whenever their target or source changes.
+        final preview = fillHistory
+            ? store.previewStrengthHistory(
+                targetWeek: targetWeekNumber,
+                cadence: targetDays,
+                nextWorkoutIndex: selectedWorkout,
+                nextWorkoutDate: nextWorkoutDate,
+                startNewRun: startNewRun,
+              )
+            : null;
+        if (reviewedHistory != null &&
+            reviewedHistory!.preview.fingerprint != preview?.fingerprint) {
+          reviewedHistory = null;
+        }
+        final canSave =
+            (startNewRun || !targetHasHistory) &&
+            (!fillHistory || reviewedHistory != null);
+
+        Future<void> reviewHistory() async {
+          if (preview == null || saving) return;
+          final result = await Navigator.of(sheetContext)
+              .push<StrengthHistorySelection>(
+                MaterialPageRoute(
+                  builder: (_) => StrengthHistoryReviewScreen(
+                    preview: preview,
+                    initialAssignments: reviewedHistory?.assignments,
+                  ),
+                ),
+              );
+          if (sheetContext.mounted && result != null) {
+            setSheetState(() => reviewedHistory = result);
+          }
+        }
 
         Future<void> chooseDate() async {
           final chosen = await showDatePicker(
@@ -376,7 +412,7 @@ Future<void> showProgramPositionSheet(
             initialDate: nextWorkoutDate,
             firstDate: DateTime(2000),
             lastDate: DateTime(now.year + 10, 12, 31),
-            helpText: 'Choose the date of the next workout',
+            helpText: 'Choose your next workout date',
           );
           if (chosen != null && sheetContext.mounted) {
             setSheetState(() => nextWorkoutDate = chosen);
@@ -394,6 +430,7 @@ Future<void> showProgramPositionSheet(
               nextWorkoutIndex: selectedWorkout,
               nextWorkoutDate: nextWorkoutDate,
               startNewRun: startNewRun,
+              historyBackfill: fillHistory ? reviewedHistory : null,
             );
             if (sheetContext.mounted) Navigator.of(sheetContext).pop();
           } on StateError catch (error) {
@@ -407,7 +444,9 @@ Future<void> showProgramPositionSheet(
             setSheetState(() => saving = false);
             ScaffoldMessenger.of(sheetContext).showSnackBar(
               const SnackBar(
-                content: Text('The program position could not be changed.'),
+                content: Text(
+                  'Couldn’t update your starting point. Try again.',
+                ),
               ),
             );
           }
@@ -463,7 +502,7 @@ Future<void> showProgramPositionSheet(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'CHANGE STARTING POINT',
+                                  'Change starting point',
                                   style: TextStyle(
                                     fontSize: 22,
                                     fontWeight: FontWeight.w900,
@@ -472,7 +511,7 @@ Future<void> showProgramPositionSheet(
                                 ),
                                 SizedBox(height: 4),
                                 Text(
-                                  'Continue from another app or begin a new training block without deleting history.',
+                                  'Start at any microcycle. Bring in past workouts or jump to the week that fits you.',
                                   style: TextStyle(
                                     color: Colors.white60,
                                     height: 1.35,
@@ -491,7 +530,7 @@ Future<void> showProgramPositionSheet(
                         ],
                       ),
                       const SizedBox(height: 22),
-                      const _Eyebrow('PHASE'),
+                      const _Eyebrow('Phase'),
                       const SizedBox(height: 10),
                       _PhaseSelector(
                         selected: targetPhase,
@@ -502,7 +541,7 @@ Future<void> showProgramPositionSheet(
                                   setSheetState(() => targetPhase = phase),
                       ),
                       const SizedBox(height: 22),
-                      const _Eyebrow('CYCLE'),
+                      const _Eyebrow('Microcycle (training week)'),
                       const SizedBox(height: 10),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 15),
@@ -528,7 +567,7 @@ Future<void> showProgramPositionSheet(
                                 DropdownMenuItem(
                                   value: cycle,
                                   child: Text(
-                                    'Cycle $cycle · Program week ${ProgramEngine.firstWeekOfPhase(targetPhase) + cycle - 1}',
+                                    'Microcycle $cycle · Week ${ProgramEngine.firstWeekOfPhase(targetPhase) + cycle - 1}',
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -546,7 +585,7 @@ Future<void> showProgramPositionSheet(
                         ),
                       ),
                       const SizedBox(height: 22),
-                      const _Eyebrow('TRAINING DAYS'),
+                      const _Eyebrow('Training days'),
                       const SizedBox(height: 10),
                       _DaySelector(
                         selected: targetDays,
@@ -567,7 +606,7 @@ Future<void> showProgramPositionSheet(
                       const SizedBox(height: 22),
                       Row(
                         children: [
-                          const Expanded(child: _Eyebrow('NEXT WORKOUT')),
+                          const Expanded(child: _Eyebrow('Next workout')),
                           Text(
                             '${targetWeek.workouts.length} sessions',
                             style: const TextStyle(
@@ -591,7 +630,7 @@ Future<void> showProgramPositionSheet(
                                 ),
                         ),
                       const SizedBox(height: 14),
-                      const _Eyebrow('NEXT WORKOUT DATE'),
+                      const _Eyebrow('Next workout date'),
                       const SizedBox(height: 10),
                       OutlinedButton.icon(
                         onPressed: saving ? null : chooseDate,
@@ -599,14 +638,14 @@ Future<void> showProgramPositionSheet(
                         label: Text(_formatDate(nextWorkoutDate)),
                       ),
                       const SizedBox(height: 22),
-                      const _Eyebrow('HOW TO APPLY IT'),
+                      const _Eyebrow('How do you want to start?'),
                       const SizedBox(height: 10),
                       _PositionModeOption(
                         selected: !startNewRun,
                         icon: Icons.my_location_rounded,
-                        title: 'MOVE CURRENT POSITION',
+                        title: 'Move within this run',
                         description:
-                            'Keep run ${store.strengthProgramRun} and move its active marker. Use this to correct or continue a run.',
+                            'Keep run ${store.strengthProgramRun} and choose where to continue.',
                         onTap: saving
                             ? null
                             : () => setSheetState(() => startNewRun = false),
@@ -615,19 +654,55 @@ Future<void> showProgramPositionSheet(
                       _PositionModeOption(
                         selected: startNewRun,
                         icon: Icons.restart_alt_rounded,
-                        title: 'START A NEW PROGRAM RUN',
+                        title: 'Start a new run',
                         description:
-                            'Create run ${store.strengthProgramRun + 1}. Existing workouts and personal records remain in history.',
+                            'Begin run ${store.strengthProgramRun + 1}. Keep your past workouts and personal records.',
                         onTap: saving
                             ? null
                             : () => setSheetState(() => startNewRun = true),
                       ),
+                      const SizedBox(height: 18),
+                      SwitchListTile.adaptive(
+                        key: const ValueKey('fill-imported-history'),
+                        contentPadding: EdgeInsets.zero,
+                        value: fillHistory,
+                        title: const Text(
+                          'Match earlier workouts to imported history',
+                        ),
+                        subtitle: Text(
+                          store.importedWorkouts.isEmpty
+                              ? 'Import your past workouts in Settings → Backup & data, then come back here.'
+                              : 'Review imported workouts that could fill the weeks before your starting point.',
+                        ),
+                        onChanged: saving || store.importedWorkouts.isEmpty
+                            ? null
+                            : (value) => setSheetState(() {
+                                fillHistory = value;
+                                reviewedHistory = null;
+                              }),
+                      ),
+                      if (fillHistory) ...[
+                        OutlinedButton.icon(
+                          key: const ValueKey('review-imported-history'),
+                          onPressed: saving ? null : reviewHistory,
+                          icon: const Icon(Icons.fact_check_outlined),
+                          label: Text(
+                            reviewedHistory == null
+                                ? 'Review workout matches'
+                                : 'Review ${reviewedHistory!.assignments.length} matches',
+                          ),
+                        ),
+                        const Text(
+                          'You choose which matches to use. Unmatched workouts stay empty.',
+                          style: TextStyle(color: Colors.white60),
+                        ),
+                      ],
                       if (targetHasHistory && !startNewRun) ...[
                         const SizedBox(height: 14),
                         const _PositionWarning(
                           icon: Icons.history_rounded,
                           text:
-                              'This exact workout already has history in the current run. Select Start a new program run to avoid a duplicate current session.',
+                              'This workout already has history in this run. Choose Start a new run to do it again.',
                         ),
                       ],
                       if (hasActiveDraft) ...[
@@ -635,7 +710,7 @@ Future<void> showProgramPositionSheet(
                         const _PositionWarning(
                           icon: Icons.edit_note_rounded,
                           text:
-                              'An unfinished current-workout draft will be cleared. Logged sets and completed history will remain.',
+                              'Your unfinished workout draft will be cleared. Your logged sets and completed workouts will stay.',
                         ),
                       ],
                       const SizedBox(height: 18),
@@ -657,7 +732,7 @@ Future<void> showProgramPositionSheet(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'NEW STARTING POSITION',
+                              'Your new starting point',
                               style: TextStyle(
                                 color: _electric,
                                 fontSize: 10,
@@ -667,7 +742,7 @@ Future<void> showProgramPositionSheet(
                             ),
                             const SizedBox(height: 7),
                             Text(
-                              'Run ${startNewRun ? store.strengthProgramRun + 1 : store.strengthProgramRun} · Phase $targetPhase · Cycle $targetMicrocycle',
+                              'Run ${startNewRun ? store.strengthProgramRun + 1 : store.strengthProgramRun} · Phase $targetPhase · Microcycle $targetMicrocycle',
                               style: const TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w900,
@@ -727,10 +802,10 @@ Future<void> showProgramPositionSheet(
                               ),
                         label: Text(
                           saving
-                              ? 'SAVING'
+                              ? 'Saving…'
                               : startNewRun
-                              ? 'START NEW RUN HERE'
-                              : 'SET CURRENT POSITION',
+                              ? 'Start a new run here'
+                              : 'Use this starting point',
                           style: const TextStyle(
                             fontWeight: FontWeight.w900,
                             letterSpacing: .45,
@@ -837,7 +912,7 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'PROGRAM',
+                                      'Year One Strength',
                                       style: TextStyle(
                                         fontSize: 32,
                                         fontWeight: FontWeight.w900,
@@ -846,7 +921,7 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
                                     ),
                                     SizedBox(height: 4),
                                     Text(
-                                      'Your complete training map',
+                                      '48 weeks to build strength, one workout at a time.',
                                       style: TextStyle(color: Colors.white54),
                                     ),
                                   ],
@@ -865,7 +940,7 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
                             store: widget.store,
                             id: ContextualGuideId.strengthWeekNavigator,
                             message:
-                                'Choose a phase or week to inspect it. Changing cadence shows the exact next workout before you confirm.',
+                                'Explore any phase or week. Change your weekly schedule or pick a new starting point whenever you need to.',
                           ),
                           _CadencePanel(
                             days: widget.store.days,
@@ -887,7 +962,7 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
                                 showProgramPositionSheet(context, widget.store),
                           ),
                           const SizedBox(height: 24),
-                          const _Eyebrow('PHASE NAVIGATOR'),
+                          const _Eyebrow('Explore the plan'),
                           const SizedBox(height: 10),
                           _PhaseSelector(
                             selected: _phase,
@@ -902,7 +977,7 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'PHASE $_phase',
+                                      'Phase $_phase',
                                       style: const TextStyle(
                                         fontSize: 24,
                                         fontWeight: FontWeight.w900,
@@ -910,7 +985,7 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
                                     ),
                                     const SizedBox(height: 3),
                                     Text(
-                                      '${ProgramEngine.weeksPerPhase} microcycles · ${widget.store.days}-day cadence',
+                                      '${ProgramEngine.weeksPerPhase} weeks · ${widget.store.days} training days a week',
                                       style: const TextStyle(
                                         color: Colors.white54,
                                         fontSize: 13,
@@ -927,7 +1002,7 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
                                     Icons.my_location_rounded,
                                     size: 17,
                                   ),
-                                  label: const Text('CURRENT'),
+                                  label: const Text('Current'),
                                 ),
                             ],
                           ),
@@ -1035,7 +1110,7 @@ class _CadencePanel extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'TRAINING CADENCE',
+                    'Weekly schedule',
                     style: TextStyle(
                       fontWeight: FontWeight.w900,
                       letterSpacing: .6,
@@ -1043,7 +1118,7 @@ class _CadencePanel extends StatelessWidget {
                   ),
                   SizedBox(height: 2),
                   Text(
-                    'Switch without losing your place',
+                    'Make training fit your week',
                     style: TextStyle(color: Colors.white54, fontSize: 12),
                   ),
                 ],
@@ -1121,7 +1196,7 @@ class _DaySelector extends StatelessWidget {
                         : null,
                   ),
                   child: Text(
-                    '$day DAYS',
+                    '$day days',
                     style: TextStyle(
                       color: selected == day ? _ink : Colors.white60,
                       fontSize: 12,
@@ -1199,7 +1274,7 @@ class _PositionPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'CURRENT POSITION',
+                      'Your place in the plan',
                       style: TextStyle(
                         color: Colors.white38,
                         fontSize: 11,
@@ -1219,7 +1294,7 @@ class _PositionPanel extends StatelessWidget {
               ),
               if (selectedPhase != current.phase)
                 IconButton.filledTonal(
-                  tooltip: 'Jump to current phase',
+                  tooltip: 'Go to your current phase',
                   onPressed: onJumpToCurrent,
                   icon: const Icon(Icons.my_location_rounded, size: 19),
                 ),
@@ -1241,7 +1316,7 @@ class _PositionPanel extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: onChangePosition,
               icon: const Icon(Icons.flag_circle_rounded, size: 18),
-              label: const Text('CHANGE STARTING POINT'),
+              label: const Text('Change starting point'),
             ),
           ),
         ],
@@ -1424,11 +1499,14 @@ class _PhaseSelector extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 3),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 4,
+                        runSpacing: 2,
                         children: [
                           Text(
-                            'PHASE',
+                            'Phase',
                             style: TextStyle(
                               color: selected == phase
                                   ? Colors.white
@@ -1439,7 +1517,6 @@ class _PhaseSelector extends StatelessWidget {
                             ),
                           ),
                           if (current == phase) ...[
-                            const SizedBox(width: 4),
                             Container(
                               width: 5,
                               height: 5,
@@ -1475,13 +1552,13 @@ class _KindFilters extends StatelessWidget {
     children: [
       Row(
         children: [
-          const Expanded(child: _Eyebrow('WEEK TYPE')),
+          const Expanded(child: _Eyebrow('Week focus')),
           TextButton(
             onPressed: () => onChanged(WeekKind.values.toSet()),
             child: Text(
               selected.length == WeekKind.values.length
-                  ? 'ALL ACTIVE'
-                  : 'SHOW ALL',
+                  ? 'All shown'
+                  : 'Show all',
               style: TextStyle(
                 color: selected.length == WeekKind.values.length
                     ? _acid
@@ -1597,12 +1674,12 @@ class _WeekGrid extends StatelessWidget {
             Icon(Icons.filter_alt_off_rounded, color: Colors.white38, size: 32),
             SizedBox(height: 12),
             Text(
-              'No week types selected',
+              'Choose a week focus',
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
             SizedBox(height: 4),
             Text(
-              'Use Show all or select a week type above.',
+              'Tap Show all or choose a focus above.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white54),
             ),
@@ -1724,7 +1801,7 @@ class _MicrocycleCardState extends State<_MicrocycleCard> {
                           children: [
                             Flexible(
                               child: Text(
-                                'WEEK ${widget.week.number}',
+                                'Week ${widget.week.number}',
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w900,
@@ -1744,7 +1821,7 @@ class _MicrocycleCardState extends State<_MicrocycleCard> {
                                   borderRadius: BorderRadius.circular(99),
                                 ),
                                 child: const Text(
-                                  'NOW',
+                                  'Now',
                                   style: TextStyle(
                                     color: _acid,
                                     fontSize: 9,
@@ -1767,27 +1844,26 @@ class _MicrocycleCardState extends State<_MicrocycleCard> {
                               ),
                             ),
                             const SizedBox(width: 6),
-                            Text(
-                              meta.label,
-                              style: TextStyle(
-                                color: meta.color,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: .65,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                '· MC ${widget.week.microcycle} · ${widget.week.workouts.length} workouts',
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white38,
-                                  fontSize: 11,
+                                meta.label,
+                                style: TextStyle(
+                                  color: meta.color,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: .65,
                                 ),
                               ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Microcycle ${widget.week.microcycle} · ${widget.week.workouts.length} workouts',
+                          style: const TextStyle(
+                            color: Colors.white38,
+                            fontSize: 11,
+                          ),
                         ),
                       ],
                     ),
@@ -1835,8 +1911,8 @@ class _MicrocycleCardState extends State<_MicrocycleCard> {
                             ),
                             label: Text(
                               widget.current
-                                  ? 'EDIT STARTING POINT'
-                                  : 'START FROM THIS CYCLE',
+                                  ? 'Edit starting point'
+                                  : 'Start from this microcycle',
                             ),
                           ),
                         ),
@@ -1891,13 +1967,17 @@ class _WorkoutDetailCard extends StatelessWidget {
     );
     final status = record == null
         ? null
+        : record.importedWorkoutId != null
+        ? (record.status == WorkoutStatus.partial
+              ? 'Imported · Partial'
+              : 'Imported')
         : record.retroactive
-        ? 'RETRO FILLED'
+        ? 'Added later'
         : record.status == WorkoutStatus.skipped
-        ? 'SKIPPED'
+        ? 'Skipped'
         : record.status == WorkoutStatus.partial
-        ? 'PARTIAL'
-        : 'COMPLETED';
+        ? 'Partial'
+        : 'Completed';
     return Container(
       key: ValueKey('workout-${week.number}-$workoutIndex'),
       margin: const EdgeInsets.only(top: 10),
@@ -1930,7 +2010,7 @@ class _WorkoutDetailCard extends StatelessWidget {
               ),
               if (current)
                 const Text(
-                  'NEXT',
+                  'Next',
                   style: TextStyle(
                     color: _acid,
                     fontSize: 9,
@@ -2024,7 +2104,7 @@ class _WorkoutDetailCard extends StatelessWidget {
                   ),
                 ),
                 icon: const Icon(Icons.history_rounded, size: 17),
-                label: const Text('VIEW LOGGED WORKOUT'),
+                label: const Text('View logged workout'),
               ),
             ),
           ],
@@ -2036,7 +2116,7 @@ class _WorkoutDetailCard extends StatelessWidget {
                 onPressed: () => onOpenWorkout(week, workoutIndex, true),
                 icon: const Icon(Icons.add_task_rounded, size: 17),
                 label: Text(
-                  record == null ? 'FILL PAST WORKOUT' : 'FILL SKIPPED WORKOUT',
+                  record == null ? 'Log past workout' : 'Log skipped workout',
                 ),
               ),
             ),
@@ -2165,7 +2245,7 @@ class _CurrentBadge extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         const Text(
-          'CURRENT',
+          'Current',
           style: TextStyle(
             color: _acid,
             fontSize: 9,
@@ -2209,14 +2289,18 @@ class _KindMeta {
 }
 
 _KindMeta _kindMeta(WeekKind kind) => switch (kind) {
-  WeekKind.build => const _KindMeta('BUILD', 'Build', _electric),
+  WeekKind.build => const _KindMeta('Build', 'Build', _electric),
   WeekKind.volumeDeload => const _KindMeta(
-    'VOLUME DELOAD',
-    'Volume deload',
+    'Lower volume',
+    'Lower volume',
     _violet,
   ),
-  WeekKind.strength => const _KindMeta('STRENGTH WEEK', 'Strength', _amber),
-  WeekKind.fullDeload => const _KindMeta('FULL DELOAD', 'Full deload', _acid),
+  WeekKind.strength => const _KindMeta('Strength week', 'Strength', _amber),
+  WeekKind.fullDeload => const _KindMeta(
+    'Recovery week',
+    'Recovery week',
+    _acid,
+  ),
 };
 
 int _normalizedWeek(int week) {

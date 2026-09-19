@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Progression Lab should sound like a serious training culture built around evidence, ownership, and steady improvement. The voice is mature, direct, intelligent, and encouraging, with a restrained amount of current energy.
+Progression Lab should sound like a serious training culture built around evidence, ownership, and steady improvement. The voice is clear, current, and encouraging for people from their upper teens through their 40s. Use familiar words, short actions, and a little warmth. Keep technical terms when they help someone train or understand a result.
 
 The target reaction is:
 
@@ -57,14 +57,11 @@ Use a light modern phrase only when it adds energy and remains clear to a broad 
 
 Approved examples:
 
-- Locked in
+- Your training. Your way.
+- Pick up where you left off
 - Strong work
-- Clean session
-- That moved
-- Built, not guessed
-- Run the next test
-- Signal, not noise
-- The trend is worth watching
+- Find what works for you
+- See your work add up
 
 Avoid:
 
@@ -92,13 +89,10 @@ Progression Lab is built around:
 Recurring brand language may include:
 
 ```text
-Test. Train. Transform.
-Run the next test.
-Built, not guessed.
-What moved the needle?
-Signal, not noise.
+Your training. Your way.
+Pick a plan or build today’s workout.
+Find what works for you.
 Your data. Your call.
-Progress under review.
 ```
 
 Do not force the laboratory metaphor into every sentence.
@@ -109,8 +103,11 @@ Use these terms consistently:
 
 | Concept | Preferred term |
 |---|---|
-| Strength training event | Workout |
-| Athletic training event | Session |
+| Unstructured workout mode | Open Workout |
+| Actor-inspired five-day plans | Iconic Builds |
+| 48-week strength plan | Year One Strength |
+| 12-week athletic plan | Functional Training |
+| A training event | Workout or session, consistently within a screen |
 | Prescribed loaded set | Working set |
 | Preparation set | Warm-up set |
 | Load added to bodyweight | Added weight |
@@ -118,9 +115,9 @@ Use these terms consistently:
 | Major Strength section | Phase |
 | Repeating training segment | Cycle |
 | A complete pass through a program | Program run |
-| Supplement, meal, hydration, and recovery logging | Daily Inputs |
-| Deterministic analysis | Lab Core |
-| Optional Gemini explanation | AI Analysis |
+| Supplement, meal, hydration, and recovery logging | Daily check-in |
+| Deterministic analysis | Training insights |
+| Optional Gemini explanation | AI summary |
 
 Do not alternate randomly between plan, program, routine, block, and cycle when they refer to the same object.
 
@@ -130,9 +127,9 @@ Do not alternate randomly between plan, program, routine, block, and cycle when 
 
 Calm, capable, and welcoming.
 
-> Start here. Home keeps your next workout, current program, and Daily Inputs in one place.
+> Pick a plan or build today’s workout.
 
-> Two programs. Separate progress. One training system.
+> Switch plans without losing your place.
 
 ### Before training
 
@@ -154,7 +151,7 @@ Operational and concise.
 
 Use a higher-energy line only after a real achievement:
 
-> Locked in. New best at this rep range.
+> New best at this rep range.
 
 ### After training
 
@@ -172,7 +169,7 @@ Evidence-led.
 
 > Volume is higher across four matched workouts. Keep watching the trend.
 
-### Daily Inputs
+### Daily check-in
 
 Neutral and nonjudgmental.
 
@@ -202,7 +199,7 @@ Calm, specific, and actionable.
 
 > That set was not saved. Your previous data is unchanged. Try again.
 
-> Gemini is not available on this device. Lab Core is still ready.
+> AI summaries aren’t available on this device. You can still explore your training insights.
 
 Avoid `Something went wrong` when a more useful explanation is available.
 
@@ -235,7 +232,10 @@ Reject or replace output that violates critical safety or evidence rules.
 
 ## Accessibility and localization
 
-- Keep button labels literal and short.
+- Keep button labels literal, short, and in sentence case.
+- Use “Weekly schedule” for days per week; explain “microcycle” as a program week when introducing it.
+- Keep “Year One Strength” paired with the accurate 48-week length.
+- Refer to the left menu and Settings; do not describe bottom tabs or “More”.
 - Do not use all caps for long sentences.
 - Do not encode a critical instruction in humor or slang.
 - Avoid idioms that translate poorly.
