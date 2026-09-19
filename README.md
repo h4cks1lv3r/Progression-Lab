@@ -1,5 +1,11 @@
 # Progression Lab
 
+## Version 2.6.1 — Android import picker fix
+
+Import pickers now let you select readable files even when their provider uses
+an unexpected file-type label. The app still checks supported formats and file
+contents before showing an import preview. No extra storage permission is needed.
+
 ## Version 2.6 — actor-inspired training and logging fixes
 
 Open **Programs → Actor-inspired programs** for 12 curated five-day plans based on
@@ -27,7 +33,7 @@ Open **Progress → Body** for private progress photos, optional body measuremen
 
 Progression Lab is an original, local-first strength, bodybuilding, and athletic-training application for Android and iOS.
 
-Current version: **2.6.0+20**
+Current version: **2.6.1+21**
 
 The product combines a 48-week Strength program, a 12-week Athletic Functional Training program, 12 actor-inspired five-day plans, a structured exercise library, Daily Inputs and recovery tracking, deterministic performance analysis, optional on-device Gemini narration, data portability, health and wearable integrations, personal experiments, and branded workout sharing.
 

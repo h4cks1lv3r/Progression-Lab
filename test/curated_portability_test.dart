@@ -134,7 +134,7 @@ void main() {
       );
 
       expect(backup.state, state);
-      expect(backup.manifest['appVersion'], '2.6.0');
+      expect(backup.manifest['appVersion'], progressionAppVersion);
       final curated = jsonDecode(
         utf8.decode(backup.files['curated_training.json']!),
       );

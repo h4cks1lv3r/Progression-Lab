@@ -561,7 +561,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
       const _Info(
         title: 'No account connection required',
         text:
-            'FIT, TCX, GPX, Strava bulk exports, and Garmin original activity files can be imported from the Import tab without OAuth or a cloud account.',
+            'FIT, TCX, and GPX activity files from Strava, Garmin, and other apps can be imported from the Import tab without OAuth or a cloud account. Extract individual activity files from a bulk ZIP export first.',
       ),
     ],
   );
