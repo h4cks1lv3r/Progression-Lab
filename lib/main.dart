@@ -25,6 +25,7 @@ import 'safe_layout.dart';
 import 'store.dart';
 import 'contextual_guides.dart';
 import 'warmup.dart';
+import 'curated_training_screen.dart';
 
 import 'integrations_hub.dart';
 import 'cloud_sync.dart';
@@ -143,9 +144,9 @@ class _ShellState extends State<Shell> {
     ),
     AppTourStep(
       targetKey: _programsOverviewKey,
-      title: 'Both programs live together',
+      title: 'Your programs live together',
       body:
-          'Programs contains the 48-week Strength plan and 12-week Athletic plan. Each keeps its own progress.',
+          'Programs contains Strength, Athletic, and actor-inspired five-day plans. Each keeps its own progress.',
     ),
     AppTourStep(
       targetKey: _progressNavKey,
@@ -977,7 +978,7 @@ class ProgramsHubPage extends StatelessWidget {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'Two systems. Independent progress.',
+                    'Choose a plan. Keep your own pace.',
                     style: TextStyle(color: BrandColors.muted),
                   ),
                 ],
@@ -1011,7 +1012,7 @@ class ProgramsHubPage extends StatelessWidget {
                 SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Strength and Athletic Functional Training advance separately. Train either track without moving the other one.',
+                    'Strength, Athletic, and actor-inspired plans advance separately. Each keeps its own progress and workout history.',
                     style: TextStyle(color: BrandColors.muted, height: 1.4),
                   ),
                 ),
@@ -1046,6 +1047,45 @@ class ProgramsHubPage extends StatelessWidget {
               'Week ${store.athleticWeek} · ${athleticWeek.cycleName} · Session ${store.athleticSessionIndex + 1}',
           actionLabel: 'OPEN ATHLETIC PROGRAM',
           onTap: onOpenAthletic,
+        ),
+        const SizedBox(height: 14),
+        LabPanel(
+          accent: BrandColors.purple,
+          padding: const EdgeInsets.all(20),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => CuratedProgramsScreen(store: store),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.movie_outlined,
+                color: BrandColors.purple,
+                size: 32,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Actor-inspired programs',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Explore 12 five-day plans inspired by superhero and action roles. Follow each session, log your sets, and resume where you left off.',
+                style: TextStyle(color: BrandColors.muted, height: 1.4),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'EXPLORE PLANS →',
+                style: TextStyle(
+                  color: BrandColors.purple,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -1454,9 +1494,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     final type = option.trackingType;
     if (_setsForExercise(exercise) >= plan.sets) return;
 
-    final parsedWeight = type.usesWeight
-        ? double.tryParse(weight.text.trim())
-        : 0.0;
+    final parsedWeight = type.parseWeightInput(weight.text);
     final parsedReps = type.usesReps ? int.tryParse(reps.text.trim()) : 0;
     final parsedDuration = type.usesDuration
         ? _parseDuration(duration.text)
@@ -1560,9 +1598,14 @@ class _WorkoutScreenState extends State<WorkoutScreen>
     await _persistDraft();
     if (!mounted) return;
     HapticFeedback.selectionClick();
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    // An action makes SnackBar persistent by default. Set feedback should
+    // expire, and a later set must replace any pending feedback.
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
+        duration: const Duration(seconds: 4),
+        persist: false,
+        showCloseIcon: true,
         content: Text(
           workoutComplete
               ? 'All sets saved. Finish when you are ready.'
@@ -1573,7 +1616,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         action: SnackBarAction(
           label: 'Undo',
           onPressed: () async {
-            if (finishing || logging) return;
+            if (!mounted || finishing || logging) return;
             setState(() => logging = true);
             try {
               await widget.store.removeSet(log);
@@ -1617,7 +1660,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         return type == ExerciseTrackingType.assistedBodyweight
             ? 'Enter the assistance used.'
             : type == ExerciseTrackingType.weightedBodyweight
-            ? 'Enter the added weight. Use 0 for an unweighted set.'
+            ? 'Enter a valid added weight, or leave blank for bodyweight.'
             : 'Enter a valid weight.';
       }
       if (type.requiresPositiveWeight && weightValue <= 0) {
@@ -1916,28 +1959,40 @@ class _WorkoutScreenState extends State<WorkoutScreen>
           ),
         ],
       ),
-      body: LabSafeScreen(
-        top: false,
-        bottomAction: SizedBox(
-          width: double.infinity,
-          height: 58,
-          child: FilledButton.icon(
-            onPressed: finishing || logging || exerciseComplete ? null : _log,
-            style: FilledButton.styleFrom(
-              backgroundColor: BrandColors.purple,
-              foregroundColor: Colors.white,
-            ),
-            icon: const Icon(Icons.add_task_rounded),
-            label: Text(
-              logging
-                  ? 'Saving set…'
-                  : exerciseComplete
-                  ? 'Exercise complete'
-                  : 'Log set',
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+      // Register the controls with Scaffold so floating feedback stays above
+      // the Log set button, including while the keyboard is open.
+      bottomNavigationBar: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: LabSafeBottomAction(
+          child: SizedBox(
+            width: double.infinity,
+            height: 58,
+            child: FilledButton.icon(
+              onPressed: finishing || logging || exerciseComplete ? null : _log,
+              style: FilledButton.styleFrom(
+                backgroundColor: BrandColors.purple,
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.add_task_rounded),
+              label: Text(
+                logging
+                    ? 'Saving set…'
+                    : exerciseComplete
+                    ? 'Exercise complete'
+                    : 'Log set',
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
             ),
           ),
         ),
+      ),
+      body: LabSafeScreen(
+        top: false,
         child: ListView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
@@ -2248,6 +2303,9 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         _WorkoutInput(
           controller: weight,
           label: '${type.weightLabel} (${widget.store.unit})',
+          hint: type == ExerciseTrackingType.weightedBodyweight
+              ? 'Optional · blank = bodyweight'
+              : null,
           decimal: true,
         ),
       );

@@ -1,5 +1,17 @@
 # Progression Lab
 
+## Version 2.6 — actor-inspired training and logging fixes
+
+Open **Programs → Actor-inspired programs** for 12 curated five-day plans based on
+the supplied actor-training research. Review each plan's adaptation notes and
+sources, then log actual sets, timed work, and distance with saved progress.
+Each plan has independent progress and resumable sessions. See
+[the curated training guide](docs/curated-programs-2.6.md).
+
+Set-completion feedback now dismisses automatically after four seconds while
+retaining Undo. Dips and other corrected bodyweight movements accept reps
+without a weight; weighted-bodyweight movements also allow zero added weight.
+
 ## Version 2.5 — continue from imported strength history
 
 Open **Programs → Strength → Change starting point** to choose any phase,
@@ -15,9 +27,9 @@ Open **Progress → Body** for private progress photos, optional body measuremen
 
 Progression Lab is an original, local-first strength, bodybuilding, and athletic-training application for Android and iOS.
 
-Current version: **2.5.0+19**
+Current version: **2.6.0+20**
 
-The product combines a 48-week Strength program, a 12-week Athletic Functional Training program, a structured exercise library, Daily Inputs and recovery tracking, deterministic performance analysis, optional on-device Gemini narration, data portability, health and wearable integrations, personal experiments, and branded workout sharing.
+The product combines a 48-week Strength program, a 12-week Athletic Functional Training program, 12 actor-inspired five-day plans, a structured exercise library, Daily Inputs and recovery tracking, deterministic performance analysis, optional on-device Gemini narration, data portability, health and wearable integrations, personal experiments, and branded workout sharing.
 
 ## Core training systems
 
@@ -38,6 +50,15 @@ The product combines a 48-week Strength program, a 12-week Athletic Functional T
 - Locomotion, unilateral strength, rotation, elastic strength, landing, deceleration, acceleration, and change-of-direction work
 - Independent program runs, session history, effort, notes, and field assessments
 
+### Actor-inspired plans
+
+- Twelve five-day plans with evidence labels, adaptation notes, and sources
+- Actual reps, load, duration, and distance logging according to the movement
+- Alternating rounds for grouped movements and a rest countdown
+- Autosaved session inputs and independent progress for each plan
+- Explicit partial-session completion and editable logged-set history
+- Full backup support and portable progress, history, and set exports
+
 ## Exercise Library 2.0
 
 - More than 500 built-in movements
@@ -48,7 +69,7 @@ The product combines a 48-week Strength program, a 12-week Athletic Functional T
 - Search, muscle/equipment/type filters, recent items, and ranked substitutions
 - History-safe exercise metadata and imports
 
-Standard bodyweight movements such as push-ups, pull-ups, chin-ups, bodyweight squats, hanging leg raises, and planks do not require a weight entry. Weighted and assisted variants use explicit **Added Weight** and **Assistance** semantics.
+Standard bodyweight movements such as dips, push-ups, pull-ups, chin-ups, bodyweight squats, hanging leg raises, and planks do not require a weight entry. Weighted and assisted variants use explicit **Added Weight** and **Assistance** semantics. Blank added weight means zero for weighted-bodyweight movements.
 
 ## Daily Inputs and The Lab
 
@@ -91,7 +112,7 @@ Progression Lab supports:
 - Strong, Hevy, FitNotes, portable ZIP, and generic CSV import
 - import preview, exercise mapping, duplicate detection, and undo
 
-Exact backups retain the full application state, including program runs, custom exercises, Daily Inputs, recovery records, Lab settings, imported external activities, health-derived integration state, personal experiments, share preferences, contextual-guide state, and history. Provider session tokens stay in native secure storage and are not written into `.plab` backups. Portable CSV exports intentionally exclude private Lab conversation text.
+Exact backups retain the full application state, including program runs, curated plan progress and unfinished sessions, custom exercises, Daily Inputs, recovery records, Lab settings, imported external activities, health-derived integration state, personal experiments, share preferences, contextual-guide state, and history. Provider session tokens stay in native secure storage and are not written into `.plab` backups. Portable CSV exports intentionally exclude private Lab conversation text.
 
 ## Navigation and onboarding
 

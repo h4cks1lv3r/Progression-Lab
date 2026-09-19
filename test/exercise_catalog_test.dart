@@ -76,6 +76,12 @@ void main() {
         'pull_up',
         'chin_up',
         'front_plank',
+        'dip',
+        'bench_dip',
+        'triceps_dip',
+        'dead_bug',
+        'hamstring_walkout',
+        'walking_lunge',
       ]) {
         final exercise = ExerciseLibrary.builtInById(id);
         expect(exercise, isNotNull, reason: 'Missing $id');
@@ -109,6 +115,30 @@ void main() {
         expect(assisted.trackingType.performanceLabel, 'Lowest Assistance');
       },
     );
+
+    test('dip aliases and variants retain distinct tracking semantics', () {
+      for (final name in [
+        'Dip',
+        'Dips',
+        'Bodyweight Dips',
+        'Bench Dips',
+        'Triceps Dips',
+      ]) {
+        expect(
+          ExerciseLibrary.builtInByName(name)?.trackingType,
+          ExerciseTrackingType.bodyweightReps,
+          reason: name,
+        );
+      }
+      expect(
+        ExerciseLibrary.builtInById('weighted_dip')!.trackingType,
+        ExerciseTrackingType.weightedBodyweight,
+      );
+      expect(
+        ExerciseLibrary.builtInById('assisted_dip')!.trackingType,
+        ExerciseTrackingType.assistedBodyweight,
+      );
+    });
 
     test('search resolves common aliases and abbreviations', () {
       expect(ExerciseLibrary.builtInByName('RDL')?.id, isNotNull);

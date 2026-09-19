@@ -6,7 +6,7 @@ import 'package:crypto/crypto.dart';
 
 const String progressionBackupFormat = 'progression-lab-backup';
 const int progressionBackupSchemaVersion = 1;
-const String progressionAppVersion = '2.4.0';
+const String progressionAppVersion = '2.6.0';
 const int _maxBackupFiles = 64;
 const int _maxBackupUncompressedBytes = 128 * 1024 * 1024;
 
@@ -52,7 +52,9 @@ abstract final class ProgressionBackupCodec {
       'workouts.json': _jsonBytes({
         'strengthHistory': _listValue(state['workoutHistory']),
         'importedWorkouts': _listValue(state['importedWorkouts']),
+        'curatedHistory': _listValue(_curatedState(state)['history']),
       }),
+      'curated_training.json': _jsonBytes(_curatedState(state)),
       'sets.json': _jsonBytes(_listValue(state['logs'])),
       'exercises.json': _jsonBytes(_listValue(state['customExercises'])),
       'program_state.json': _jsonBytes({
@@ -248,6 +250,11 @@ abstract final class ProgressionBackupCodec {
 
   static List<Object?> _listValue(Object? value) =>
       value is List ? List<Object?>.from(value) : const <Object?>[];
+}
+
+Map<String, dynamic> _curatedState(Map<String, dynamic> state) {
+  final value = state['curatedTraining'];
+  return value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
 }
 
 class CsvCodec {
@@ -1765,6 +1772,28 @@ abstract final class ProgressionCsvExport {
         record['notes'] ?? '',
         record['signature'],
         record['importBatchId'],
+      ]);
+    }
+    for (final record in _maps(_curatedState(state)['history'])) {
+      final start = DateTime.tryParse('${record['startedAt']}');
+      final end = DateTime.tryParse('${record['completedAt']}');
+      final duration = start != null && end != null && !end.isBefore(start)
+          ? end.difference(start).inSeconds
+          : '';
+      rows.add([
+        record['sessionId'],
+        record['sessionId'],
+        'progression_lab_curated',
+        record['sessionId'],
+        record['title'],
+        record['startedAt'],
+        record['startedAt'],
+        duration,
+        '${record['status']}; program ${record['programId']}; '
+            'week ${record['week']}, day ${(_readInt(record['dayIndex']) ?? 0) + 1}; '
+            '${record['setCount']}/${record['totalSteps']} sets',
+        '',
+        '',
       ]);
     }
     return rows;

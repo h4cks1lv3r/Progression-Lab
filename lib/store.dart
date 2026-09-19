@@ -14,6 +14,8 @@ import 'exercise_library.dart';
 import 'program.dart';
 import 'share_options.dart';
 import 'strength_history_backfill.dart';
+import 'curated_programs.dart';
+import 'curated_training.dart';
 
 enum TrainingTrack { strength, athletic }
 
@@ -407,7 +409,8 @@ class DraftSetInput {
 class AppStore extends ChangeNotifier {
   Map<String, dynamic> integrationState = <String, dynamic>{};
   static const _channel = MethodChannel('iron_cadence/storage');
-  static const int schemaVersion = 18;
+  static const int schemaVersion = 19;
+  CuratedTrainingState curatedTraining = CuratedTrainingState();
   List<BodyMeasurement> bodyMeasurements = [];
   Map<String, dynamic> bodySettings = {};
   final bodyMedia = BodyMediaStore();
@@ -512,6 +515,7 @@ class AppStore extends ChangeNotifier {
   }
 
   void _applyStateData(Map<String, dynamic> data) {
+    curatedTraining = CuratedTrainingState.fromJson(data['curatedTraining']);
     bodyMeasurements = migrateBodyMeasurements(data);
     bodySettings = Map<String, dynamic>.from(
       data['bodySettings'] as Map? ?? {},
@@ -733,6 +737,7 @@ class AppStore extends ChangeNotifier {
 
   Map<String, dynamic> exportState() => {
     'integrationState': integrationState,
+    'curatedTraining': curatedTraining.toJson(),
     'bodyMeasurements': bodyMeasurements.map((r) => r.toJson()).toList(),
     'bodySettings': bodySettings,
     'days': days,
@@ -1562,16 +1567,13 @@ class AppStore extends ChangeNotifier {
         .toList();
   }
 
-  ExerciseTrackingType _trackingForLog(SetLog log) {
-    final descriptor = exerciseDescriptor(
-      id: log.exerciseId,
-      name: log.exercise,
-    );
-    return descriptor?.trackingType ?? log.resolvedTrackingType;
-  }
+  // A saved set retains the metric that was actually recorded, even if the
+  // catalog's default for that movement changes or another plan uses it differently.
+  ExerciseTrackingType _trackingForLog(SetLog log) => log.resolvedTrackingType;
 
   bool _dominates(SetLog existing, SetLog candidate) {
     final type = _trackingForLog(candidate);
+    if (_trackingForLog(existing) != type) return false;
     return switch (type) {
       ExerciseTrackingType.weightReps ||
       ExerciseTrackingType.weightedBodyweight =>
@@ -1821,6 +1823,251 @@ class AppStore extends ChangeNotifier {
     return name;
   }
 
+  CuratedProgress curatedProgressFor(String programId) =>
+      curatedTraining.progress[programId] ?? const CuratedProgress();
+  CuratedWorkoutDraft? curatedDraftFor(String programId) =>
+      curatedTraining.drafts[programId];
+  List<CuratedSessionRecord> get curatedHistory => curatedTraining.history;
+
+  Future<void> _curatedWrites = Future.value();
+  Future<T> _mutateCurated<T>(
+    T Function() change, {
+    bool backup = false,
+    bool changesLogs = false,
+  }) {
+    final operation = _curatedWrites.then((_) async {
+      final previousState = curatedTraining;
+      final previousLogs = changesLogs ? List<SetLog>.of(logs) : null;
+      try {
+        final result = change();
+        await save(createAutomaticBackup: backup);
+        notifyListeners();
+        return result;
+      } on Object {
+        curatedTraining = previousState;
+        if (previousLogs != null) logs = previousLogs;
+        notifyListeners();
+        rethrow;
+      }
+    });
+    _curatedWrites = operation.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return operation;
+  }
+
+  Future<CuratedWorkoutDraft> beginCuratedWorkout(String programId) =>
+      _mutateCurated(() {
+        final program = CuratedPrograms.byId(programId);
+        if (program == null) throw ArgumentError('Unknown curated program.');
+        final existing = curatedDraftFor(programId);
+        if (existing != null) return existing;
+        final progress = curatedProgressFor(programId);
+        final now = DateTime.now();
+        final draft = CuratedWorkoutDraft(
+          programId: programId,
+          sessionId: 'curated-$programId-${now.microsecondsSinceEpoch}',
+          week: progress.week,
+          dayIndex: progress.dayIndex,
+          run: progress.run,
+          startedAt: now,
+          day: program.days[progress.dayIndex],
+        );
+        curatedTraining = curatedTraining.copyWith(
+          drafts: {...curatedTraining.drafts, programId: draft},
+        );
+        return draft;
+      });
+
+  Future<void> saveCuratedInputs({
+    required String programId,
+    required String sessionId,
+    required int stepIndex,
+    required Map<String, String> inputs,
+  }) {
+    final copy = Map<String, String>.of(inputs);
+    return _mutateCurated(() {
+      final draft = curatedDraftFor(programId);
+      // Delayed keyboard autosaves cannot overwrite a later step or new run.
+      if (draft == null ||
+          draft.sessionId != sessionId ||
+          draft.nextStepIndex != stepIndex) {
+        return;
+      }
+      final allowed = {
+        for (final entry in copy.entries)
+          if (const {
+            'weight',
+            'reps',
+            'seconds',
+            'meters',
+            'notes',
+          }.contains(entry.key))
+            entry.key: entry.value,
+      };
+      curatedTraining = curatedTraining.copyWith(
+        drafts: {
+          ...curatedTraining.drafts,
+          programId: draft.withInputs(allowed),
+        },
+      );
+    });
+  }
+
+  Future<void> logCuratedSet({
+    required String programId,
+    required String sessionId,
+    required int stepIndex,
+    double? weight,
+    int? reps,
+    int? seconds,
+    double? meters,
+    String notes = '',
+  }) => _mutateCurated(() {
+    final sourceId = '$sessionId:step:$stepIndex';
+    if (logs.any(
+      (log) => log.sourceId == sourceId && log.sessionId == sessionId,
+    )) {
+      return;
+    }
+    final draft = curatedDraftFor(programId);
+    if (draft == null ||
+        draft.sessionId != sessionId ||
+        stepIndex != draft.nextStepIndex ||
+        stepIndex < 0 ||
+        stepIndex >= draft.steps.length) {
+      throw StateError('The active workout changed. Reopen it and try again.');
+    }
+    final steps = draft.steps;
+    final step = steps[stepIndex];
+    final metric = step.movement.metric;
+    final loaded =
+        metric == CuratedMetric.loadedReps ||
+        metric == CuratedMetric.loadedDistance;
+    final repetition =
+        metric == CuratedMetric.reps || metric == CuratedMetric.loadedReps;
+    final timed = metric == CuratedMetric.duration;
+    final distance =
+        metric == CuratedMetric.distance ||
+        metric == CuratedMetric.loadedDistance;
+    if (loaded && (weight == null || !weight.isFinite || weight <= 0)) {
+      throw ArgumentError('Enter a weight above zero.');
+    }
+    if (repetition && (reps == null || reps <= 0)) {
+      throw ArgumentError('Enter completed reps above zero.');
+    }
+    if (timed && (seconds == null || seconds <= 0)) {
+      throw ArgumentError('Enter completed seconds above zero.');
+    }
+    if (distance && (meters == null || !meters.isFinite || meters <= 0)) {
+      throw ArgumentError('Enter completed meters above zero.');
+    }
+    final type = switch (metric) {
+      CuratedMetric.reps => ExerciseTrackingType.bodyweightReps,
+      CuratedMetric.loadedReps => ExerciseTrackingType.weightReps,
+      CuratedMetric.duration => ExerciseTrackingType.duration,
+      CuratedMetric.distance => ExerciseTrackingType.distanceOnly,
+      CuratedMetric.loadedDistance => ExerciseTrackingType.weightDistance,
+    };
+    final descriptor = exerciseDescriptor(name: step.movement.name);
+    final now = DateTime.now();
+    logs.add(
+      SetLog(
+        exercise: step.movement.name,
+        exerciseId: descriptor?.id,
+        weight: loaded ? weight! : 0,
+        reps: repetition ? reps! : 0,
+        date: now,
+        workout:
+            '${CuratedPrograms.byId(programId)!.actor} · ${draft.day.title}',
+        notes: notes.trim(),
+        sessionId: sessionId,
+        exerciseIndex: step.movementIndex,
+        trackingType: type.name,
+        setOrder: step.targetIndex + 1,
+        durationSeconds: timed ? seconds : null,
+        distance: distance ? meters : null,
+        distanceUnit: distance ? 'm' : null,
+        sourceApp: 'progression_lab_curated',
+        sourceId: sourceId,
+      ),
+    );
+    final nextIndex = _nextUnloggedCuratedStep(draft, stepIndex + 1);
+    final next = nextIndex < steps.length ? steps[nextIndex] : null;
+    final continuesRound =
+        step.movement.group != null &&
+        next != null &&
+        next.movement.group == step.movement.group &&
+        next.targetIndex == step.targetIndex;
+    final restSeconds = continuesRound ? 0 : step.movement.restSeconds;
+    curatedTraining = curatedTraining.copyWith(
+      drafts: {
+        ...curatedTraining.drafts,
+        programId: draft.moveTo(
+          nextIndex,
+          restEnd: next != null && restSeconds > 0
+              ? now.add(Duration(seconds: restSeconds))
+              : null,
+        ),
+      },
+    );
+  }, changesLogs: true);
+
+  Future<void> finishCuratedWorkout({
+    required String programId,
+    required String sessionId,
+    bool allowPartial = false,
+  }) => _mutateCurated(() {
+    if (curatedHistory.any(
+      (record) =>
+          record.sessionId == sessionId && record.programId == programId,
+    )) {
+      return;
+    }
+    final draft = curatedDraftFor(programId);
+    if (draft == null || draft.sessionId != sessionId) {
+      throw StateError('No active curated session.');
+    }
+    final logged = logs.where((log) => log.sessionId == sessionId).length;
+    final complete =
+        draft.nextStepIndex == draft.steps.length &&
+        logged == draft.steps.length;
+    if (logged == 0) throw StateError('Log at least one set before finishing.');
+    if (!complete && !allowPartial) {
+      throw StateError(
+        'Finish the remaining sets or save this session as partial.',
+      );
+    }
+    final drafts = Map<String, CuratedWorkoutDraft>.of(curatedTraining.drafts)
+      ..remove(programId);
+    final progress = curatedProgressFor(programId);
+    final record = CuratedSessionRecord(
+      programId: programId,
+      sessionId: sessionId,
+      week: draft.week,
+      dayIndex: draft.dayIndex,
+      run: draft.run,
+      title: '${CuratedPrograms.byId(programId)!.actor} · ${draft.day.title}',
+      startedAt: draft.startedAt,
+      completedAt: DateTime.now(),
+      status: complete ? 'completed' : 'partial',
+      setCount: logged,
+      totalSteps: draft.steps.length,
+    );
+    curatedTraining = curatedTraining.copyWith(
+      drafts: drafts,
+      history: [...curatedHistory, record],
+      progress: {
+        ...curatedTraining.progress,
+        programId: CuratedProgress(
+          completedSessions: progress.completedSessions + 1,
+          run: progress.run,
+        ),
+      },
+    );
+  }, backup: true);
+
   Future<bool> add(SetLog log) async {
     final pr = isPr(log);
     logs.add(log);
@@ -1835,6 +2082,34 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> removeSet(SetLog log) async {
+    if (log.sourceApp == 'progression_lab_curated') {
+      return _mutateCurated(() {
+        if (!logs.remove(log)) return;
+        final drafts = Map<String, CuratedWorkoutDraft>.of(
+          curatedTraining.drafts,
+        );
+        for (final entry in drafts.entries.toList()) {
+          final draft = entry.value;
+          if (draft.sessionId != log.sessionId) continue;
+          final firstMissing = _nextUnloggedCuratedStep(draft, 0);
+          if (firstMissing < draft.nextStepIndex) {
+            drafts[entry.key] = draft.moveTo(firstMissing);
+          }
+        }
+        curatedTraining = curatedTraining.copyWith(
+          drafts: drafts,
+          history: [
+            for (final record in curatedHistory)
+              if (record.sessionId == log.sessionId)
+                record.withSetCount(
+                  logs.where((set) => set.sessionId == log.sessionId).length,
+                )
+              else
+                record,
+          ],
+        );
+      }, changesLogs: true);
+    }
     final index = logs.indexOf(log);
     if (index < 0) return;
     logs.removeAt(index);
@@ -1845,6 +2120,19 @@ class AppStore extends ChangeNotifier {
       rethrow;
     }
     notifyListeners();
+  }
+
+  int _nextUnloggedCuratedStep(CuratedWorkoutDraft draft, int start) {
+    final loggedIds = logs
+        .where((log) => log.sessionId == draft.sessionId)
+        .map((log) => log.sourceId)
+        .toSet();
+    var next = start;
+    while (next < draft.steps.length &&
+        loggedIds.contains('${draft.sessionId}:step:$next')) {
+      next++;
+    }
+    return next;
   }
 
   Future<void> updateSet(
@@ -1885,8 +2173,6 @@ class AppStore extends ChangeNotifier {
         (calories == null || !calories.isFinite || calories <= 0)) {
       throw ArgumentError('Calories must be above zero.');
     }
-    final index = logs.indexOf(original);
-    if (index < 0) throw StateError('The set no longer exists.');
     final updated = original.copyWith(
       weight: type.usesWeight ? weight : 0,
       reps: type.usesReps ? reps : 0,
@@ -1896,6 +2182,19 @@ class AppStore extends ChangeNotifier {
       calories: calories,
       notes: notes,
     );
+    if (original.sourceApp == 'progression_lab_curated') {
+      return _mutateCurated(
+        () {
+          final index = logs.indexOf(original);
+          if (index < 0) throw StateError('The set no longer exists.');
+          logs[index] = updated;
+        },
+        changesLogs: true,
+        backup: true,
+      );
+    }
+    final index = logs.indexOf(original);
+    if (index < 0) throw StateError('The set no longer exists.');
     logs[index] = updated;
     try {
       await save();
@@ -2726,6 +3025,7 @@ class AppStore extends ChangeNotifier {
     // convert at display/input boundaries.
     final factor = unit == 'lb' ? poundsToKilograms : 1 / poundsToKilograms;
     final previousUnit = unit;
+    final previousCurated = curatedTraining;
     final previousLogs = logs;
     final previousDraft = draft;
     final previousDrafts = drafts;
@@ -2737,6 +3037,19 @@ class AppStore extends ChangeNotifier {
       return DraftSetInput.fromJson(data);
     }
 
+    curatedTraining = curatedTraining.copyWith(
+      drafts: {
+        for (final entry in curatedTraining.drafts.entries)
+          entry.key: () {
+            final inputs = Map<String, String>.of(entry.value.inputs);
+            final input = double.tryParse(inputs['weight'] ?? '');
+            if (input != null && input.isFinite) {
+              inputs['weight'] = (input * factor).toStringAsFixed(2);
+            }
+            return entry.value.withInputs(inputs);
+          }(),
+      },
+    );
     drafts = drafts.map(convertDraft).toList();
     draft = draft == null ? null : convertDraft(draft!);
     logs = [for (final log in logs) log.copyWith(weight: log.weight * factor)];
@@ -2745,6 +3058,7 @@ class AppStore extends ChangeNotifier {
       await save();
     } on Object {
       unit = previousUnit;
+      curatedTraining = previousCurated;
       logs = previousLogs;
       draft = previousDraft;
       drafts = previousDrafts;
@@ -3201,6 +3515,7 @@ class AppStore extends ChangeNotifier {
       ).map((r) => r.toJson()).toList();
       data.putIfAbsent('bodySettings', () => <String, dynamic>{});
     }
+    data.putIfAbsent('curatedTraining', () => <String, dynamic>{});
     data['schemaVersion'] = schemaVersion;
     return data;
   }

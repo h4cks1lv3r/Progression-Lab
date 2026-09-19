@@ -317,7 +317,7 @@ class _EditableSetCardState extends State<_EditableSetCard> {
 
   Future<void> _save() async {
     final type = _type;
-    final weight = type.usesWeight ? double.tryParse(_weight.text.trim()) : 0.0;
+    final weight = type.parseWeightInput(_weight.text);
     final reps = type.usesReps ? int.tryParse(_reps.text.trim()) : 0;
     final duration = type.usesDuration ? _parseDuration(_duration.text) : null;
     final distance = type.usesDistance
@@ -526,6 +526,9 @@ class _SetEditorFields extends StatelessWidget {
         _SetField(
           controller: weight,
           label: '${type.weightLabel} ($unit)',
+          hint: type == ExerciseTrackingType.weightedBodyweight
+              ? 'Optional · blank = bodyweight'
+              : null,
           decimal: true,
         ),
       if (type.usesReps)

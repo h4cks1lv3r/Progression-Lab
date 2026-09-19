@@ -4,6 +4,7 @@ import 'brand.dart';
 import 'daily_inputs_screen.dart';
 import 'logged_sets.dart';
 import 'store.dart';
+import 'curated_training_screen.dart';
 
 class TrainingHistoryScreen extends StatelessWidget {
   const TrainingHistoryScreen({super.key, required this.store});
@@ -21,6 +22,15 @@ class TrainingHistoryScreen extends StatelessWidget {
             r.sessionId,
             'strength',
             LoggedWorkoutScreen(store: store, record: r),
+          ),
+        for (final r in store.curatedHistory)
+          (
+            r.completedAt,
+            r.title,
+            'Actor-inspired · ${r.status} · Week ${r.week} · Day ${r.dayIndex + 1} · ${r.setCount}/${r.totalSteps} sets',
+            r.sessionId,
+            'curated',
+            CuratedSessionHistoryScreen(store: store, record: r),
           ),
         for (final r in store.athleticHistory)
           (

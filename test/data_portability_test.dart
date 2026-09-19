@@ -185,8 +185,20 @@ void main() {
 
   test('corrupted backups fail closed', () {
     final bytes = ProgressionBackupCodec.encode(sampleState());
-    final corrupted = bytes.toList();
-    corrupted[corrupted.length ~/ 2] ^= 0x7f;
+    final original = ZipDecoder().decodeBytes(bytes);
+    final changed = Archive();
+    for (final file in original) {
+      if (file.name == 'state.json') {
+        final state = sampleState()..['week'] = 22;
+        final content = utf8.encode(jsonEncode(state));
+        changed.addFile(ArchiveFile(file.name, content.length, content));
+      } else {
+        changed.addFile(file);
+      }
+    }
+    // Rebuild a valid ZIP while retaining the original content checksums.
+    // Changing an arbitrary byte can hit harmless ZIP metadata instead.
+    final corrupted = ZipEncoder().encode(changed)!;
 
     expect(
       () => ProgressionBackupCodec.decode(corrupted),

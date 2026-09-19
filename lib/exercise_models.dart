@@ -282,6 +282,17 @@ extension ExerciseTrackingTypeInfo on ExerciseTrackingType {
     _ => false,
   };
 
+  /// Unweighted sets are valid for an added-load movement. Assistance and
+  /// external load still need an explicit input; malformed text is never zero.
+  double? parseWeightInput(String raw) {
+    if (!usesWeight) return 0;
+    final value = raw.trim();
+    if (this == ExerciseTrackingType.weightedBodyweight && value.isEmpty) {
+      return 0;
+    }
+    return double.tryParse(value);
+  }
+
   bool get usesReps => switch (this) {
     ExerciseTrackingType.weightReps ||
     ExerciseTrackingType.bodyweightReps ||
