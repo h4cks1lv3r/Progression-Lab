@@ -48,7 +48,7 @@ Open **Progress → Body** for private progress photos, optional body measuremen
 
 Progression Lab is an original, local-first strength, bodybuilding, and athletic-training application for Android and iOS.
 
-Current version: **2.7.0+22**
+Current version: **2.7.1+23**
 
 The product combines Open Workout, the 48-week Year One Strength plan, the 12-week Functional Training plan, 12 Iconic Builds five-day plans, a structured exercise library, Daily Inputs and recovery tracking, deterministic performance analysis, optional on-device Gemini narration, data portability, health and wearable integrations, personal experiments, and branded workout sharing.
 

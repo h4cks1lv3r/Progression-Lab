@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.7.1+23 — 2026-09-20
+
+- Keep the app logo square in import previews and performance check-ins. Wide list layouts no longer stretch it into a colored bar.
+- Scale the logo evenly when space is limited, while preserving its size in existing headers and menus.
+
 ## 2.7.0+22 — 2026-09-19
 
 - Put four training choices at the top of Home: Open Workout, Iconic Builds, Year One Strength (48 weeks), and Functional Training (12 weeks).

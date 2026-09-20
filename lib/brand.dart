@@ -272,23 +272,33 @@ class LabMark extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     image: true,
     label: semanticLabel,
-    child: Container(
+    child: SizedBox(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(size * .24),
-        boxShadow: glow
-            ? [
-                BoxShadow(
-                  color: BrandColors.purple.withValues(alpha: .34),
-                  blurRadius: size * .36,
-                  spreadRadius: size * .02,
-                ),
-              ]
-            : null,
+      // Lists can force this slot to full width. Give the painter a square
+      // canvas and scale the whole mark uniformly when space is limited.
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: AlignmentDirectional.centerStart,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(size * .24),
+            boxShadow: glow
+                ? [
+                    BoxShadow(
+                      color: BrandColors.purple.withValues(alpha: .34),
+                      blurRadius: size * .36,
+                      spreadRadius: size * .02,
+                    ),
+                  ]
+                : null,
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: const CustomPaint(painter: _LabMarkPainter()),
+        ),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: const CustomPaint(painter: _LabMarkPainter()),
     ),
   );
 }
