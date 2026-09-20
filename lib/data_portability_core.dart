@@ -6,7 +6,7 @@ import 'package:crypto/crypto.dart';
 
 const String progressionBackupFormat = 'progression-lab-backup';
 const int progressionBackupSchemaVersion = 1;
-const String progressionAppVersion = '2.7.0';
+const String progressionAppVersion = '2.7.1';
 const int _maxBackupFiles = 64;
 const int _maxBackupUncompressedBytes = 128 * 1024 * 1024;
 

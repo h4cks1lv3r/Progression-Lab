@@ -2752,7 +2752,7 @@ class SettingsPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-        const Text('Progression Lab 2.7.0', style: TextStyle(color: muted)),
+        const Text('Progression Lab 2.7.1', style: TextStyle(color: muted)),
       ],
     );
   }
