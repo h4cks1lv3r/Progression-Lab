@@ -48,7 +48,9 @@ Open **Progress → Body** for private progress photos, optional body measuremen
 
 Progression Lab is an original, local-first strength, bodybuilding, and athletic-training application for Android and iOS.
 
-Current version: **2.7.1+23**
+Current version: **2.8.0+24**
+
+In Year One Strength, use **Switch workout** from Home, the program page, or an active workout to choose another day in the same cycle. Saved sets and unfinished sessions stay with their original day. Each day shows its own status, and the next cycle starts after all scheduled days are finished or explicitly skipped. A partial finish stays labeled partial. Changing the order does not change your training schedule or program start date.
 
 The product combines Open Workout, the 48-week Year One Strength plan, the 12-week Functional Training plan, 12 Iconic Builds five-day plans, a structured exercise library, Daily Inputs and recovery tracking, deterministic performance analysis, optional on-device Gemini narration, data portability, health and wearable integrations, personal experiments, and branded workout sharing.
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.8.0+24 — 2026-09-25
+
+- Switch Year One Strength workout days within the current cycle from Home, the program page, or an active session. Each day keeps its saved sets and inputs so it can be resumed later.
+- Track the actual status of each day and return to remaining workouts after an out-of-order finish. Move to the next cycle only after all scheduled days are finished or explicitly skipped.
+- Show actual completed-day counts instead of treating the selected day's position as progress. Partial and skipped days retain their own labels.
+- Preserve workout order and pending days across restarts and full backups with app state schema 21. Existing starts, imported history, and training schedules remain intact.
+- Include workout switching in the launch walkthrough and workout help.
+
 ## 2.7.1+23 — 2026-09-20
 
 - Keep the app logo square in import previews and performance check-ins. Wide list layouts no longer stretch it into a colored bar.

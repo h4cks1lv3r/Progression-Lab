@@ -7,6 +7,7 @@ import 'store.dart';
 import 'contextual_guides.dart';
 import 'strength_history_backfill.dart';
 import 'strength_history_review.dart';
+import 'strength_cycle_picker.dart';
 
 typedef OpenProgramWorkout =
     void Function(ProgramWeek week, int workoutIndex, bool retroactive);
@@ -842,6 +843,7 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
   late int _phase;
   late Set<WeekKind> _visibleKinds;
   var _phaseWasChosen = false;
+  var _switchingWorkout = false;
 
   @override
   void initState() {
@@ -866,6 +868,27 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
       _phase = phase;
       _phaseWasChosen = false;
     });
+  }
+
+  Future<void> _switchWorkout() async {
+    if (_switchingWorkout) return;
+    setState(() => _switchingWorkout = true);
+    try {
+      final selected = await showStrengthWorkoutPicker(context, widget.store);
+      if (selected == null || !mounted) return;
+      await widget.store.selectStrengthWorkout(selected);
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Couldn’t switch workouts. Your session is still saved. Try again.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _switchingWorkout = false);
+    }
   }
 
   @override
@@ -940,7 +963,7 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
                             store: widget.store,
                             id: ContextualGuideId.strengthWeekNavigator,
                             message:
-                                'Explore any phase or week. Change your weekly schedule or pick a new starting point whenever you need to.',
+                                'Train the days in each cycle in any order. Switch workouts when equipment is busy, or explore another phase or week.',
                           ),
                           _CadencePanel(
                             days: widget.store.days,
@@ -956,6 +979,11 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
                             run: widget.store.strengthProgramRun,
                             workoutIndex: widget.store.workoutIndex,
                             selectedPhase: _phase,
+                            completedWorkouts: widget.store
+                                .strengthCompletedWorkouts(current.number),
+                            onSwitchWorkout: _switchingWorkout
+                                ? null
+                                : _switchWorkout,
                             onJumpToCurrent: () =>
                                 _showCurrentPhase(current.phase),
                             onChangePosition: () =>
@@ -1219,6 +1247,8 @@ class _PositionPanel extends StatelessWidget {
     required this.run,
     required this.workoutIndex,
     required this.selectedPhase,
+    required this.completedWorkouts,
+    required this.onSwitchWorkout,
     required this.onJumpToCurrent,
     required this.onChangePosition,
   });
@@ -1227,6 +1257,8 @@ class _PositionPanel extends StatelessWidget {
   final int run;
   final int workoutIndex;
   final int selectedPhase;
+  final int completedWorkouts;
+  final VoidCallback? onSwitchWorkout;
   final VoidCallback onJumpToCurrent;
   final VoidCallback onChangePosition;
 
@@ -1234,10 +1266,7 @@ class _PositionPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final workout = current
         .workouts[workoutIndex.clamp(0, current.workouts.length - 1).toInt()];
-    final completedFraction = workoutIndex / current.workouts.length;
-    final phaseProgress =
-        ((current.microcycle - 1) + completedFraction) /
-        ProgramEngine.weeksPerPhase;
+    final completedFraction = completedWorkouts / current.workouts.length;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -1304,13 +1333,33 @@ class _PositionPanel extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(99),
             child: LinearProgressIndicator(
-              value: phaseProgress.clamp(0.0, 1.0).toDouble(),
+              key: const ValueKey('strength-cycle-progress'),
+              value: completedFraction.clamp(0.0, 1.0).toDouble(),
               minHeight: 6,
               backgroundColor: Colors.white.withValues(alpha: .07),
               valueColor: const AlwaysStoppedAnimation(_electric),
             ),
           ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              '$completedWorkouts of ${current.workouts.length} workouts completed this cycle',
+              key: const ValueKey('strength-cycle-completion-count'),
+              style: const TextStyle(color: Colors.white70),
+            ),
+          ),
           const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              key: const ValueKey('program-switch-workout'),
+              onPressed: onSwitchWorkout,
+              icon: const Icon(Icons.swap_horiz_rounded, size: 20),
+              label: const Text('Switch workout'),
+            ),
+          ),
+          const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -1859,7 +1908,7 @@ class _MicrocycleCardState extends State<_MicrocycleCard> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Microcycle ${widget.week.microcycle} · ${widget.week.workouts.length} workouts',
+                          'Microcycle ${widget.week.microcycle} · ${widget.store.strengthCompletedWorkouts(widget.week.number)} of ${widget.week.workouts.length} completed',
                           style: const TextStyle(
                             color: Colors.white38,
                             fontSize: 11,
@@ -1940,7 +1989,7 @@ class _MicrocycleCardState extends State<_MicrocycleCard> {
   }
 }
 
-class _WorkoutDetailCard extends StatelessWidget {
+class _WorkoutDetailCard extends StatefulWidget {
   const _WorkoutDetailCard({
     required this.week,
     required this.workoutIndex,
@@ -1958,26 +2007,53 @@ class _WorkoutDetailCard extends StatelessWidget {
   final OpenProgramWorkout onOpenWorkout;
 
   @override
+  State<_WorkoutDetailCard> createState() => _WorkoutDetailCardState();
+}
+
+class _WorkoutDetailCardState extends State<_WorkoutDetailCard> {
+  var _opening = false;
+
+  Future<void> _openCurrentWorkout() async {
+    if (_opening) return;
+    setState(() => _opening = true);
+    final week = widget.week;
+    final workoutIndex = widget.workoutIndex;
+    try {
+      await widget.store.selectStrengthWorkout(workoutIndex);
+      if (mounted) widget.onOpenWorkout(week, workoutIndex, false);
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Couldn’t open this workout. Your session is still saved. Try again.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final store = widget.store;
+    final week = widget.week;
+    final workoutIndex = widget.workoutIndex;
+    final workout = widget.workout;
+    final current = widget.current;
     final records = store.recordsForSlot(week.number, workoutIndex);
     final record = records.isEmpty ? null : records.first;
     final past = store.isPastSlot(week.number, workoutIndex);
     final completed = records.any(
       (item) => item.status == WorkoutStatus.completed,
     );
-    final status = record == null
-        ? null
-        : record.importedWorkoutId != null
-        ? (record.status == WorkoutStatus.partial
-              ? 'Imported · Partial'
-              : 'Imported')
-        : record.retroactive
-        ? 'Added later'
-        : record.status == WorkoutStatus.skipped
-        ? 'Skipped'
-        : record.status == WorkoutStatus.partial
-        ? 'Partial'
-        : 'Completed';
+    final currentCycle = week.number == store.week;
+    final canTrain =
+        currentCycle &&
+        !store.isStrengthWorkoutResolved(week.number, workoutIndex);
+    final status = strengthWorkoutDayStatus(store, week.number, workoutIndex);
+
     return Container(
       key: ValueKey('workout-${week.number}-$workoutIndex'),
       margin: const EdgeInsets.only(top: 10),
@@ -1996,47 +2072,47 @@ class _WorkoutDetailCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Text(
+            workout.name.toUpperCase(),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .7,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Wrap(
+            spacing: 10,
+            runSpacing: 4,
             children: [
-              Expanded(
-                child: Text(
-                  workout.name.toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: .7,
-                  ),
-                ),
-              ),
               if (current)
                 const Text(
-                  'Next',
+                  'Selected',
                   style: TextStyle(
-                    color: _acid,
-                    fontSize: 9,
+                    color: _electric,
+                    fontSize: 10,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: .7,
                   ),
                 ),
-              if (status != null) ...[
-                const SizedBox(width: 8),
-                Text(
-                  status,
-                  style: TextStyle(
-                    color: record!.status == WorkoutStatus.skipped
-                        ? Colors.white54
-                        : _acid,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: .7,
-                  ),
+              Text(
+                status,
+                style: TextStyle(
+                  color: record?.status == WorkoutStatus.skipped
+                      ? Colors.white54
+                      : _acid,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
                 ),
-              ],
+              ),
             ],
           ),
           const SizedBox(height: 3),
           Text(
-            _formatDate(store.dateForSlot(week.number, workoutIndex)),
+            [
+              _formatDate(store.dateForSlot(week.number, workoutIndex)),
+              if (record?.importedWorkoutId != null) 'Imported',
+              if (record?.retroactive == true) 'Added later',
+            ].join(' · '),
             style: const TextStyle(color: Colors.white38, fontSize: 11),
           ),
           const SizedBox(height: 10),
@@ -2108,12 +2184,29 @@ class _WorkoutDetailCard extends StatelessWidget {
               ),
             ),
           ],
-          if (past && !completed) ...[
+          if (canTrain) ...[
             const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: () => onOpenWorkout(week, workoutIndex, true),
+                key: ValueKey('start-cycle-workout-$workoutIndex'),
+                onPressed: _opening ? null : _openCurrentWorkout,
+                icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                label: Text(
+                  _opening
+                      ? 'Opening…'
+                      : status == 'In progress'
+                      ? 'Resume workout'
+                      : 'Start workout',
+                ),
+              ),
+            ),
+          ] else if (past && !completed) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => widget.onOpenWorkout(week, workoutIndex, true),
                 icon: const Icon(Icons.add_task_rounded, size: 17),
                 label: Text(
                   record == null ? 'Log past workout' : 'Log skipped workout',

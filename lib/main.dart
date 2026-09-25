@@ -17,6 +17,7 @@ import 'first_launch_data_flow.dart';
 import 'logged_sets.dart';
 import 'program.dart';
 import 'program_navigator.dart';
+import 'strength_cycle_picker.dart';
 import 'progress_hub.dart';
 import 'body_progress_screen.dart';
 import 'share_card.dart';
@@ -131,7 +132,7 @@ class _ShellState extends State<Shell> {
       targetKey: _programsOverviewKey,
       title: 'Start where you are',
       body:
-          'In Year One Strength, choose 3, 4, or 5 training days and start at any microcycle (program week). Import past workouts, review suggested matches, and fill earlier sessions. You can move your starting point or begin a new run later.',
+          'In Year One Strength, choose 3, 4, or 5 training days and start at any microcycle (program week). Equipment busy? Use Switch workout to train another day in the same cycle. Each day keeps its progress. Import past workouts to fill earlier sessions, or change your starting point later.',
     ),
     AppTourStep(
       targetKey: _programsOverviewKey,
@@ -713,7 +714,7 @@ class _TrainingChoice extends StatelessWidget {
   );
 }
 
-class _StrengthHomeCard extends StatelessWidget {
+class _StrengthHomeCard extends StatefulWidget {
   const _StrengthHomeCard({
     required this.store,
     required this.week,
@@ -723,6 +724,33 @@ class _StrengthHomeCard extends StatelessWidget {
   final AppStore store;
   final ProgramWeek week;
   final WorkoutPlan workout;
+
+  @override
+  State<_StrengthHomeCard> createState() => _StrengthHomeCardState();
+}
+
+class _StrengthHomeCardState extends State<_StrengthHomeCard> {
+  bool _switching = false;
+  AppStore get store => widget.store;
+  ProgramWeek get week => widget.week;
+  WorkoutPlan get workout => widget.workout;
+
+  Future<void> _switchWorkout() async {
+    if (_switching) return;
+    setState(() => _switching = true);
+    try {
+      final selected = await showStrengthWorkoutPicker(context, store);
+      if (selected == null || !mounted) return;
+      await store.selectStrengthWorkout(selected);
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t switch workouts. Try again.')),
+      );
+    } finally {
+      if (mounted) setState(() => _switching = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -790,23 +818,36 @@ class _StrengthHomeCard extends StatelessWidget {
           GradientAction(
             label: resuming ? 'Resume workout' : 'Start workout',
             icon: resuming ? Icons.play_arrow_rounded : Icons.bolt_rounded,
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => WorkoutScreen(
-                  store: store,
-                  week: week,
-                  workout: workout,
-                  workoutIndex: store.workoutIndex,
-                  scheduledDate: store.dateForSlot(
-                    week.number,
-                    store.workoutIndex,
+            onPressed: _switching
+                ? null
+                : () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => WorkoutScreen(
+                        store: store,
+                        week: week,
+                        workout: workout,
+                        workoutIndex: store.workoutIndex,
+                        scheduledDate: store.dateForSlot(
+                          week.number,
+                          store.workoutIndex,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
           ),
           const SizedBox(height: 10),
+          TextButton.icon(
+            key: const ValueKey('home-switch-strength-workout'),
+            icon: const Icon(Icons.swap_horiz_rounded),
+            label: const Text('Switch workout'),
+            onPressed: _switching ? null : _switchWorkout,
+          ),
+          Text(
+            '${store.strengthCompletedWorkouts(week.number)} of ${week.workouts.length} days completed this cycle',
+            style: const TextStyle(color: BrandColors.muted, fontSize: 12),
+          ),
+          const SizedBox(height: 8),
           Theme(
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
             child: ExpansionTile(
@@ -1292,6 +1333,10 @@ class _WorkoutScreenState extends State<WorkoutScreen>
   bool logging = false;
   bool draftSaving = false;
   bool draftFailed = false;
+  bool switching = false;
+  bool _leavingForWorkoutSwitch = false;
+  late final int _sessionDays;
+  late final int _sessionRun;
   Future<void> _draftWrites = Future.value();
   late DateTime startedAt;
   DateTime? restEndsAt;
@@ -1309,6 +1354,8 @@ class _WorkoutScreenState extends State<WorkoutScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _sessionDays = widget.store.days;
+    _sessionRun = widget.store.strengthProgramRun;
     final draft = widget.store.draftFor(
       weekNumber: widget.week.number,
       targetWorkoutIndex: widget.workoutIndex,
@@ -1461,14 +1508,15 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       : value.toStringAsFixed(1);
 
   void _draftChanged() {
+    if (switching || _leavingForWorkoutSwitch) return;
     draftTimer?.cancel();
     draftTimer = Timer(const Duration(milliseconds: 250), () {
       unawaited(_persistDraft());
     });
   }
 
-  Future<void> _persistDraft({bool updateUi = true}) async {
-    if (finishing) return;
+  Future<bool> _persistDraft({bool updateUi = true}) async {
+    if (finishing || _leavingForWorkoutSwitch) return false;
     final value = DraftSetInput(
       week: widget.week.number,
       workoutIndex: widget.workoutIndex,
@@ -1482,18 +1530,21 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       distance: distance.text,
       calories: calories.text,
       notes: notes.text,
-      programRun: widget.store.strengthProgramRun,
-      days: widget.store.days,
+      programRun: _sessionRun,
+      days: _sessionDays,
       retroactive: widget.retroactive,
       scheduledDate: widget.scheduledDate,
       substitutions: Map.unmodifiable(substitutions),
       startedAt: startedAt,
       restEndsAt: restEndsAt,
     );
+    var saved = false;
     if (mounted && updateUi) setState(() => draftSaving = true);
     _draftWrites = _draftWrites.then((_) async {
+      if (_leavingForWorkoutSwitch || finishing) return;
       try {
         await widget.store.setDraft(value);
+        saved = true;
         if (mounted)
           setState(() {
             draftSaving = false;
@@ -1508,10 +1559,74 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       }
     });
     await _draftWrites;
+    return saved;
+  }
+
+  bool get _canSwitchWorkout =>
+      !widget.retroactive &&
+      widget.store.week == widget.week.number &&
+      widget.store.days == _sessionDays &&
+      widget.store.strengthProgramRun == _sessionRun;
+
+  Future<void> _switchWorkout() async {
+    if (switching || finishing || logging || !_canSwitchWorkout) return;
+    setState(() => switching = true);
+    FocusScope.of(context).unfocus();
+    try {
+      final selected = await showStrengthWorkoutPicker(context, widget.store);
+      if (selected == null || !mounted) return;
+      draftTimer?.cancel();
+      if (!await _persistDraft()) {
+        throw StateError('The current workout draft could not be saved.');
+      }
+      if (!mounted) return;
+      // No lifecycle or dispose write from this screen may replace the new
+      // day's active draft after selection changes.
+      _leavingForWorkoutSwitch = true;
+      timer?.cancel();
+      await widget.store.selectStrengthWorkout(selected);
+      if (!mounted) return;
+      final nextWeek = ProgramEngine.week(widget.store.week, _sessionDays);
+      ScaffoldMessenger.of(context).clearSnackBars();
+      unawaited(
+        Navigator.of(context).pushReplacement<void, void>(
+          MaterialPageRoute(
+            builder: (_) => WorkoutScreen(
+              store: widget.store,
+              week: nextWeek,
+              workout: nextWeek.workouts[selected],
+              workoutIndex: selected,
+              scheduledDate: widget.store.dateForSlot(
+                nextWeek.number,
+                selected,
+              ),
+            ),
+          ),
+        ),
+      );
+    } on Object {
+      _leavingForWorkoutSwitch = false;
+      if (!mounted) return;
+      _startTimer();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Couldn’t switch workouts. Your current workout is still open. Try again.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted && !_leavingForWorkoutSwitch) {
+        setState(() => switching = false);
+      }
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // The switch saves the latest inputs itself. A second queued lifecycle
+    // write must not restore the old day's draft after the new day opens.
+    if (switching || _leavingForWorkoutSwitch) return;
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached ||
@@ -1766,7 +1881,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         builder: (dialogContext) => AlertDialog(
           title: const Text('Finish this workout?'),
           content: Text(
-            '${loggedSets == 0 ? 'This will be marked skipped' : 'This will be marked partial'}. $loggedSets of $plannedSets sets are saved. The program advances.',
+            '${loggedSets == 0 ? 'This will be marked skipped' : 'This will be marked partial'}. $loggedSets of $plannedSets sets are saved. You’ll move to the next remaining workout. To return to this session later, use Switch workout instead.',
           ),
           actions: [
             TextButton(
@@ -1798,7 +1913,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
       builder: (dialogContext) => AlertDialog(
         title: const Text('Skip this workout?'),
         content: const Text(
-          'The program advances. Any sets already logged stay in history.',
+          'This day will be marked skipped. Any saved sets stay in history. To train another day now and return to this one later, use Switch workout instead.',
         ),
         actions: [
           TextButton(
@@ -1980,7 +2095,7 @@ class _WorkoutScreenState extends State<WorkoutScreen>
         widget.workout.exercises.fold<int>(0, (sum, item) => sum + item.sets);
     final exerciseComplete = _setsForExercise(exercise) >= plan.sets;
     final target = _targetLabel(plan, type);
-    return Scaffold(
+    final screen = Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         title: Text(
@@ -2048,8 +2163,30 @@ class _WorkoutScreenState extends State<WorkoutScreen>
               store: widget.store,
               id: ContextualGuideId.strengthWorkout,
               message:
-                  'Choose any exercise above the inputs. Each set saves immediately. Use Finish to review a complete or partial session.',
+                  'Equipment busy? Switch workout keeps this session saved while you train another day in this cycle. Each set saves immediately. Use Finish only when you are done with this day.',
             ),
+            if (_canSwitchWorkout) ...[
+              Wrap(
+                spacing: 12,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    'Week ${widget.week.number} · ${widget.store.strengthCompletedWorkouts(widget.week.number)} of ${widget.week.workouts.length} days completed',
+                    style: const TextStyle(color: muted, fontSize: 12),
+                  ),
+                  OutlinedButton.icon(
+                    key: const ValueKey('session-switch-strength-workout'),
+                    onPressed: logging || finishing || switching
+                        ? null
+                        : _switchWorkout,
+                    icon: const Icon(Icons.swap_horiz_rounded),
+                    label: Text(switching ? 'Switching…' : 'Switch workout'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
             LinearProgressIndicator(
               value: progress,
               backgroundColor: Colors.white10,
@@ -2228,15 +2365,16 @@ class _WorkoutScreenState extends State<WorkoutScreen>
                   children: [
                     const Icon(Icons.timer_outlined, color: cyan),
                     const SizedBox(width: 12),
-                    Text(
-                      'Rest  ${_clock(rest)}',
-                      style: const TextStyle(
-                        color: cyan,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 18,
+                    Expanded(
+                      child: Text(
+                        'Rest  ${_clock(rest)}',
+                        style: const TextStyle(
+                          color: cyan,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
+                        ),
                       ),
                     ),
-                    const Spacer(),
                     TextButton(
                       onPressed: () {
                         setState(() {
@@ -2330,6 +2468,10 @@ class _WorkoutScreenState extends State<WorkoutScreen>
           ],
         ),
       ),
+    );
+    return PopScope(
+      canPop: !switching,
+      child: AbsorbPointer(absorbing: switching, child: screen),
     );
   }
 
@@ -2752,7 +2894,7 @@ class SettingsPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-        const Text('Progression Lab 2.7.1', style: TextStyle(color: muted)),
+        const Text('Progression Lab 2.8.0', style: TextStyle(color: muted)),
       ],
     );
   }

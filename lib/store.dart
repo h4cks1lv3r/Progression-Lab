@@ -410,7 +410,7 @@ class DraftSetInput {
 class AppStore extends ChangeNotifier {
   Map<String, dynamic> integrationState = <String, dynamic>{};
   static const _channel = MethodChannel('iron_cadence/storage');
-  static const int schemaVersion = 20;
+  static const int schemaVersion = 21;
   CuratedTrainingState curatedTraining = CuratedTrainingState();
   OpenWorkoutState openWorkout = OpenWorkoutState();
   List<BodyMeasurement> bodyMeasurements = [];
@@ -434,6 +434,9 @@ class AppStore extends ChangeNotifier {
   List<DraftSetInput> drafts = [];
   DateTime programStartDate = _dateOnly(DateTime.now());
   int strengthProgramRun = 1;
+  // A selected day is not a count of completed days. Keep the remaining
+  // schedule separate, scoped to its run, cycle, and training cadence.
+  Map<String, List<int>> _strengthPendingWorkouts = {};
 
   int athleticProgramRun = 1;
   int athleticWeek = 1;
@@ -569,6 +572,9 @@ class AppStore extends ChangeNotifier {
     strengthProgramRun = (_readInt(data['strengthProgramRun']) ?? 1)
         .clamp(1, 1000000)
         .toInt();
+    _strengthPendingWorkouts = _readStrengthPendingWorkouts(
+      data['strengthPendingWorkouts'],
+    );
     athleticProgramRun = (_readInt(data['athleticProgramRun']) ?? 1)
         .clamp(1, 1000000)
         .toInt();
@@ -759,6 +765,10 @@ class AppStore extends ChangeNotifier {
     'drafts': _draftsForSave.map((item) => item.toJson()).toList(),
     'programStartDate': programStartDate.toIso8601String(),
     'strengthProgramRun': strengthProgramRun,
+    'strengthPendingWorkouts': {
+      ..._strengthPendingWorkouts,
+      _strengthCycleKey: pendingStrengthWorkoutIndices,
+    },
     'athleticProgramRun': athleticProgramRun,
     'athleticWeek': athleticWeek,
     'athleticSessionIndex': athleticSessionIndex,
@@ -2486,6 +2496,112 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  String get _strengthCycleKey => '$strengthProgramRun:$week:$days';
+
+  /// The days still scheduled in this cycle, independent of the selected day.
+  /// Older saves began at the selected day, so earlier gaps stay unscheduled
+  /// until the user explicitly selects one. They are never marked completed.
+  List<int> get pendingStrengthWorkoutIndices {
+    final stored = _strengthPendingWorkouts[_strengthCycleKey];
+    final indices = <int>{
+      if (stored != null)
+        ...stored
+      else
+        for (
+          var index = ProgramEngine.clampWorkoutIndex(workoutIndex, days);
+          index < days;
+          index++
+        )
+          index,
+      // Repair a missing current selection without enrolling unrelated gaps.
+      ProgramEngine.clampWorkoutIndex(workoutIndex, days),
+    };
+    return List.unmodifiable(
+      indices
+          .where(
+            (index) =>
+                index >= 0 &&
+                index < days &&
+                !isStrengthWorkoutResolved(week, index),
+          )
+          .toList()
+        ..sort(),
+    );
+  }
+
+  bool isStrengthWorkoutResolved(int weekNumber, int targetWorkoutIndex) =>
+      workoutHistory.any(
+        (record) =>
+            record.programRun == strengthProgramRun &&
+            record.week == weekNumber &&
+            record.workoutIndex == targetWorkoutIndex &&
+            record.days == days,
+      );
+
+  int strengthCompletedWorkouts(int weekNumber) => workoutHistory
+      .where(
+        (record) =>
+            record.programRun == strengthProgramRun &&
+            record.days == days &&
+            record.week == weekNumber &&
+            record.workoutIndex >= 0 &&
+            record.workoutIndex < days &&
+            record.status == WorkoutStatus.completed,
+      )
+      .map((record) => record.workoutIndex)
+      .toSet()
+      .length;
+
+  void _setStrengthPending(Iterable<int> indices) {
+    _strengthPendingWorkouts = {
+      ..._strengthPendingWorkouts,
+      _strengthCycleKey: List.unmodifiable(indices.toSet().toList()..sort()),
+    };
+  }
+
+  DraftSetInput? get _selectedStrengthDraft => draftFor(
+    weekNumber: week,
+    targetWorkoutIndex: workoutIndex,
+    cadence: days,
+    retroactive: false,
+  );
+
+  /// Selects a different workout without changing cycles, dates, or history.
+  Future<void> selectStrengthWorkout(int targetWorkoutIndex) async {
+    if (targetWorkoutIndex < 0 || targetWorkoutIndex >= days) {
+      throw RangeError.range(
+        targetWorkoutIndex,
+        0,
+        days - 1,
+        'targetWorkoutIndex',
+      );
+    }
+    if (isStrengthWorkoutResolved(week, targetWorkoutIndex)) {
+      throw StateError('That workout is already finished in this cycle.');
+    }
+    final previousWorkoutIndex = workoutIndex;
+    final previousPending = _strengthPendingWorkouts;
+    final previousDraft = draft;
+    final previousDrafts = drafts;
+    final pending = {...pendingStrengthWorkoutIndices, targetWorkoutIndex};
+    // Older saves can have only the legacy draft pointer. Preserve it before
+    // the pointer moves to another day.
+    drafts = _draftsForSave;
+    _setStrengthPending(pending);
+    workoutIndex = targetWorkoutIndex;
+    draft = _selectedStrengthDraft;
+    try {
+      await save();
+    } on Object {
+      workoutIndex = previousWorkoutIndex;
+      _strengthPendingWorkouts = previousPending;
+      draft = previousDraft;
+      drafts = previousDrafts;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
   Future<void> complete(int workoutsThisWeek) async {
     assert(workoutsThisWeek > 0, 'Workout count must be positive.');
     // The store cadence is authoritative. A workout screen can remain open
@@ -2494,7 +2610,12 @@ class AppStore extends ChangeNotifier {
     final previousWeek = week;
     final previousWorkoutIndex = workoutIndex;
     final previousProgramStartDate = programStartDate;
+    final previousPending = _strengthPendingWorkouts;
+    final previousDraft = draft;
+    final previousDrafts = drafts;
+    drafts = _draftsForSave;
     _advanceWorkout();
+    draft = _selectedStrengthDraft;
     try {
       await save();
     } on Object {
@@ -2502,6 +2623,9 @@ class AppStore extends ChangeNotifier {
       week = previousWeek;
       workoutIndex = previousWorkoutIndex;
       programStartDate = previousProgramStartDate;
+      _strengthPendingWorkouts = previousPending;
+      draft = previousDraft;
+      drafts = previousDrafts;
       rethrow;
     }
     notifyListeners();
@@ -2512,8 +2636,8 @@ class AppStore extends ChangeNotifier {
     targetWorkoutIndex: workoutIndex,
     workout: workout,
     status: WorkoutStatus.completed,
-    sessionId: draft?.sessionId,
-    substitutions: draft?.substitutions ?? const {},
+    sessionId: _selectedStrengthDraft?.sessionId,
+    substitutions: _selectedStrengthDraft?.substitutions ?? const {},
   );
 
   Future<void> skipWorkout({required String workout}) => recordWorkout(
@@ -2521,8 +2645,8 @@ class AppStore extends ChangeNotifier {
     targetWorkoutIndex: workoutIndex,
     workout: workout,
     status: WorkoutStatus.skipped,
-    sessionId: draft?.sessionId,
-    substitutions: draft?.substitutions ?? const {},
+    sessionId: _selectedStrengthDraft?.sessionId,
+    substitutions: _selectedStrengthDraft?.substitutions ?? const {},
   );
 
   Future<void> recordWorkout({
@@ -2540,10 +2664,36 @@ class AppStore extends ChangeNotifier {
     if (sessionId != null &&
         workoutHistory.any((r) => r.sessionId == sessionId))
       return;
+    if (weekNumber < 1 || weekNumber > ProgramEngine.totalWeeks) {
+      throw RangeError.range(
+        weekNumber,
+        1,
+        ProgramEngine.totalWeeks,
+        'weekNumber',
+      );
+    }
+    if (targetWorkoutIndex < 0 || targetWorkoutIndex >= days) {
+      throw RangeError.range(
+        targetWorkoutIndex,
+        0,
+        days - 1,
+        'targetWorkoutIndex',
+      );
+    }
+    if (!retroactive && weekNumber != week) {
+      throw StateError(
+        'The active cycle changed. Reopen the workout to continue.',
+      );
+    }
+    if (!retroactive &&
+        isStrengthWorkoutResolved(weekNumber, targetWorkoutIndex)) {
+      throw StateError('That workout is already finished in this cycle.');
+    }
     final previousRun = strengthProgramRun;
     final previousWeek = week;
     final previousWorkoutIndex = workoutIndex;
     final previousProgramStartDate = programStartDate;
+    final previousPending = _strengthPendingWorkouts;
     final previousDraft = draft;
     final previousDrafts = List<DraftSetInput>.of(drafts);
     final record = WorkoutRecord(
@@ -2564,15 +2714,17 @@ class AppStore extends ChangeNotifier {
       elapsedSeconds: elapsedSeconds,
     );
     workoutHistory.add(record);
+    drafts = _draftsForSave;
     drafts.removeWhere(
       (item) =>
-          item.sessionId == sessionId ||
-          (item.week == weekNumber &&
-              item.workoutIndex == targetWorkoutIndex &&
-              item.days == days &&
-              item.retroactive == retroactive),
+          item.programRun == strengthProgramRun &&
+          (item.sessionId == sessionId ||
+              (item.week == weekNumber &&
+                  item.workoutIndex == targetWorkoutIndex &&
+                  item.days == days &&
+                  item.retroactive == retroactive)),
     );
-    if (!retroactive) _advanceWorkout();
+    if (!retroactive) _advanceWorkout(completedIndex: targetWorkoutIndex);
     draft = draftFor(
       weekNumber: week,
       targetWorkoutIndex: workoutIndex,
@@ -2586,6 +2738,7 @@ class AppStore extends ChangeNotifier {
       week = previousWeek;
       workoutIndex = previousWorkoutIndex;
       programStartDate = previousProgramStartDate;
+      _strengthPendingWorkouts = previousPending;
       draft = previousDraft;
       drafts = previousDrafts;
       workoutHistory.removeLast();
@@ -2612,7 +2765,8 @@ class AppStore extends ChangeNotifier {
   bool isPastSlot(int weekNumber, int targetWorkoutIndex) {
     if (weekNumber < week) return true;
     if (weekNumber > week) return false;
-    return targetWorkoutIndex < workoutIndex;
+    return targetWorkoutIndex != workoutIndex &&
+        !pendingStrengthWorkoutIndices.contains(targetWorkoutIndex);
   }
 
   List<WorkoutRecord> recordsForSlot(int weekNumber, int targetWorkoutIndex) =>
@@ -2654,11 +2808,12 @@ class AppStore extends ChangeNotifier {
     return null;
   }
 
-  void _advanceWorkout() {
-    final currentWorkoutCount = ProgramEngine.workoutCount(days);
-    workoutIndex = ProgramEngine.clampWorkoutIndex(workoutIndex, days) + 1;
-    if (workoutIndex >= currentWorkoutCount) {
-      workoutIndex = 0;
+  void _advanceWorkout({int? completedIndex}) {
+    var pending = pendingStrengthWorkoutIndices
+        .where((index) => index != (completedIndex ?? workoutIndex))
+        .toList();
+    _setStrengthPending(pending);
+    while (pending.isEmpty) {
       if (week >= ProgramEngine.totalWeeks) {
         week = 1;
         strengthProgramRun++;
@@ -2668,7 +2823,11 @@ class AppStore extends ChangeNotifier {
       } else {
         week++;
       }
+      workoutIndex = 0;
+      pending = pendingStrengthWorkoutIndices;
+      _setStrengthPending(pending);
     }
+    workoutIndex = pending.first;
   }
 
   AthleticWeek get currentAthleticWeek => AthleticProgram.week(athleticWeek);
@@ -3101,6 +3260,7 @@ class AppStore extends ChangeNotifier {
     final previousStartDate = programStartDate;
     final previousDraft = draft;
     final previousDrafts = List<DraftSetInput>.of(drafts);
+    final previousPending = _strengthPendingWorkouts;
 
     if (startNewRun) strengthProgramRun++;
     days = cadence;
@@ -3148,6 +3308,13 @@ class AppStore extends ChangeNotifier {
       }
     }
 
+    // Changing the starting point is an explicit schedule reset. Missing
+    // earlier days stay missing; imported records retain their actual status.
+    _setStrengthPending([
+      for (var index = nextWorkoutIndex; index < cadence; index++)
+        if (!isStrengthWorkoutResolved(targetWeek, index)) index,
+    ]);
+
     try {
       await save();
     } on Object {
@@ -3159,6 +3326,7 @@ class AppStore extends ChangeNotifier {
       programStartDate = previousStartDate;
       draft = previousDraft;
       drafts = previousDrafts;
+      _strengthPendingWorkouts = previousPending;
       rethrow;
     }
     notifyListeners();
@@ -3235,7 +3403,7 @@ class AppStore extends ChangeNotifier {
     }
     final safeWeek = ProgramEngine.clampWeek(week);
     final sourceDays = ProgramEngine.isSupportedDays(days) ? days : 4;
-    final destinationIndex =
+    var destinationIndex =
         nextWorkoutIndex ??
         ProgramEngine.defaultWorkoutIndexForCadenceSwitch(
           week: safeWeek,
@@ -3243,18 +3411,47 @@ class AppStore extends ChangeNotifier {
           toDays: value,
           currentWorkoutIndex: workoutIndex,
         );
+    bool resolved(int index) => workoutHistory.any(
+      (record) =>
+          record.programRun == strengthProgramRun &&
+          record.week == safeWeek &&
+          record.days == value &&
+          record.workoutIndex == index,
+    );
+    if (resolved(destinationIndex)) {
+      final available = [
+        for (var i = 0; i < value; i++)
+          if (!resolved(i)) i,
+      ];
+      if (nextWorkoutIndex != null || available.isEmpty) {
+        throw StateError('Choose an unfinished workout in this cycle.');
+      }
+      destinationIndex = available.first;
+    }
     final previousDays = days;
+    final previousWeek = week;
     final previousWorkoutIndex = workoutIndex;
+    final previousPending = _strengthPendingWorkouts;
+    final previousDraft = draft;
+    final previousDrafts = drafts;
+    _setStrengthPending(pendingStrengthWorkoutIndices);
+    drafts = _draftsForSave;
     days = value;
     // This is unchanged for valid state; clamping only repairs corrupt legacy
     // values. The week still encodes the same phase and microcycle.
     week = safeWeek;
     workoutIndex = destinationIndex;
+    _setStrengthPending({...pendingStrengthWorkoutIndices, destinationIndex});
+    draft = _selectedStrengthDraft;
     try {
       await save();
     } on Object {
       days = previousDays;
+      week = previousWeek;
       workoutIndex = previousWorkoutIndex;
+      _strengthPendingWorkouts = previousPending;
+      draft = previousDraft;
+      drafts = previousDrafts;
       rethrow;
     }
     notifyListeners();
@@ -3351,6 +3548,37 @@ class AppStore extends ChangeNotifier {
     if (value is int) return value;
     if (value is num && value.isFinite) return value.toInt();
     return null;
+  }
+
+  static Map<String, List<int>> _readStrengthPendingWorkouts(Object? raw) {
+    if (raw is! Map) return {};
+    final result = <String, List<int>>{};
+    for (final entry in raw.entries) {
+      if (entry.key is! String || entry.value is! List) continue;
+      final parts = (entry.key as String).split(':');
+      if (parts.length != 3) continue;
+      final run = int.tryParse(parts[0]);
+      final cycle = int.tryParse(parts[1]);
+      final cadence = int.tryParse(parts[2]);
+      if (run == null ||
+          run < 1 ||
+          cycle == null ||
+          cycle < 1 ||
+          cycle > ProgramEngine.totalWeeks ||
+          cadence == null ||
+          !ProgramEngine.isSupportedDays(cadence)) {
+        continue;
+      }
+      result['$run:$cycle:$cadence'] = List.unmodifiable(
+        (entry.value as List)
+            .whereType<int>()
+            .where((index) => index >= 0 && index < cadence)
+            .toSet()
+            .toList()
+          ..sort(),
+      );
+    }
+    return result;
   }
 
   static SetLog? _readLog(Object? value) {
@@ -3785,6 +4013,7 @@ class AppStore extends ChangeNotifier {
     }
     data.putIfAbsent('curatedTraining', () => <String, dynamic>{});
     data.putIfAbsent('openWorkout', () => <String, dynamic>{});
+    data.putIfAbsent('strengthPendingWorkouts', () => <String, dynamic>{});
     data['schemaVersion'] = schemaVersion;
     return data;
   }

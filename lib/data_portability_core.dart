@@ -6,7 +6,7 @@ import 'package:crypto/crypto.dart';
 
 const String progressionBackupFormat = 'progression-lab-backup';
 const int progressionBackupSchemaVersion = 1;
-const String progressionAppVersion = '2.7.1';
+const String progressionAppVersion = '2.8.0';
 const int _maxBackupFiles = 64;
 const int _maxBackupUncompressedBytes = 128 * 1024 * 1024;
 
@@ -63,6 +63,8 @@ abstract final class ProgressionBackupCodec {
         'days': state['days'],
         'week': state['week'],
         'workout': state['workout'],
+        'strengthProgramRun': state['strengthProgramRun'],
+        'strengthPendingWorkouts': state['strengthPendingWorkouts'],
         'programStartDate': state['programStartDate'],
         'draft': state['draft'],
         'drafts': _listValue(state['drafts']),
