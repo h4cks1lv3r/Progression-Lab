@@ -297,7 +297,7 @@ class _TourFactCard extends StatelessWidget {
                           '${index + 1} of $count',
                           style: const TextStyle(
                             color: BrandColors.cyan,
-                            fontSize: 9,
+                            fontSize: 12,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 1.1,
                           ),

@@ -44,7 +44,7 @@ class TodayInputsCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "TODAY'S INPUTS",
+                      'Daily check-in',
                       style: TextStyle(
                         fontWeight: FontWeight.w900,
                         letterSpacing: .8,
@@ -59,7 +59,7 @@ class TodayInputsCard extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Open daily inputs',
+                tooltip: 'Open Daily check-in',
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -113,7 +113,7 @@ class TodayInputsCard extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: () => showRecoveryCheckInSheet(context, store),
                 icon: const Icon(Icons.bedtime_rounded, size: 18),
-                label: const Text('Check in'),
+                label: const Text('Log recovery'),
               ),
             ],
           ),
@@ -170,7 +170,7 @@ class _DailyInputsScreenState extends State<DailyInputsScreen> {
                 SliverAppBar(
                   pinned: true,
                   automaticallyImplyLeading: !widget.embedded,
-                  title: const Text('Daily check-in'),
+                  title: widget.embedded ? null : const Text('Daily check-in'),
                   backgroundColor: BrandColors.ink.withValues(alpha: .94),
                   actions: [
                     IconButton(
@@ -642,8 +642,9 @@ class _SupplementList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (events.isEmpty)
+    if (events.isEmpty) {
       return const _EmptyPanel('No supplements logged for this day.');
+    }
     return Column(
       children: [
         for (final event in events) ...[
@@ -713,8 +714,9 @@ class _MealList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (events.isEmpty)
+    if (events.isEmpty) {
       return const _EmptyPanel('No meals logged for this day.');
+    }
     return Column(
       children: [
         for (final event in events) ...[
@@ -777,8 +779,9 @@ class _HydrationPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (events.isEmpty)
+    if (events.isEmpty) {
       return const _EmptyPanel('No hydration logged for this day.');
+    }
     return LabPanel(
       accent: BrandColors.cyan,
       child: Column(
@@ -918,6 +921,7 @@ Future<void> showSupplementEntrySheet(
     isScrollControlled: true,
     builder: (sheetContext) => StatefulBuilder(
       builder: (context, setState) => _EntrySheet(
+        ownedControllers: [name, brand, dose, unit, caffeine, notes],
         title: existing == null ? 'Log supplement' : 'Edit supplement',
         children: [
           TextField(
@@ -1041,15 +1045,9 @@ Future<void> showSupplementEntrySheet(
       }
     }
   } on Object {
-    if (context.mounted)
+    if (context.mounted) {
       _showInputError(context, 'The supplement could not be saved.');
-  } finally {
-    name.dispose();
-    brand.dispose();
-    dose.dispose();
-    unit.dispose();
-    caffeine.dispose();
-    notes.dispose();
+    }
   }
 }
 
@@ -1073,6 +1071,7 @@ Future<void> showSupplementPresetSheet(
     context: context,
     isScrollControlled: true,
     builder: (sheetContext) => _EntrySheet(
+      ownedControllers: [name, brand, dose, unit, caffeine],
       title: existing == null ? 'Save a supplement' : 'Edit saved supplement',
       children: [
         TextField(
@@ -1155,14 +1154,9 @@ Future<void> showSupplementPresetSheet(
   try {
     if (value != null) await store.saveSupplementPreset(value);
   } on Object {
-    if (context.mounted)
+    if (context.mounted) {
       _showInputError(context, 'The preset could not be saved.');
-  } finally {
-    name.dispose();
-    brand.dispose();
-    dose.dispose();
-    unit.dispose();
-    caffeine.dispose();
+    }
   }
 }
 
@@ -1203,6 +1197,7 @@ Future<void> showMealEntrySheet(
     isScrollControlled: true,
     builder: (sheetContext) => StatefulBuilder(
       builder: (context, setState) => _EntrySheet(
+        ownedControllers: [name, calories, protein, carbs, fat, notes],
         title: existing == null ? 'Log meal' : 'Edit meal',
         children: [
           TextField(
@@ -1325,15 +1320,9 @@ Future<void> showMealEntrySheet(
   try {
     if (value != null) await store.saveMealEvent(value);
   } on Object {
-    if (context.mounted)
+    if (context.mounted) {
       _showInputError(context, 'The meal could not be saved.');
-  } finally {
-    name.dispose();
-    calories.dispose();
-    protein.dispose();
-    carbs.dispose();
-    fat.dispose();
-    notes.dispose();
+    }
   }
 }
 
@@ -1354,6 +1343,7 @@ Future<void> showHydrationEntrySheet(
     isScrollControlled: true,
     builder: (sheetContext) => StatefulBuilder(
       builder: (context, setState) => _EntrySheet(
+        ownedControllers: [amount, notes],
         title: 'Log water',
         children: [
           TextField(
@@ -1405,11 +1395,9 @@ Future<void> showHydrationEntrySheet(
       await store.saveHydrationEvent(value);
     }
   } on Object {
-    if (context.mounted)
+    if (context.mounted) {
       _showInputError(context, 'Hydration could not be saved.');
-  } finally {
-    amount.dispose();
-    notes.dispose();
+    }
   }
 }
 
@@ -1420,127 +1408,219 @@ Future<void> showRecoveryCheckInSheet(
   DateTime? day,
 }) async {
   final current = existing ?? store.recoveryForDay(day ?? DateTime.now());
-  final sleep = TextEditingController(
-    text: current?.sleepHours == null ? '' : _number(current!.sleepHours!),
-  );
-  final notes = TextEditingController(text: current?.notes ?? '');
-  var sleepQuality = current?.sleepQuality ?? 3;
-  var stress = current?.stress ?? 3;
-  var soreness = current?.soreness ?? 3;
-  var illness = current?.illness ?? false;
   final value = await showModalBottomSheet<RecoveryCheckIn>(
     context: context,
     isScrollControlled: true,
-    builder: (sheetContext) => StatefulBuilder(
-      builder: (context, setState) => _EntrySheet(
-        title: 'Recovery check-in',
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: sleep,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(labelText: 'Sleep hours'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextButton.icon(
-                  onPressed: () => showBodyMeasurementEditor(
-                    context,
-                    store,
-                    day: current?.localDate ?? day,
-                  ),
-                  icon: const Icon(Icons.monitor_weight_outlined),
-                  label: const Text('Log body weight'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _RatingInput(
-            label: 'Sleep quality',
-            value: sleepQuality,
-            lowLabel: 'Poor',
-            highLabel: 'Great',
-            onChanged: (value) => setState(() => sleepQuality = value),
-          ),
-          _RatingInput(
-            label: 'Stress',
-            value: stress,
-            lowLabel: 'Low',
-            highLabel: 'High',
-            onChanged: (value) => setState(() => stress = value),
-          ),
-          _RatingInput(
-            label: 'Soreness',
-            value: soreness,
-            lowLabel: 'Low',
-            highLabel: 'High',
-            onChanged: (value) => setState(() => soreness = value),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: illness,
-            title: const Text('Illness or unusual symptoms today'),
-            onChanged: (value) => setState(() => illness = value),
-          ),
-          TextField(
-            controller: notes,
-            minLines: 2,
-            maxLines: 4,
-            decoration: const InputDecoration(labelText: 'Notes (optional)'),
-          ),
-        ],
-        onSave: () {
-          final sleepValue = sleep.text.trim().isEmpty
-              ? null
-              : double.tryParse(sleep.text.trim());
-          final weightValue = current?.bodyWeight;
-          if (sleepValue != null &&
-              (!sleepValue.isFinite || sleepValue < 0 || sleepValue > 24)) {
-            _showInputError(context, 'Sleep hours must be between 0 and 24.');
-            return;
-          }
-          if (weightValue != null &&
-              (!weightValue.isFinite || weightValue <= 0)) {
-            _showInputError(context, 'Bodyweight must be above zero.');
-            return;
-          }
-          final now = DateTime.now();
-          Navigator.pop(
-            sheetContext,
-            RecoveryCheckIn(
-              id: current?.id ?? createRecordId('recovery'),
-              localDate: current?.localDate ?? dateOnly(day ?? now),
-              sleepHours: sleepValue,
-              sleepQuality: sleepQuality,
-              stress: stress,
-              soreness: soreness,
-              bodyWeight: weightValue,
-              weightUnit: current?.weightUnit,
-              illness: illness,
-              notes: notes.text.trim(),
-              createdAt: current?.createdAt ?? now,
-              updatedAt: now,
-            ),
-          );
-        },
-      ),
-    ),
+    builder: (_) =>
+        _RecoveryCheckInSheet(store: store, current: current, day: day),
   );
   try {
     if (value != null) await store.saveRecoveryCheckIn(value);
   } on Object {
-    if (context.mounted)
-      _showInputError(context, 'The recovery check-in could not be saved.');
-  } finally {
+    if (context.mounted) {
+      _showInputError(context, 'Recovery could not be saved. Try again.');
+    }
+  }
+}
+
+class _RecoveryCheckInSheet extends StatefulWidget {
+  const _RecoveryCheckInSheet({required this.store, this.current, this.day});
+  final AppStore store;
+  final RecoveryCheckIn? current;
+  final DateTime? day;
+  @override
+  State<_RecoveryCheckInSheet> createState() => _RecoveryCheckInSheetState();
+}
+
+class _RecoveryCheckInSheetState extends State<_RecoveryCheckInSheet> {
+  late final TextEditingController sleep = TextEditingController(
+    text: widget.current?.sleepHours == null
+        ? ''
+        : _number(widget.current!.sleepHours!),
+  );
+  late final TextEditingController notes = TextEditingController(
+    text: widget.current?.notes ?? '',
+  );
+  late int? sleepQuality = widget.current?.sleepQuality;
+  late int? stress = widget.current?.stress;
+  late int? soreness = widget.current?.soreness;
+  late bool illness = widget.current?.illness ?? false;
+
+  @override
+  void dispose() {
+    // The route retains its child during the closing animation. Controllers
+    // belong to that child and are released only when Flutter removes it.
     sleep.dispose();
     notes.dispose();
+    super.dispose();
   }
+
+  @override
+  Widget build(BuildContext context) => _EntrySheet(
+    title: 'Log recovery',
+    children: [
+      const Text('Every field is optional. Unanswered ratings stay empty.'),
+      const SizedBox(height: 12),
+      Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: sleep,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(labelText: 'Sleep hours'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextButton.icon(
+              onPressed: () => showBodyMeasurementEditor(
+                context,
+                widget.store,
+                day: widget.current?.localDate ?? widget.day,
+              ),
+              icon: const Icon(Icons.monitor_weight_outlined),
+              label: const Text('Log body weight'),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 14),
+      _OptionalRatingInput(
+        label: 'Sleep quality',
+        value: sleepQuality,
+        lowLabel: 'Poor',
+        highLabel: 'Great',
+        onChanged: (value) => setState(() => sleepQuality = value),
+      ),
+      _OptionalRatingInput(
+        label: 'Stress',
+        value: stress,
+        lowLabel: 'Low',
+        highLabel: 'High',
+        onChanged: (value) => setState(() => stress = value),
+      ),
+      _OptionalRatingInput(
+        label: 'Soreness',
+        value: soreness,
+        lowLabel: 'Low',
+        highLabel: 'High',
+        onChanged: (value) => setState(() => soreness = value),
+      ),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        value: illness,
+        title: const Text('Illness or unusual symptoms today'),
+        onChanged: (value) => setState(() => illness = value),
+      ),
+      TextField(
+        controller: notes,
+        minLines: 2,
+        maxLines: 4,
+        decoration: const InputDecoration(labelText: 'Notes (optional)'),
+      ),
+    ],
+    onSave: () {
+      final text = sleep.text.trim();
+      final sleepValue = text.isEmpty ? null : double.tryParse(text);
+      if (text.isNotEmpty &&
+          (sleepValue == null ||
+              !sleepValue.isFinite ||
+              sleepValue < 0 ||
+              sleepValue > 24)) {
+        _showInputError(context, 'Sleep hours must be between 0 and 24.');
+        return;
+      }
+      final current = widget.current;
+      final now = DateTime.now();
+      Navigator.pop(
+        context,
+        RecoveryCheckIn(
+          id: current?.id ?? createRecordId('recovery'),
+          localDate: current?.localDate ?? dateOnly(widget.day ?? now),
+          sleepHours: sleepValue,
+          sleepQuality: sleepQuality,
+          stress: stress,
+          soreness: soreness,
+          bodyWeight: current?.bodyWeight,
+          weightUnit: current?.weightUnit,
+          illness: illness,
+          notes: notes.text.trim(),
+          createdAt: current?.createdAt ?? now,
+          updatedAt: now,
+        ),
+      );
+    },
+  );
+}
+
+class _OptionalRatingInput extends StatelessWidget {
+  const _OptionalRatingInput({
+    required this.label,
+    required this.value,
+    required this.lowLabel,
+    required this.highLabel,
+    required this.onChanged,
+  });
+  final String label, lowLabel, highLabel;
+  final int? value;
+  final ValueChanged<int?> onChanged;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 14),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+            Text(
+              value == null ? 'Unanswered' : '$value/5',
+              style: const TextStyle(color: BrandColors.muted),
+            ),
+            if (value != null)
+              IconButton(
+                tooltip: 'Clear $label rating',
+                onPressed: () => onChanged(null),
+                icon: const Icon(Icons.clear),
+              ),
+          ],
+        ),
+        Wrap(
+          spacing: 8,
+          children: [
+            for (var rating = 1; rating <= 5; rating++)
+              ChoiceChip(
+                label: Text('$rating'),
+                selected: rating == value,
+                tooltip: '$label: $rating out of 5',
+                onSelected: (_) => onChanged(rating),
+              ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Text(
+              '1 · $lowLabel',
+              style: const TextStyle(color: BrandColors.muted, fontSize: 12),
+            ),
+            const Spacer(),
+            Text(
+              '5 · $highLabel',
+              style: const TextStyle(color: BrandColors.muted, fontSize: 12),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
 }
 
 Future<void> showWorkoutResponseSheet(
@@ -1561,6 +1641,7 @@ Future<void> showWorkoutResponseSheet(
     isScrollControlled: true,
     builder: (sheetContext) => StatefulBuilder(
       builder: (context, setState) => _EntrySheet(
+        ownedControllers: [notes],
         title: 'How did that feel?',
         saveLabel: 'Save check-in',
         secondaryLabel: 'Skip',
@@ -1642,27 +1723,40 @@ Future<void> showWorkoutResponseSheet(
     if (context.mounted) {
       _showInputError(context, 'The workout check-in could not be saved.');
     }
-  } finally {
-    notes.dispose();
   }
 }
 
-class _EntrySheet extends StatelessWidget {
+class _EntrySheet extends StatefulWidget {
   const _EntrySheet({
     required this.title,
     required this.children,
     required this.onSave,
+    this.ownedControllers = const [],
     this.saveLabel = 'Save',
     this.secondaryLabel,
     this.onSecondary,
   });
 
+  final List<TextEditingController> ownedControllers;
   final String title;
   final List<Widget> children;
   final VoidCallback onSave;
   final String saveLabel;
   final String? secondaryLabel;
   final VoidCallback? onSecondary;
+
+  @override
+  State<_EntrySheet> createState() => _EntrySheetState();
+}
+
+class _EntrySheetState extends State<_EntrySheet> {
+  @override
+  void dispose() {
+    for (final controller in widget.ownedControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => SafeArea(
@@ -1692,28 +1786,28 @@ class _EntrySheet extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             Text(
-              title,
+              widget.title,
               style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 18),
-            ...children,
+            ...widget.children,
             const SizedBox(height: 20),
-            if (secondaryLabel == null)
-              GradientAction(label: saveLabel, onPressed: onSave)
+            if (widget.secondaryLabel == null)
+              GradientAction(label: widget.saveLabel, onPressed: widget.onSave)
             else
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: onSecondary,
-                      child: Text(secondaryLabel!),
+                      onPressed: widget.onSecondary,
+                      child: Text(widget.secondaryLabel!),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: FilledButton(
-                      onPressed: onSave,
-                      child: Text(saveLabel),
+                      onPressed: widget.onSave,
+                      child: Text(widget.saveLabel),
                     ),
                   ),
                 ],
@@ -1852,8 +1946,9 @@ Future<void> _quickLogPreset(
       context,
     ).showSnackBar(SnackBar(content: Text('${preset.name} logged.')));
   } on Object {
-    if (context.mounted)
+    if (context.mounted) {
       _showInputError(context, 'The supplement could not be logged.');
+    }
   }
 }
 
@@ -1869,8 +1964,9 @@ Future<void> _quickHydration(
       SnackBar(content: Text('${amount.round()} mL water logged.')),
     );
   } on Object {
-    if (context.mounted)
+    if (context.mounted) {
       _showInputError(context, 'Hydration could not be logged.');
+    }
   }
 }
 
@@ -1901,8 +1997,9 @@ Future<void> _confirmDelete(
   try {
     await onDelete();
   } on Object {
-    if (context.mounted)
+    if (context.mounted) {
       _showInputError(context, 'The entry could not be changed.');
+    }
   }
 }
 

@@ -11,11 +11,13 @@ class LoggedSetsScreen extends StatelessWidget {
     required this.store,
     required this.exercise,
     this.workout,
+    this.historyPredicate,
   });
 
   final AppStore store;
   final String exercise;
   final String? workout;
+  final SetLogPredicate? historyPredicate;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -35,7 +37,7 @@ class LoggedSetsScreen extends StatelessWidget {
         LoggedSetsEditor(
           store: store,
           predicate: (log) =>
-              log.exercise == exercise &&
+              (historyPredicate?.call(log) ?? log.exercise == exercise) &&
               (workout == null || log.workout == workout),
           emptyMessage: 'No sets logged yet.',
         ),
@@ -55,98 +57,133 @@ class LoggedWorkoutScreen extends StatelessWidget {
   final WorkoutRecord record;
 
   @override
-  Widget build(BuildContext context) {
-    final logs = store.logs.where(_matches).toList();
-    final exercises = logs.map((log) => log.exercise).toSet().toList();
-    final state = record.importedWorkoutId != null
-        ? 'Imported · ${record.status.name}'
-        : record.retroactive
-        ? 'Added later'
-        : record.status == WorkoutStatus.skipped
-        ? 'Skipped'
-        : record.status == WorkoutStatus.partial
-        ? 'Partial'
-        : 'Completed';
-    return Scaffold(
-      appBar: AppBar(title: const Text('Logged workout')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-        children: [
-          Text(
-            record.workout,
-            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            'Run ${record.programRun} • Week ${record.week} • $state • ${_date(record.scheduledDate)}',
-            style: const TextStyle(color: Colors.white60),
-          ),
-          Text(
-            'Logged ${_dateTime(record.loggedAt)}',
-            style: const TextStyle(color: Colors.white38, fontSize: 12),
-          ),
-          if (record.importedWorkoutId != null) ...[
-            const SizedBox(height: 10),
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: store,
+    builder: (context, _) {
+      final record = store.workoutHistory.firstWhere(
+        (value) => this.record.sessionId != null
+            ? value.sessionId == this.record.sessionId
+            : value.programRun == this.record.programRun &&
+                  value.week == this.record.week &&
+                  value.workoutIndex == this.record.workoutIndex &&
+                  value.days == this.record.days,
+        orElse: () => this.record,
+      );
+      final logs = store.logs.where(_matches).toList();
+      final exercises = logs.map((log) => log.exercise).toSet().toList();
+      final state = record.importedWorkoutId != null
+          ? 'Imported · ${record.status.name}'
+          : record.retroactive
+          ? 'Added later'
+          : record.status == WorkoutStatus.skipped
+          ? 'Skipped'
+          : record.status == WorkoutStatus.partial
+          ? 'Partial'
+          : 'Completed';
+      return Scaffold(
+        appBar: AppBar(title: const Text('Logged workout')),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          children: [
             Text(
-              'Trained ${_dateTime(record.date)} · Imported sets',
+              record.workout,
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'Run ${record.programRun} • Week ${record.week} • $state • Planned ${_date(record.scheduledDate)}',
               style: const TextStyle(color: Colors.white60),
             ),
-            TextButton.icon(
-              icon: const Icon(Icons.link_off),
-              label: const Text('Unlink from program'),
-              onPressed: () async {
-                try {
-                  await store.unlinkStrengthHistory(record);
-                  if (context.mounted) Navigator.pop(context);
-                } on Object {
-                  if (context.mounted)
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Could not unlink this workout. Try again.',
-                        ),
-                      ),
-                    );
-                }
-              },
+            Text(
+              'Performed ${_dateTime(record.date)} · Entered ${_dateTime(record.loggedAt)}',
+              style: const TextStyle(color: Colors.white38, fontSize: 12),
             ),
-          ],
-          if (record.substitutions.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            for (final replacement in record.substitutions.values)
+            if (record.importedWorkoutId != null) ...[
+              const SizedBox(height: 10),
               Text(
-                'Exercise swap: $replacement',
+                'Trained ${_dateTime(record.date)} · Imported sets',
                 style: const TextStyle(color: Colors.white60),
               ),
-          ],
-          const SizedBox(height: 20),
-          if (exercises.isEmpty)
-            Text(
-              record.status == WorkoutStatus.skipped
-                  ? 'Workout skipped. No sets were logged.'
-                  : 'No sets logged for this workout.',
-              style: const TextStyle(color: Colors.white54),
-            ),
-          for (final exercise in exercises) ...[
-            Text(
-              exercise,
-              style: const TextStyle(
-                fontWeight: FontWeight.w900,
-                letterSpacing: .8,
+              TextButton.icon(
+                icon: const Icon(Icons.link_off),
+                label: const Text('Unlink from program'),
+                onPressed: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text(
+                        'Unlink this workout from the program?',
+                      ),
+                      content: const Text(
+                        'This removes its link to this scheduled training day. Your imported workout and sets stay in your history.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Keep link'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Unlink workout'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed != true || !context.mounted) return;
+                  try {
+                    await store.unlinkStrengthHistory(record);
+                    if (context.mounted) Navigator.pop(context);
+                  } on Object {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Could not unlink this workout. Try again.',
+                          ),
+                        ),
+                      );
+                    }
+                  }
+                },
               ),
-            ),
-            const SizedBox(height: 8),
-            LoggedSetsEditor(
-              store: store,
-              predicate: (log) => _matches(log) && log.exercise == exercise,
-              emptyMessage: 'No sets logged.',
-            ),
+            ],
+            if (record.substitutions.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              for (final replacement in record.substitutions.values)
+                Text(
+                  'Exercise swap: $replacement',
+                  style: const TextStyle(color: Colors.white60),
+                ),
+            ],
             const SizedBox(height: 20),
+            if (exercises.isEmpty)
+              Text(
+                record.status == WorkoutStatus.skipped
+                    ? 'Workout skipped. No sets were logged.'
+                    : 'No sets logged for this workout.',
+                style: const TextStyle(color: Colors.white54),
+              ),
+            for (final exercise in exercises) ...[
+              Text(
+                exercise,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .8,
+                ),
+              ),
+              const SizedBox(height: 8),
+              LoggedSetsEditor(
+                store: store,
+                predicate: (log) => _matches(log) && log.exercise == exercise,
+                emptyMessage: 'No sets logged.',
+              ),
+              const SizedBox(height: 20),
+            ],
           ],
-        ],
-      ),
-    );
-  }
+        ),
+      );
+    },
+  );
 
   bool _matches(SetLog log) {
     if (record.sessionId != null) return log.sessionId == record.sessionId;
@@ -221,7 +258,7 @@ class _LoggedSetsEditorState extends State<LoggedSetsEditor> {
           _EditableSetCard(
             key: ValueKey(
               '${log.date.microsecondsSinceEpoch}|${log.sessionId}|'
-              '${log.exercise}|${log.workout}',
+              '${log.exercise}|${log.workout}|${log.sourceId ?? log.setOrder ?? identityHashCode(log)}|${log.exerciseIndex}',
             ),
             store: widget.store,
             log: log,
@@ -355,14 +392,76 @@ class _EditableSetCardState extends State<_EditableSetCard> {
         notes: _notes.text.trim(),
       );
       if (mounted) setState(() => _saved = true);
-    } on Object catch (error) {
+    } on ArgumentError catch (error) {
       if (mounted) {
-        setState(() {
-          _error = error
-              .toString()
-              .replaceFirst('Invalid argument(s): ', '')
-              .replaceFirst('Exception: ', '');
-        });
+        setState(() => _error = '${error.message}');
+      }
+    } on Object {
+      if (mounted) {
+        setState(
+          () => _error =
+              'Could not save this set. Your entries are still here. Try again.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete this set?'),
+        content: const Text(
+          'This removes the set from your workout and progress. You can undo after deleting.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep set'),
+          ),
+          FilledButton(
+            key: const ValueKey('saved-set-delete-confirm'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete set'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final store = widget.store;
+    final log = widget.log;
+    final originalUnit = store.unit;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _saving = true);
+    try {
+      await store.removeSet(log);
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('Set deleted'),
+          duration: const Duration(seconds: 8),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () async {
+              try {
+                await store.restoreSet(log, originalUnit: originalUnit);
+              } on Object {
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Could not restore this set. The workout may have changed.',
+                    ),
+                  ),
+                );
+              }
+            },
+          ),
+        ),
+      );
+    } on Object {
+      if (mounted) {
+        setState(() => _error = 'Could not delete this set. Try again.');
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -479,19 +578,29 @@ class _EditableSetCardState extends State<_EditableSetCard> {
           Text(_error!, style: const TextStyle(color: Colors.redAccent)),
         ],
         const SizedBox(height: 10),
-        Align(
-          alignment: Alignment.centerRight,
-          child: FilledButton.icon(
-            onPressed: _saving ? null : _save,
-            icon: Icon(_saved ? Icons.check_rounded : Icons.save_rounded),
-            label: Text(
-              _saving
-                  ? 'Saving…'
-                  : _saved
-                  ? 'Saved'
-                  : 'Save set',
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            TextButton.icon(
+              key: const ValueKey('saved-set-delete'),
+              onPressed: _saving ? null : _delete,
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('Delete set'),
             ),
-          ),
+            FilledButton.icon(
+              onPressed: _saving ? null : _save,
+              icon: Icon(_saved ? Icons.check_rounded : Icons.save_rounded),
+              label: Text(
+                _saving
+                    ? 'Saving…'
+                    : _saved
+                    ? 'Saved'
+                    : 'Save set',
+              ),
+            ),
+          ],
         ),
       ],
     ),

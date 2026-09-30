@@ -100,6 +100,143 @@ void main() {
   );
 
   test(
+    'choosing a later movement preserves every required set and its typed inputs',
+    () async {
+      final store = newStore();
+      final draft = seed(store, mixedDay);
+      await store.saveCuratedInputs(
+        programId: draft.programId,
+        sessionId: draft.sessionId,
+        stepIndex: 0,
+        inputs: {'reps': '12', 'notes': 'machine busy'},
+      );
+      await store.selectCuratedStep(
+        programId: draft.programId,
+        sessionId: draft.sessionId,
+        stepIndex: 1,
+      );
+      await store.saveCuratedInputs(
+        programId: draft.programId,
+        sessionId: draft.sessionId,
+        stepIndex: 1,
+        inputs: {'weight': '100', 'reps': '9'},
+      );
+      await store.selectCuratedStep(
+        programId: draft.programId,
+        sessionId: draft.sessionId,
+        stepIndex: 0,
+      );
+      expect(store.curatedDraftFor(draft.programId)!.inputs, {
+        'reps': '12',
+        'notes': 'machine busy',
+      });
+      final reloaded = newStore();
+      await reloaded.load();
+      await reloaded.selectCuratedStep(
+        programId: draft.programId,
+        sessionId: draft.sessionId,
+        stepIndex: 1,
+      );
+      expect(reloaded.curatedDraftFor(draft.programId)!.inputs, {
+        'weight': '100',
+        'reps': '9',
+      });
+      await reloaded.setUnit('kg');
+      expect(
+        reloaded.curatedDraftFor(draft.programId)!.inputs['weight'],
+        '45.36',
+      );
+      await reloaded.selectCuratedStep(
+        programId: draft.programId,
+        sessionId: draft.sessionId,
+        stepIndex: 0,
+      );
+      expect(reloaded.curatedDraftFor(draft.programId)!.inputs['reps'], '12');
+      await reloaded.selectCuratedStep(
+        programId: draft.programId,
+        sessionId: draft.sessionId,
+        stepIndex: 1,
+      );
+      await log(reloaded, draft);
+      for (var i = 0; i < 3; i++) {
+        await log(reloaded, draft);
+      }
+      expect(reloaded.curatedDraftFor(draft.programId)!.nextStepIndex, 0);
+      await expectLater(
+        reloaded.finishCuratedWorkout(
+          programId: draft.programId,
+          sessionId: draft.sessionId,
+        ),
+        throwsStateError,
+      );
+      await log(reloaded, draft);
+      await reloaded.finishCuratedWorkout(
+        programId: draft.programId,
+        sessionId: draft.sessionId,
+      );
+      expect(reloaded.curatedHistory.single.status, 'completed');
+      expect(reloaded.logs.map((log) => log.sourceId).toSet(), hasLength(5));
+    },
+  );
+
+  test(
+    'zero-set days can be discarded or explicitly recorded as skipped without fabricated completion',
+    () async {
+      final store = newStore();
+      final id = CuratedPrograms.all.first.id;
+      final discarded = await store.beginCuratedWorkout(id);
+      failWrites = true;
+      await expectLater(
+        store.discardCuratedWorkout(
+          programId: id,
+          sessionId: discarded.sessionId,
+        ),
+        throwsA(isA<PlatformException>()),
+      );
+      expect(store.curatedDraftFor(id), isNotNull);
+      failWrites = false;
+      await store.discardCuratedWorkout(
+        programId: id,
+        sessionId: discarded.sessionId,
+      );
+      expect(store.curatedHistory, isEmpty);
+      expect(store.curatedProgressFor(id).dayIndex, 0);
+      final skipped = await store.beginCuratedWorkout(id);
+      await store.skipCuratedWorkout(
+        programId: id,
+        sessionId: skipped.sessionId,
+      );
+      expect(store.curatedDraftFor(id), isNull);
+      expect(store.curatedHistory.single.status, 'skipped');
+      expect(store.curatedHistory.single.setCount, 0);
+      expect(store.logs, isEmpty);
+      expect((await store.beginCuratedWorkout(id)).dayIndex, 1);
+    },
+  );
+
+  test(
+    'deletion Undo restores completed history counts and never duplicates a curated target',
+    () async {
+      final store = newStore();
+      final draft = seed(store, mixedDay);
+      for (var i = 0; i < 5; i++) {
+        await log(store, draft);
+      }
+      await store.finishCuratedWorkout(
+        programId: draft.programId,
+        sessionId: draft.sessionId,
+      );
+      final removed = store.logs.first;
+      await store.removeSet(removed);
+      expect(store.curatedHistory.single.status, 'partial');
+      await Future.wait([store.restoreSet(removed), store.restoreSet(removed)]);
+      expect(store.logs, hasLength(5));
+      expect(store.curatedHistory.single.setCount, 5);
+      expect(store.curatedHistory.single.status, 'completed');
+    },
+  );
+
+  test(
     'deleting a set reopens its target without losing later sets or history counts',
     () async {
       final store = newStore();

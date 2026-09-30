@@ -8,6 +8,7 @@ import 'curated_programs.dart';
 import 'curated_training.dart';
 import 'logged_sets.dart';
 import 'store.dart';
+import 'source_links.dart';
 
 /// Five-day training adaptations with their evidence visible before starting.
 class CuratedProgramsScreen extends StatelessWidget {
@@ -364,12 +365,21 @@ class _CuratedProgramScreenState extends State<CuratedProgramScreen> {
                       ),
                       if (source.url.isNotEmpty) ...[
                         const SizedBox(height: 4),
-                        SelectableText(
-                          source.url,
-                          style: const TextStyle(
-                            color: BrandColors.cyan,
-                            fontSize: 12,
-                          ),
+                        TextButton.icon(
+                          onPressed: () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            if (!await openSourceUrl(source.url)) {
+                              messenger.showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Could not open this source. Try again.',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.open_in_new, size: 16),
+                          label: const Text('Read source'),
                         ),
                       ],
                     ],
@@ -463,7 +473,7 @@ class _DayOutline extends StatelessWidget {
                   ),
                   if (movement.group != null)
                     Text(
-                      'Alternate with: ${movement.group}',
+                      'Alternate with: ${day.movements.where((other) => other != movement && other.group == movement.group).map((other) => other.name).join(', ')}',
                       style: const TextStyle(
                         color: BrandColors.muted,
                         fontSize: 12,
@@ -568,7 +578,8 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
   }
 
   void _restoreInputs(CuratedWorkoutDraft draft) {
-    _displayedStep = '${draft.sessionId}:${draft.nextStepIndex}';
+    _displayedStep =
+        '${draft.sessionId}:${draft.nextStepIndex}:${widget.store.unit}';
     _weight.text = draft.inputs['weight'] ?? '';
     _reps.text = draft.inputs['reps'] ?? '';
     _seconds.text = draft.inputs['seconds'] ?? '';
@@ -579,7 +590,8 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
   void _storeChanged() {
     final draft = _draft;
     if (!mounted || _loading || draft == null) return;
-    if (_displayedStep != '${draft.sessionId}:${draft.nextStepIndex}') {
+    if (_displayedStep !=
+        '${draft.sessionId}:${draft.nextStepIndex}:${widget.store.unit}') {
       _form.currentState?.reset();
       _restoreInputs(draft);
       setState(() {});
@@ -798,6 +810,172 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
     }
   }
 
+  bool _isLogged(CuratedWorkoutDraft draft, int index) => widget.store.logs.any(
+    (log) =>
+        log.sessionId == draft.sessionId &&
+        log.sourceId == '${draft.sessionId}:step:$index',
+  );
+
+  Future<void> _selectStep(int index) async {
+    if (_busy) return;
+    final draft = _draft!;
+    setState(() => _busy = true);
+    try {
+      await _saveInputs();
+      await _writes;
+      await widget.store.selectCuratedStep(
+        programId: widget.programId,
+        sessionId: draft.sessionId,
+        stepIndex: index,
+      );
+    } on Object {
+      if (mounted) {
+        setState(
+          () => _error =
+              'Could not change exercise. Your entries are still here. Try again.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _chooseExercise() async {
+    final draft = _draft!;
+    final index = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Choose your next exercise'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final entry in draft.day.movements.asMap().entries)
+                Builder(
+                  builder: (context) {
+                    final remaining = [
+                      for (var i = 0; i < draft.steps.length; i++)
+                        if (draft.steps[i].movementIndex == entry.key &&
+                            !_isLogged(draft, i))
+                          i,
+                    ];
+                    return ListTile(
+                      title: Text(entry.value.name),
+                      subtitle: Text(
+                        remaining.isEmpty
+                            ? 'All sets saved'
+                            : '${remaining.length} sets remaining',
+                      ),
+                      enabled: remaining.isNotEmpty,
+                      onTap: remaining.isEmpty
+                          ? null
+                          : () => Navigator.pop(context, remaining.first),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Keep current exercise'),
+          ),
+        ],
+      ),
+    );
+    if (index != null && mounted) await _selectStep(index);
+  }
+
+  Future<void> _doLater() async {
+    final draft = _draft!;
+    final current = draft.steps[draft.nextStepIndex].movementIndex;
+    final candidates =
+        [
+          for (var offset = 1; offset < draft.steps.length; offset++)
+            (draft.nextStepIndex + offset) % draft.steps.length,
+        ].where(
+          (index) =>
+              draft.steps[index].movementIndex != current &&
+              !_isLogged(draft, index),
+        );
+    if (candidates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'This is the last remaining exercise. You can save a partial workout or discard it.',
+          ),
+        ),
+      );
+      return;
+    }
+    await _selectStep(candidates.first);
+  }
+
+  Future<void> _discard({bool skip = false}) async {
+    if (_busy) return;
+    final draft = _draft!;
+    final count = widget.store.logs
+        .where((log) => log.sessionId == draft.sessionId)
+        .length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(skip ? 'Skip this training day?' : 'Discard this workout?'),
+        content: Text(
+          skip
+              ? 'This records the day as skipped and moves to the next day. It will not count as a completed workout.'
+              : count == 0
+              ? 'This removes the unfinished workout. You can restart the same training day later.'
+              : 'This removes the unfinished workout and its $count saved sets. You can restart the same training day later.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep training'),
+          ),
+          FilledButton(
+            key: ValueKey(
+              skip ? 'curated-skip-confirm' : 'curated-discard-confirm',
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(skip ? 'Skip day' : 'Discard workout'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await _writes;
+      if (skip) {
+        await widget.store.skipCuratedWorkout(
+          programId: widget.programId,
+          sessionId: draft.sessionId,
+        );
+      } else {
+        await widget.store.discardCuratedWorkout(
+          programId: widget.programId,
+          sessionId: draft.sessionId,
+        );
+      }
+      if (!mounted) return;
+      setState(() => _canPop = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.pop(context);
+      });
+    } on Object {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error =
+              'Could not save that change. Your workout is still here. Try again.';
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) => PopScope<void>(
     canPop: _canPop,
@@ -808,6 +986,13 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
       appBar: AppBar(
         leading: BackButton(onPressed: _busy ? null : _leave),
         title: Text(_program.actor),
+        actions: [
+          TextButton(
+            key: const ValueKey('curated-discard-workout'),
+            onPressed: _busy || _draft == null ? null : () => _discard(),
+            child: const Text('Discard'),
+          ),
+        ],
       ),
       body: BrandBackdrop(
         child: AnimatedBuilder(
@@ -881,6 +1066,32 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
                   ),
                 ),
                 const SizedBox(height: 18),
+                if (!complete) ...[
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        key: const ValueKey('curated-choose-exercise'),
+                        onPressed: _busy ? null : _chooseExercise,
+                        icon: const Icon(Icons.swap_horiz),
+                        label: const Text('Choose exercise'),
+                      ),
+                      TextButton(
+                        key: const ValueKey('curated-do-later'),
+                        onPressed: _busy ? null : _doLater,
+                        child: const Text('Do this later'),
+                      ),
+                      if (loggedCount == 0)
+                        TextButton(
+                          key: const ValueKey('curated-skip-workout'),
+                          onPressed: _busy ? null : () => _discard(skip: true),
+                          child: const Text('Skip this day'),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 if (_restSeconds > 0) ...[
                   LabPanel(
                     key: const ValueKey('curated-rest'),
@@ -1031,7 +1242,7 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
                 ),
                 if (step.movement.group != null)
                   _Badge(
-                    'Round ${step.targetIndex + 1} · ${step.movement.group}',
+                    'Alternate exercises · Round ${step.targetIndex + 1}',
                     accent: BrandColors.cyan,
                   ),
                 if (metric == CuratedMetric.reps)
@@ -1213,7 +1424,11 @@ class CuratedHistoryScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        '${record.setCount}/${record.totalSteps} sets · ${record.status == 'completed' ? 'Completed' : 'Partial'}',
+                        '${record.setCount}/${record.totalSteps} sets · ${record.status == 'completed'
+                            ? 'Completed'
+                            : record.status == 'skipped'
+                            ? 'Skipped'
+                            : 'Partial'}',
                         style: const TextStyle(color: BrandColors.muted),
                       ),
                     ],

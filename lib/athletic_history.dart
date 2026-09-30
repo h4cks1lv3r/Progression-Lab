@@ -7,6 +7,7 @@ class AthleticSessionDraft {
     required this.startedAt,
     this.completedDrills = const [],
     this.notes = '',
+    this.elapsedSeconds = 0,
   });
   final String sessionId;
   final int programRun;
@@ -15,6 +16,9 @@ class AthleticSessionDraft {
   final DateTime startedAt;
   final List<int> completedDrills;
   final String notes;
+
+  /// Time spent in the active session, excluding time away from the screen.
+  final int elapsedSeconds;
   Map<String, dynamic> toJson() => {
     'sessionId': sessionId,
     'programRun': programRun,
@@ -23,6 +27,7 @@ class AthleticSessionDraft {
     'startedAt': startedAt.toIso8601String(),
     'completedDrills': completedDrills,
     'notes': notes,
+    'elapsedSeconds': elapsedSeconds,
   };
   factory AthleticSessionDraft.fromJson(Map<String, dynamic> j) =>
       AthleticSessionDraft(
@@ -36,6 +41,7 @@ class AthleticSessionDraft {
             .toSet()
             .toList(),
         notes: j['notes'] as String? ?? '',
+        elapsedSeconds: _int(j['elapsedSeconds'], fallback: 0),
       );
 }
 

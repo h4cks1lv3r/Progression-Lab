@@ -13,6 +13,7 @@ class AppNavigation extends StatelessWidget {
     required this.onOpenStrength,
     required this.onOpenFunctional,
     required this.onOpenExercises,
+    this.onOpenBody,
     this.onClose,
   });
 
@@ -23,6 +24,7 @@ class AppNavigation extends StatelessWidget {
   final VoidCallback onOpenStrength;
   final VoidCallback onOpenFunctional;
   final VoidCallback onOpenExercises;
+  final VoidCallback? onOpenBody;
   final VoidCallback? onClose;
 
   @override
@@ -65,6 +67,8 @@ class AppNavigation extends StatelessWidget {
           const _MenuHeading('Your Lab'),
           _page(4, 'Lab', Icons.science_outlined),
           _page(3, 'Progress', Icons.query_stats_rounded),
+          if (onOpenBody != null)
+            _route('Body', Icons.accessibility_new_rounded, onOpenBody!),
           _page(2, 'Daily check-in', Icons.check_circle_outline_rounded),
           const SizedBox(height: 16),
           const Divider(),

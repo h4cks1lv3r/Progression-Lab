@@ -193,6 +193,111 @@ class _OpenWorkoutSessionScreenState extends State<OpenWorkoutSessionScreen> {
     );
   });
 
+  Future<void> _discard() async {
+    final count = widget.store.logs
+        .where((log) => log.sessionId == widget.sessionId)
+        .length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Discard this workout?'),
+        content: Text(
+          count == 0
+              ? 'This removes the unfinished workout. Your saved workout history stays.'
+              : 'This removes this unfinished workout and its $count saved sets. Your other workouts stay.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep workout'),
+          ),
+          FilledButton(
+            key: const ValueKey('open-discard-confirm'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Discard workout'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _run(() async {
+      await widget.store.discardOpenWorkout(widget.sessionId);
+      if (mounted) Navigator.pop(context);
+    });
+  }
+
+  Future<void> _removeExercise() async {
+    final draft = widget.store.openWorkoutDraft;
+    if (draft == null || draft.selectedExercise == null) return;
+    final exercise = draft.selectedExercise!;
+    final sets = widget.store.logs
+        .where(
+          (log) =>
+              log.sessionId == draft.sessionId &&
+              log.exerciseIndex == draft.selectedIndex,
+        )
+        .toList();
+    final inputs = Map<String, String>.of(draft.inputs);
+    final originalUnit = widget.store.unit;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Remove ${exercise.name}?'),
+        content: Text(
+          sets.isEmpty
+              ? 'This removes the exercise and its unfinished entries from this workout.'
+              : 'This also removes its ${sets.length} saved sets from this workout and progress. You can undo after removing.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep exercise'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remove exercise'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    await _run(() async {
+      await widget.store.removeOpenWorkoutExercise(
+        sessionId: draft.sessionId,
+        exerciseIndex: draft.selectedIndex,
+      );
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('${exercise.name} removed'),
+          duration: const Duration(seconds: 8),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () async {
+              try {
+                await widget.store.restoreOpenWorkoutExercise(
+                  sessionId: draft.sessionId,
+                  exercise: exercise,
+                  inputs: inputs,
+                  sets: sets,
+                  originalUnit: originalUnit,
+                );
+              } on Object {
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Could not restore this exercise. The workout may have changed.',
+                    ),
+                  ),
+                );
+              }
+            },
+          ),
+        ),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: widget.store,
@@ -208,7 +313,16 @@ class _OpenWorkoutSessionScreenState extends State<OpenWorkoutSessionScreen> {
           .where((value) => value.sessionId == draft.sessionId)
           .length;
       return Scaffold(
-        appBar: AppBar(title: const Text('Open Workout')),
+        appBar: AppBar(
+          title: const Text('Open Workout'),
+          actions: [
+            TextButton(
+              key: const ValueKey('open-discard-workout'),
+              onPressed: _busy ? null : _discard,
+              child: const Text('Discard'),
+            ),
+          ],
+        ),
         body: SafeArea(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -250,6 +364,12 @@ class _OpenWorkoutSessionScreenState extends State<OpenWorkoutSessionScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
+                TextButton.icon(
+                  key: const ValueKey('open-remove-exercise'),
+                  onPressed: _busy ? null : _removeExercise,
+                  icon: const Icon(Icons.remove_circle_outline),
+                  label: const Text('Remove selected exercise'),
+                ),
                 _OpenSetEntry(
                   key: ValueKey(
                     '${draft.sessionId}:${draft.selectedIndex}:${widget.store.unit}',
@@ -298,11 +418,26 @@ class _OpenWorkoutSessionScreenState extends State<OpenWorkoutSessionScreen> {
           ),
         ),
         bottomNavigationBar: LabSafeBottomAction(
-          child: FilledButton.icon(
-            key: const ValueKey('open-finish-workout'),
-            onPressed: _busy || count == 0 ? null : _finish,
-            icon: const Icon(Icons.check_rounded),
-            label: const Text('Finish workout'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (count == 0)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'Log at least one set to finish, or discard this workout.',
+                  ),
+                ),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  key: const ValueKey('open-finish-workout'),
+                  onPressed: _busy || count == 0 ? null : _finish,
+                  icon: const Icon(Icons.check_rounded),
+                  label: const Text('Finish workout'),
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -463,13 +598,42 @@ class _OpenExercisePicker extends StatefulWidget {
 
 class _OpenExercisePickerState extends State<_OpenExercisePicker> {
   String _query = '';
+  String _filter = 'All';
   @override
   Widget build(BuildContext context) {
-    final results = ExerciseLibrary.search(
-      custom: widget.store.customExercises,
-      favoriteBuiltInIds: widget.store.favoriteBuiltInExerciseIds,
-      query: _query,
-    );
+    final recentIds = widget.store.recentExercises
+        .map((exercise) => exercise.id)
+        .toSet();
+    final results =
+        ExerciseLibrary.search(
+              custom: widget.store.customExercises,
+              favoriteBuiltInIds: widget.store.favoriteBuiltInExerciseIds,
+              query: _query,
+            )
+            .where(
+              (exercise) =>
+                  _filter == 'All' ||
+                  (_filter == 'Favorites' && exercise.isFavorite) ||
+                  (_filter == 'Recent' && recentIds.contains(exercise.id)),
+            )
+            .toList();
+    if (_filter == 'All' && _query.trim().isEmpty) {
+      results.sort((a, b) {
+        final aRank = recentIds.contains(a.id)
+            ? 0
+            : a.isFavorite
+            ? 1
+            : 2;
+        final bRank = recentIds.contains(b.id)
+            ? 0
+            : b.isFavorite
+            ? 1
+            : 2;
+        return aRank == bRank
+            ? a.name.compareTo(b.name)
+            : aRank.compareTo(bRank);
+      });
+    }
     return Scaffold(
       appBar: AppBar(title: const Text('Choose an exercise')),
       body: SafeArea(
@@ -486,13 +650,31 @@ class _OpenExercisePickerState extends State<_OpenExercisePicker> {
                 onChanged: (value) => setState(() => _query = value),
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  for (final filter in ['All', 'Recent', 'Favorites'])
+                    ChoiceChip(
+                      label: Text(filter),
+                      selected: _filter == filter,
+                      onSelected: (_) => setState(() => _filter = filter),
+                    ),
+                ],
+              ),
+            ),
             Expanded(
               child: results.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Padding(
-                        padding: EdgeInsets.all(20),
+                        padding: const EdgeInsets.all(20),
                         child: Text(
-                          'No matches. Try another exercise name or add a custom exercise in the exercise library.',
+                          _filter == 'Recent'
+                              ? 'Exercises you log will appear here. Choose All to browse your library.'
+                              : _filter == 'Favorites'
+                              ? 'Mark favorites in the exercise library, or choose All to browse.'
+                              : 'No matches. Try another exercise name or add a custom exercise in the exercise library.',
                         ),
                       ),
                     )

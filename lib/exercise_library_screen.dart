@@ -260,52 +260,73 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                 ],
               ),
               const SizedBox(height: 22),
-              const _SectionTitle('Muscle'),
-              const SizedBox(height: 8),
-              _MultiChoiceWrap<MuscleGroup>(
-                values: MuscleGroup.values
-                    .where((item) => item != MuscleGroup.other)
-                    .toList(),
-                selected: muscles,
-                label: (value) => value.label,
-                onToggle: (value) => setSheetState(() {
-                  muscles.contains(value)
-                      ? muscles.remove(value)
-                      : muscles.add(value);
-                }),
-              ),
-              SwitchListTile.adaptive(
-                contentPadding: EdgeInsets.zero,
-                value: includeSecondary,
-                onChanged: (value) =>
-                    setSheetState(() => includeSecondary = value),
-                title: const Text('Include supporting muscles'),
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: Text(
+                  'Muscle${muscles.isEmpty ? '' : ' · ${muscles.length} selected'}',
+                ),
+                initiallyExpanded: muscles.isNotEmpty,
+                children: [
+                  _MultiChoiceWrap<MuscleGroup>(
+                    values: MuscleGroup.values
+                        .where((item) => item != MuscleGroup.other)
+                        .toList(),
+                    selected: muscles,
+                    label: (value) => value.label,
+                    onToggle: (value) => setSheetState(() {
+                      muscles.contains(value)
+                          ? muscles.remove(value)
+                          : muscles.add(value);
+                    }),
+                  ),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    value: includeSecondary,
+                    onChanged: (value) =>
+                        setSheetState(() => includeSecondary = value),
+                    title: const Text('Include supporting muscles'),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
-              const _SectionTitle('Equipment'),
-              const SizedBox(height: 8),
-              _MultiChoiceWrap<ExerciseEquipment>(
-                values: ExerciseEquipment.values,
-                selected: equipment,
-                label: (value) => value.label,
-                onToggle: (value) => setSheetState(() {
-                  equipment.contains(value)
-                      ? equipment.remove(value)
-                      : equipment.add(value);
-                }),
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: Text(
+                  'Equipment${equipment.isEmpty ? '' : ' · ${equipment.length} selected'}',
+                ),
+                initiallyExpanded: equipment.isNotEmpty,
+                children: [
+                  _MultiChoiceWrap<ExerciseEquipment>(
+                    values: ExerciseEquipment.values,
+                    selected: equipment,
+                    label: (value) => value.label,
+                    onToggle: (value) => setSheetState(() {
+                      equipment.contains(value)
+                          ? equipment.remove(value)
+                          : equipment.add(value);
+                    }),
+                  ),
+                ],
               ),
               const SizedBox(height: 22),
-              const _SectionTitle('What you track'),
-              const SizedBox(height: 8),
-              _MultiChoiceWrap<ExerciseTrackingType>(
-                values: ExerciseTrackingType.values,
-                selected: tracking,
-                label: (value) => value.label,
-                onToggle: (value) => setSheetState(() {
-                  tracking.contains(value)
-                      ? tracking.remove(value)
-                      : tracking.add(value);
-                }),
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: Text(
+                  'What you track${tracking.isEmpty ? '' : ' · ${tracking.length} selected'}',
+                ),
+                initiallyExpanded: tracking.isNotEmpty,
+                children: [
+                  _MultiChoiceWrap<ExerciseTrackingType>(
+                    values: ExerciseTrackingType.values,
+                    selected: tracking,
+                    label: (value) => value.label,
+                    onToggle: (value) => setSheetState(() {
+                      tracking.contains(value)
+                          ? tracking.remove(value)
+                          : tracking.add(value);
+                    }),
+                  ),
+                ],
               ),
               const SizedBox(height: 26),
               Row(
@@ -481,8 +502,25 @@ class ExerciseDetailScreen extends StatelessWidget {
               if (current.isBuiltIn)
                 FilledButton.icon(
                   onPressed: () async {
-                    final created = await store.duplicateBuiltInExercise(
-                      current.id,
+                    var name = '${current.name} — Custom';
+                    var index = 2;
+                    while (store.exerciseDescriptor(name: name) != null) {
+                      name = '${current.name} — Custom ${index++}';
+                    }
+                    final source = ExerciseLibrary.builtInById(current.id)!;
+                    final created = CustomExercise(
+                      id: 'custom-${DateTime.now().microsecondsSinceEpoch}',
+                      name: name,
+                      aliases: source.aliases,
+                      primaryMuscle: source.primaryMuscle,
+                      secondaryMuscles: source.secondaryMuscles,
+                      equipment: source.equipment,
+                      movementPattern: source.movementPattern,
+                      trackingType: source.trackingType,
+                      unilateralMode: source.unilateralMode,
+                      isPrimaryCompound: source.isPrimaryCompound,
+                      warmupEligible: source.warmupEligible,
+                      notes: source.notes,
                     );
                     if (!context.mounted) return;
                     await Navigator.of(context).pushReplacement(
@@ -490,6 +528,7 @@ class ExerciseDetailScreen extends StatelessWidget {
                         builder: (_) => ExerciseEditorScreen(
                           store: store,
                           exercise: created,
+                          isNew: true,
                         ),
                       ),
                     );
@@ -523,6 +562,30 @@ class ExerciseDetailScreen extends StatelessWidget {
                         .where((item) => item.id == current.id)
                         .firstOrNull;
                     if (custom == null) return;
+                    if (!custom.isArchived) {
+                      final approved = await showDialog<bool>(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          title: const Text('Archive this exercise?'),
+                          content: const Text(
+                            'It will leave normal exercise pickers. Its saved workout history will remain.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.pop(dialogContext, false),
+                              child: const Text('Cancel'),
+                            ),
+                            FilledButton(
+                              onPressed: () =>
+                                  Navigator.pop(dialogContext, true),
+                              child: const Text('Archive exercise'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (approved != true) return;
+                    }
                     custom.isArchived
                         ? await store.restoreCustomExercise(custom.id)
                         : await store.archiveCustomExercise(custom.id);
@@ -577,10 +640,16 @@ class ExerciseDetailScreen extends StatelessWidget {
 }
 
 class ExerciseEditorScreen extends StatefulWidget {
-  const ExerciseEditorScreen({super.key, required this.store, this.exercise});
+  const ExerciseEditorScreen({
+    super.key,
+    required this.store,
+    this.exercise,
+    this.isNew = false,
+  });
 
   final AppStore store;
   final CustomExercise? exercise;
+  final bool isNew;
 
   @override
   State<ExerciseEditorScreen> createState() => _ExerciseEditorScreenState();
@@ -767,7 +836,9 @@ class _ExerciseEditorScreenState extends State<ExerciseEditorScreen> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       title: Text(
-        widget.exercise == null ? 'Create exercise' : 'Edit exercise',
+        widget.exercise == null || widget.isNew
+            ? 'Create exercise'
+            : 'Edit exercise',
       ),
       leading: IconButton(
         tooltip: 'Back',
@@ -794,7 +865,7 @@ class _ExerciseEditorScreenState extends State<ExerciseEditorScreen> {
                 _saving
                     ? 'Saving…'
                     : _step == _titles.length - 1
-                    ? (widget.exercise == null
+                    ? (widget.exercise == null || widget.isNew
                           ? 'Create exercise'
                           : 'Save exercise')
                     : 'Continue',

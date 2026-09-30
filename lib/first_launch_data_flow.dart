@@ -65,7 +65,7 @@ abstract final class FirstLaunchDataFlow {
               ? 'There is no training data on this device yet. ${verifiedBackup.name} passed its integrity check. Restore it, import another file, or start fresh.'
               : hasValidState
               ? 'Your data on this device is ready. Add past workouts from Strong, Hevy, FitNotes, Fitbod, JEFIT, or a custom export. You will review changes before anything is replaced.'
-              : 'Pick a FitNotes .fitnotes backup or a CSV, TSV, JSON, TXT, or ZIP workout export. Review the workouts before importing. We check for duplicates and back up your current data first.',
+              : 'Start fresh and choose how you want to train, or bring past workouts from another app. You can import history later from Backup & data.',
         ),
         actions: [
           if (hasValidState)
@@ -75,7 +75,7 @@ abstract final class FirstLaunchDataFlow {
               child: const Text('Not now'),
             )
           else
-            TextButton(
+            FilledButton(
               onPressed: () =>
                   Navigator.pop(dialogContext, _StartupDataChoice.fresh),
               child: const Text('Start fresh'),

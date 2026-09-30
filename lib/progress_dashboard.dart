@@ -5,6 +5,8 @@ import 'store.dart';
 import 'contextual_guides.dart';
 import 'exercise_metrics.dart';
 import 'logged_sets.dart';
+import 'open_workout_screen.dart';
+import 'data_management_screen.dart';
 
 class ProgressDashboard extends StatefulWidget {
   const ProgressDashboard({super.key, required this.store});
@@ -24,7 +26,7 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
     builder: (context, _) {
       final groups = <String, List<SetLog>>{};
       for (final log in widget.store.logs) {
-        final key = log.exerciseId ?? log.exercise.toLowerCase().trim();
+        final key = widget.store.exerciseHistoryKey(log);
         groups.putIfAbsent(key, () => []).add(log);
       }
       for (final logs in groups.values) {
@@ -46,7 +48,10 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
       final all = groups[key] ?? <SetLog>[];
       final metrics = all.isEmpty
           ? <ExerciseMetric>[]
-          : metricsFor(all.last.resolvedTrackingType);
+          : <ExerciseMetric>{
+              ...metricsFor(all.last.resolvedTrackingType),
+              for (final log in all) ...metricsFor(log.resolvedTrackingType),
+            }.toList();
       final active = metrics.contains(metric) ? metric : metrics.firstOrNull;
       final cutoff = range == 0
           ? null
@@ -56,6 +61,7 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
             (l) =>
                 (cutoff == null || !l.date.isBefore(cutoff)) &&
                 active != null &&
+                metricsFor(l.resolvedTrackingType).contains(active) &&
                 active.value(l).isFinite,
           )
           .toList();
@@ -119,6 +125,29 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
                       'No exercises logged',
                       style: TextStyle(color: BrandColors.muted),
                     ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              OpenWorkoutScreen(store: widget.store),
+                        ),
+                      ),
+                      icon: const Icon(Icons.fitness_center),
+                      label: const Text('Start a workout'),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              DataManagementScreen(store: widget.store),
+                        ),
+                      ),
+                      icon: const Icon(Icons.file_upload_outlined),
+                      label: const Text('Import history'),
+                    ),
                   ],
                 ),
               )
@@ -167,6 +196,14 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
                   child: Text(
                     'Using less assistance with the same reps counts as progress.',
                     style: TextStyle(color: BrandColors.cyan),
+                  ),
+                ),
+              if (active == ExerciseMetric.estimatedOneRepMax)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Estimated 1RM predicts the weight you could lift once from this set’s weight and reps.',
+                    style: TextStyle(color: BrandColors.muted),
                   ),
                 ),
               if (active == ExerciseMetric.volume &&
@@ -225,6 +262,14 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
                         style: const TextStyle(color: BrandColors.muted),
                       ),
                       const SizedBox(height: 16),
+                      Text(
+                        'Range: ${metricNumber(points.map(active.value).reduce(math.min))}–${metricNumber(points.map(active.value).reduce(math.max))} $unit',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: BrandColors.muted,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       Semantics(
                         label:
                             '${active.label} trend: ${points.length} sets. Values are also listed below.',
@@ -232,25 +277,19 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
                           builder: (context, c) => GestureDetector(
                             onTapDown: (d) {
                               if (points.length < 2) return;
-                              final f =
-                                  ((d.localPosition.dx - 10) /
-                                          (c.maxWidth - 20))
-                                      .clamp(0, 1);
-                              final start =
-                                  points.first.date.millisecondsSinceEpoch;
-                              final duration =
-                                  points.last.date.millisecondsSinceEpoch -
-                                  start;
+                              final layout = _TrendLayout(
+                                points,
+                                active,
+                                Size(c.maxWidth, 150),
+                              );
                               var nearest = 0;
                               var delta = double.infinity;
                               for (var i = 0; i < points.length; i++) {
-                                final dist =
-                                    (points[i].date.millisecondsSinceEpoch -
-                                            (start + duration * f))
-                                        .abs();
+                                final dist = (layout.point(i) - d.localPosition)
+                                    .distanceSquared;
                                 if (dist < delta) {
                                   nearest = i;
-                                  delta = dist.toDouble();
+                                  delta = dist;
                                 }
                               }
                               setState(() => selectedPoint = nearest);
@@ -307,6 +346,8 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
                         builder: (_) => LoggedSetsScreen(
                           store: widget.store,
                           exercise: all.last.exercise,
+                          historyPredicate: (log) =>
+                              widget.store.exerciseHistoryKey(log) == key,
                         ),
                       ),
                     ),
@@ -317,6 +358,9 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
               for (final log in points.reversed.take(12))
                 ListTile(
                   contentPadding: EdgeInsets.zero,
+                  selected: identical(log, focus),
+                  onTap: () =>
+                      setState(() => selectedPoint = points.indexOf(log)),
                   title: Text(setDescription(log, widget.store.unit)),
                   subtitle: Text('${_date(log.date)} · ${log.workout}'),
                   trailing: Text(
@@ -356,9 +400,7 @@ class _TrendPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (logs.isEmpty) return;
-    final values = logs.map(metric.value).toList();
-    final lo = values.reduce(math.min), hi = values.reduce(math.max);
-    final span = hi - lo;
+    final layout = _TrendLayout(logs, metric, size);
     final grid = Paint()
       ..color = BrandColors.line
       ..strokeWidth = 1;
@@ -366,22 +408,7 @@ class _TrendPainter extends CustomPainter {
       final y = 10 + (size.height - 20) * i / 3;
       canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
     }
-    final elapsed = logs.last.date.difference(logs.first.date).inMilliseconds;
-    Offset point(int i) => Offset(
-      logs.length == 1
-          ? size.width / 2
-          : 10 +
-                (size.width - 20) *
-                    (elapsed == 0
-                        ? i / (logs.length - 1)
-                        : logs[i].date
-                                  .difference(logs.first.date)
-                                  .inMilliseconds /
-                              elapsed),
-      span == 0
-          ? size.height / 2
-          : size.height - 10 - (size.height - 20) * (values[i] - lo) / span,
-    );
+    Offset point(int i) => layout.point(i);
     final path = Path()..moveTo(point(0).dx, point(0).dy);
     for (var i = 1; i < logs.length; i++) {
       path.lineTo(point(i).dx, point(i).dy);
@@ -404,4 +431,37 @@ class _TrendPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _TrendPainter old) => true;
+}
+
+/// Painting and pointer selection must agree, including a workout whose sets
+/// all share one timestamp. The recent-set list also selects overlapping dots.
+class _TrendLayout {
+  _TrendLayout(this.logs, ExerciseMetric metric, this.size)
+    : values = logs.map(metric.value).toList() {
+    lo = values.reduce(math.min);
+    span = values.reduce(math.max) - lo;
+    elapsed = logs.last.date.difference(logs.first.date).inMilliseconds;
+  }
+  final List<SetLog> logs;
+  final List<double> values;
+  final Size size;
+  late final double lo;
+  late final double span;
+  late final int elapsed;
+
+  Offset point(int i) => Offset(
+    logs.length == 1
+        ? size.width / 2
+        : 10 +
+              (size.width - 20) *
+                  (elapsed == 0
+                      ? i / (logs.length - 1)
+                      : logs[i].date
+                                .difference(logs.first.date)
+                                .inMilliseconds /
+                            elapsed),
+    span == 0
+        ? size.height / 2
+        : size.height - 10 - (size.height - 20) * (values[i] - lo) / span,
+  );
 }

@@ -122,8 +122,9 @@ class _LabScreenState extends State<LabScreen> {
         systemInstruction: _systemInstruction,
         prompt: prompt,
       );
-      if (result.text.isEmpty)
+      if (result.text.isEmpty) {
         throw StateError('Gemini returned an empty answer.');
+      }
       await widget.store.addLabMessage(
         LabMessage(
           id: createRecordId('lab-assistant'),
@@ -143,7 +144,10 @@ class _LabScreenState extends State<LabScreen> {
     } on PlatformException catch (error) {
       if (mounted) _snack(_friendlyAiError(error));
     } on Object catch (error) {
-      if (mounted) _snack('The Lab could not complete that analysis: $error');
+      debugPrint('Lab analysis failed: $error');
+      if (mounted) {
+        _snack('The Lab could not complete that analysis. Try again.');
+      }
     } finally {
       if (mounted) setState(() => _generating = false);
     }
@@ -193,6 +197,17 @@ class _LabScreenState extends State<LabScreen> {
                       ),
                       const SizedBox(height: 18),
                       _DataDomainPanel(store: widget.store),
+                      const SizedBox(height: 12),
+                      if (widget.store.labDataDomains.contains(
+                        LabDataDomain.workouts,
+                      ))
+                        Text(
+                          '${report.dataSummary['strengthSessions']} workouts support strength comparisons; ${report.dataSummary['workoutsWithoutComparableStrength']} lack comparable loaded sets. Strength, Open, Iconic and imported sessions are included. Comparisons match the same exercises and tracking rules.',
+                          style: const TextStyle(
+                            color: BrandColors.muted,
+                            fontSize: 12,
+                          ),
+                        ),
                       const SizedBox(height: 22),
                       BrandSectionLabel(
                         'Your training insights',
@@ -200,7 +215,7 @@ class _LabScreenState extends State<LabScreen> {
                           '${report.evidence.length} SIGNALS',
                           style: const TextStyle(
                             color: BrandColors.muted,
-                            fontSize: 9,
+                            fontSize: 12,
                             fontWeight: FontWeight.w900,
                             letterSpacing: .7,
                           ),
@@ -280,7 +295,7 @@ class _LabScreenState extends State<LabScreen> {
                         'The Lab uses calculations from your logs. Its insights cannot prove cause and effect or replace medical advice. It does not recommend supplement doses.',
                         style: TextStyle(
                           color: BrandColors.muted,
-                          fontSize: 11,
+                          fontSize: 12,
                           height: 1.45,
                         ),
                       ),
@@ -362,7 +377,15 @@ class InputsPerformanceScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 18),
-                      for (final evidence in report.evidence) ...[
+                      for (final evidence in report.evidence.where(
+                        (item) => const {
+                          'caffeine',
+                          'creatine',
+                          'meal-timing',
+                          'hydration',
+                          'sleep',
+                        }.contains(item.id),
+                      )) ...[
                         LabEvidenceCard(evidence: evidence),
                         const SizedBox(height: 10),
                       ],
@@ -397,9 +420,12 @@ class LabEvidenceCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
-                evidence.hasEnoughData
+                evidence.neutral
+                    ? Icons.show_chart_rounded
+                    : evidence.hasEnoughData
                     ? evidence.positive
                           ? Icons.trending_up_rounded
                           : Icons.trending_down_rounded
@@ -408,15 +434,21 @@ class LabEvidenceCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  evidence.title.toUpperCase(),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: .7,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      evidence.title.toUpperCase(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .7,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    _ConfidenceChip(confidence: evidence.confidence),
+                  ],
                 ),
               ),
-              _ConfidenceChip(confidence: evidence.confidence),
             ],
           ),
           const SizedBox(height: 12),
@@ -426,7 +458,7 @@ class LabEvidenceCard extends StatelessWidget {
             evidence.comparison,
             style: const TextStyle(
               color: BrandColors.cyan,
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -452,7 +484,7 @@ class LabEvidenceCard extends StatelessWidget {
               'Consider: ${evidence.confounders.join(', ')}',
               style: const TextStyle(
                 color: BrandColors.muted,
-                fontSize: 10,
+                fontSize: 12,
                 height: 1.35,
               ),
             ),
@@ -612,9 +644,15 @@ class _DataDomainPanel extends StatelessWidget {
         style: TextStyle(fontWeight: FontWeight.w900),
       ),
       subtitle: Text(
-        '${store.labDataDomains.length}/${LabDataDomain.values.length} categories included',
+        '${store.labDataDomains.length}/${LabDataDomain.values.length} categories included. Habit–performance comparisons also need Workouts.',
       ),
       children: [
+        const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: Text(
+            'Excluded categories are removed from comparisons, summary counts, and AI evidence. Experiments and weekly reviews use these choices too.',
+          ),
+        ),
         for (final domain in LabDataDomain.values)
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -655,7 +693,7 @@ class _ConfidenceChip extends StatelessWidget {
         text,
         style: const TextStyle(
           color: BrandColors.muted,
-          fontSize: 8,
+          fontSize: 12,
           fontWeight: FontWeight.w900,
           letterSpacing: .6,
         ),
@@ -745,7 +783,7 @@ Future<void> _showDataPacket(BuildContext context, LabReport report) async {
                     report.toPromptPacket(),
                     style: const TextStyle(
                       fontFamily: 'monospace',
-                      fontSize: 11,
+                      fontSize: 12,
                       height: 1.35,
                     ),
                   ),

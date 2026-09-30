@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.8.1+25 — 2026-09-30
+
+- Preserve Functional drafts per session and Strength inputs per exercise; resume exact saved scopes from Home.
+- Track active training time separately from time away, and require performed dates for past Strength workouts.
+- Add durable set deletion with Undo, Open Workout discard/removal, and flexible Iconic movement order with honest skip/partial status.
+- Unify imported exercise identities, restore appropriate tracking metrics, and select the chart point actually tapped.
+- Read current body weights in Lab/export, include comparable completed sessions across workout modes, and enforce Lab data exclusions before analysis.
+- Leave optional recovery ratings unanswered and keep entry controllers alive through sheet dismissal.
+- Offer explicit cloud restore with validated previews, verified safety copies, stale-state protection, truthful upload status, and retry.
+- Stage and serialize app-state replacement so rejected or conflicting restores preserve current settings and newly saved work.
+- Add visible plan navigation/start actions, clearer onboarding, direct Body navigation, grouped exercise filters, and safer destructive controls.
+
+
 ## 2.8.0+24 — 2026-09-25
 
 - Switch Year One Strength workout days within the current cycle from Home, the program page, or an active session. Each day keeps its saved sets and inputs so it can be resumed later.
