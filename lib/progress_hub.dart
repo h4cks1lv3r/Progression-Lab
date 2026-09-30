@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'athletic_history.dart';
 import 'athletic_program.dart';
 import 'brand.dart';
+import 'display_format.dart';
 import 'progress_dashboard.dart';
 import 'store.dart';
 import 'athletic_training.dart';
@@ -370,7 +371,7 @@ class _AthleticProgressDashboardState extends State<AthleticProgressDashboard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                active.toUpperCase(),
+                active,
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
@@ -402,7 +403,7 @@ class _AthleticProgressDashboardState extends State<AthleticProgressDashboard> {
         BrandSectionLabel(
           'Completed sessions',
           trailing: Text(
-            '${completed.length} TOTAL',
+            '${completed.length} total',
             style: const TextStyle(color: BrandColors.cyan, fontSize: 10),
           ),
         ),
@@ -600,22 +601,7 @@ class _Completion {
   final _Appearance appearance;
 }
 
-const _month = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
-
-String _date(DateTime value) => '${_month[value.month - 1]} ${value.day}';
+String _date(DateTime value) => formatAppDate(value);
 
 /// The Lab can be opened directly from the main menu or within Progress.
 class LabHub extends StatelessWidget {

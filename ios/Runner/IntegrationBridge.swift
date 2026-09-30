@@ -19,6 +19,14 @@ final class IntegrationBridgeIOS: NSObject, UIDocumentPickerDelegate, ASWebAuthe
     super.init()
   }
 
+  func prepareForLocalDataDeletion() throws {
+    guard folderResult == nil && fileResult == nil else {
+      throw NSError(domain: "ProgressionLab", code: 1, userInfo: [NSLocalizedDescriptionKey: "Close the file picker before deleting data."])
+    }
+    oauthSession?.cancel()
+    oauthSession = nil
+  }
+
   func register(messenger: FlutterBinaryMessenger, viewController: UIViewController) {
     self.viewController = viewController
 

@@ -25,6 +25,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(LabScreen), findsOneWidget);
       expect(find.text('Explain with AI'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Explain with AI').hitTestable(),
+        200,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Explain with AI').hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
 
       await tester.pageBack();

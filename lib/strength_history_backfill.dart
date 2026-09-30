@@ -36,7 +36,7 @@ class StrengthHistorySlot {
   final bool blocked;
   String get id => '$week:$workoutIndex';
   String get label =>
-      'P${ProgramEngine.phaseForWeek(week)} · MC ${ProgramEngine.microcycleForWeek(week)} · ${workout.name}';
+      'Phase ${ProgramEngine.phaseForWeek(week)} · Cycle ${ProgramEngine.microcycleForWeek(week)} · ${workout.name}';
 
   int matchedExercises(StrengthHistorySession session) => workout.exercises
       .where(

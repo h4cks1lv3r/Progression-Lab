@@ -117,4 +117,51 @@ void main() {
     await tester.pumpAndSettle();
     expect(store.dataOnboardingVersionSeen, FirstLaunchDataFlow.version);
   });
+
+  testWidgets('read failure stays private and retry keeps the saved data', (
+    tester,
+  ) async {
+    final existing = AppStore().exportState()
+      ..['dataOnboardingVersionSeen'] = 0
+      ..['unit'] = 'kg';
+    var reads = 0;
+    var writes = 0;
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(storage, (call) async {
+      if (call.method == 'read') {
+        reads++;
+        if (reads == 1) {
+          throw PlatformException(
+            code: 'read_failed',
+            message: '/private/state.json: secret device error',
+          );
+        }
+        return jsonEncode(existing);
+      }
+      if (call.method == 'write') writes++;
+      return null;
+    });
+    messenger.setMockMethodCallHandler(portability, (_) async => <Object?>[]);
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(storage, null);
+      messenger.setMockMethodCallHandler(portability, null);
+    });
+    final store = AppStore();
+    await store.load();
+    expect(store.loadFailure, isNotNull);
+    await pumpFlow(tester, store);
+    expect(find.text('Let us recover your saved data'), findsOneWidget);
+    expect(find.textContaining('could not be opened'), findsOneWidget);
+    expect(find.textContaining('/private/'), findsNothing);
+    expect(find.textContaining('secret device error'), findsNothing);
+    await tester.tap(find.text('Retry reading data'));
+    await tester.pumpAndSettle();
+    expect(store.primaryStateLoaded, isTrue);
+    expect(store.unit, 'kg');
+    expect(writes, 0);
+    expect(find.text('Your training data is ready'), findsOneWidget);
+    await tester.tap(find.text('Not now'));
+    await tester.pumpAndSettle();
+  });
 }

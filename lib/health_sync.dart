@@ -2,6 +2,23 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'external_workout_formats.dart';
+import 'user_feedback.dart';
+
+const _healthStatusFailureMessage =
+    'Health access could not be checked. Try again. If the problem continues, review health permissions in your device settings.';
+
+String _healthStatusMessage(Object? value) {
+  if (value == null || value == '') return '';
+  return switch (value) {
+    'Health Connect needs an update.' =>
+      'Health Connect needs an update. Update it, then check health access again.',
+    'Health Connect is not available on this device.' =>
+      'Health Connect is not available on this device.',
+    'Apple Health is not available on this device.' =>
+      'Apple Health is not available on this device.',
+    _ => _healthStatusFailureMessage,
+  };
+}
 
 enum HealthPlatformKind { healthConnect, appleHealth, unavailable }
 
@@ -44,7 +61,7 @@ class HealthPlatformStatus {
         HealthAuthorizationState.unknown,
       ),
       available: value['available'] == true,
-      message: value['message'] is String ? value['message']! as String : '',
+      message: _healthStatusMessage(value['message']),
     );
   }
 }
@@ -161,9 +178,13 @@ class HealthSyncService extends ChangeNotifier {
       _status = HealthPlatformStatus.fromJson(
         result ?? const <Object?, Object?>{},
       );
-      _lastError = null;
-    } on PlatformException catch (error) {
-      _lastError = error.message ?? error.code;
+      _lastError = _status.message == _healthStatusFailureMessage
+          ? _healthStatusFailureMessage
+          : null;
+    } on Object catch (error, stack) {
+      debugPrint('Health status could not load: $error');
+      debugPrintStack(stackTrace: stack);
+      _lastError = _healthStatusFailureMessage;
       _status = HealthPlatformStatus(
         platform: defaultTargetPlatform == TargetPlatform.iOS
             ? HealthPlatformKind.appleHealth
@@ -325,8 +346,13 @@ class HealthSyncService extends ChangeNotifier {
     notifyListeners();
     try {
       return await action();
-    } on PlatformException catch (error) {
-      _lastError = error.message ?? error.code;
+    } on Object catch (error, stack) {
+      debugPrint('Health operation failed: $error');
+      debugPrintStack(stackTrace: stack);
+      _lastError = userFacingError(
+        error,
+        action: UserFeedbackAction.connection,
+      );
       rethrow;
     } finally {
       _busy = false;

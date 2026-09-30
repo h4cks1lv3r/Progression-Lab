@@ -1,5 +1,13 @@
 # Progression Lab
 
+## Version 2.8.2 — clear controls and honest feedback
+
+All four workout modes use a fixed save/finish bar. Functional Training keeps its drill checklist and explains how it saves progress. Screens use consistent dates, clear names, and explained training terms. Share and backup failures show useful instructions instead of technical details.
+
+Backup & data now includes a confirmed local data reset. Private photo backup warnings appear before photos are added and when backups are reviewed. Lab and new experiment templates share caffeine and sleep rules; saved experiments retain their original criteria. Creatine shows logging adherence rather than a performance trend.
+
+See [follow-up fixes and verification](docs/ui-followup-2.8.2.md).
+
 ## Version 2.8.1 — saved work and reliable recovery
 
 Unfinished sessions are visible on Home. Drafts retain per-exercise inputs, Functional days keep separate progress, and workout duration excludes time away. Saved sets can be deleted with Undo; Open and Iconic workouts can be discarded, and Iconic movements can be trained in a different order.
@@ -56,7 +64,7 @@ Open **Progress → Body** for private progress photos, optional body measuremen
 
 Progression Lab is an original, local-first strength, bodybuilding, and athletic-training application for Android and iOS.
 
-Current version: **2.8.1+25**
+Current version: **2.8.2+26**
 
 In Year One Strength, use **Switch workout** from Home, the program page, or an active workout to choose another day in the same cycle. Saved sets and unfinished sessions stay with their original day. Each day shows its own status, and the next cycle starts after all scheduled days are finished or explicitly skipped. A partial finish stays labeled partial. Changing the order does not change your training schedule or program start date.
 

@@ -10,6 +10,10 @@ import 'package:progression_lab/logged_sets.dart';
 import 'package:progression_lab/curated_programs.dart';
 import 'package:progression_lab/curated_training_screen.dart';
 import 'package:progression_lab/store.dart';
+import 'package:progression_lab/daily_inputs_screen.dart';
+import 'package:progression_lab/athletic_program.dart';
+import 'package:progression_lab/athletic_training.dart';
+import 'package:progression_lab/program.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -143,7 +147,7 @@ void main() {
     );
     expect(
       tester
-          .widget<FilledButton>(
+          .widget<ButtonStyleButton>(
             find.byKey(const ValueKey('open-finish-workout')),
           )
           .onPressed,
@@ -210,6 +214,63 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
+    await tester.pumpWidget(app(Shell(store: store)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Open menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(Drawer),
+        matching: find.text('Daily check-in'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DailyInputsScreen), findsOneWidget);
+    expect(find.byType(SliverAppBar), findsNothing);
+    expect(find.byType(AppBar), findsOneWidget);
+    await capture('daily-inputs-412x915');
+    expect(find.text('Edit saved supplements').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+    final strengthStore = AppStore()..automaticBackupsEnabled = false;
+    final strengthWeek = ProgramEngine.week(1, 4);
+    await tester.pumpWidget(
+      app(
+        WorkoutScreen(
+          store: strengthStore,
+          week: strengthWeek,
+          workout: strengthWeek.workouts.first,
+          workoutIndex: 0,
+          scheduledDate: DateTime(2026, 9, 30),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await capture('strength-logging-412x915');
+    expect(find.text('Log set').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+    final functionalStore = AppStore()..automaticBackupsEnabled = false;
+    await tester.pumpWidget(
+      app(
+        AthleticSessionScreen(
+          store: functionalStore,
+          week: AthleticProgram.week(1),
+          sessionIndex: 0,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await capture('functional-logging-412x915');
+    expect(find.text('Finish workout').hitTestable(), findsOneWidget);
+    expect(find.textContaining('This workout uses a checklist'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+    strengthStore.dispose();
+    functionalStore.dispose();
     store.dispose();
     editorStore.dispose();
     iconicStore.dispose();

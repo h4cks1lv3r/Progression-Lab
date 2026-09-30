@@ -10,6 +10,8 @@ import 'share_options.dart';
 import 'dart:async';
 import 'store.dart';
 import 'contextual_guides.dart';
+import 'workout_logging_controls.dart';
+import 'display_format.dart';
 
 Future<void> showAthleticPositionSheet(
   BuildContext context,
@@ -627,7 +629,7 @@ class AthleticTrainingPage extends StatelessWidget {
                             BrandSectionLabel(
                               'This week',
                               trailing: Text(
-                                week.stage.toUpperCase(),
+                                week.stage,
                                 style: const TextStyle(
                                   color: BrandColors.cyan,
                                   fontSize: 12,
@@ -677,7 +679,7 @@ class AthleticTrainingPage extends StatelessWidget {
                                   Icons.science_rounded,
                                   size: 17,
                                 ),
-                                label: const Text('Add check-in'),
+                                label: const Text('Add performance test'),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -929,7 +931,8 @@ class _NextAthleticSessionPanel extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         Text(
-          session.name.toUpperCase(),
+          session.name,
+          key: const ValueKey('functional-current-session-title'),
           style: const TextStyle(
             fontSize: 27,
             height: 1.02,
@@ -1362,7 +1365,7 @@ class _QualityGrid extends StatelessWidget {
                     Icon(item.$1, color: BrandColors.cyan, size: 22),
                     const SizedBox(height: 10),
                     Text(
-                      item.$2.toUpperCase(),
+                      item.$2,
                       style: const TextStyle(
                         fontWeight: FontWeight.w900,
                         fontSize: 12,
@@ -1467,7 +1470,7 @@ class _AssessmentPanel extends StatelessWidget {
           child: TextButton.icon(
             onPressed: onOpenHistory,
             icon: const Icon(Icons.history_rounded, size: 18),
-            label: const Text('View sessions & check-ins'),
+            label: const Text('View sessions and performance tests'),
           ),
         ),
       ],
@@ -1565,7 +1568,8 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen>
   late DateTime startedAt;
   late String sessionId;
   bool saving = false;
-  bool draftSaving = false;
+  int _pendingDraftWrites = 0;
+  bool get draftSaving => _pendingDraftWrites > 0;
   bool draftFailed = false;
   Future<void> _writes = Future.value();
   int _savedElapsedSeconds = 0;
@@ -1651,23 +1655,25 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen>
       completedDrills: completedDrills.toList()..sort(),
       elapsedSeconds: _elapsedSeconds,
     );
-    if (mounted && updateUi) setState(() => draftSaving = true);
+    _pendingDraftWrites++;
+    if (mounted && updateUi) setState(() {});
     _writes = _writes.then((_) async {
       try {
         await widget.store.saveAthleticDraft(draft);
         if (mounted) {
           setState(() {
             draftFailed = false;
-            draftSaving = false;
           });
         }
       } on Object {
         if (mounted) {
           setState(() {
             draftFailed = true;
-            draftSaving = false;
           });
         }
+      } finally {
+        _pendingDraftWrites--;
+        if (mounted) setState(() {});
       }
     });
     await _writes;
@@ -1682,6 +1688,12 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen>
       appBar: AppBar(
         title: Text('${session.day} · Week ${widget.week.number}'),
       ),
+      bottomNavigationBar: WorkoutActionBar(
+        primaryKey: const ValueKey('functional-finish-workout'),
+        primaryLabel: saving ? 'Saving workout…' : 'Finish workout',
+        primaryIcon: Icons.check_circle_rounded,
+        onPrimary: saving ? null : _finish,
+      ),
       body: BrandBackdrop(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -1695,7 +1707,7 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        session.name.toUpperCase(),
+                        session.name,
                         style: const TextStyle(
                           fontSize: 24,
                           height: 1.05,
@@ -1718,48 +1730,25 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen>
               style: const TextStyle(color: BrandColors.muted, height: 1.45),
             ),
             const SizedBox(height: 16),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(value: progress, minHeight: 8),
+            WorkoutSaveProgress(
+              countLabel:
+                  '${completedDrills.length} of ${session.drills.length} drills complete',
+              progress: progress,
+              saving: draftSaving || saving,
+              failed: draftFailed,
+              onRetry: _saveDraft,
             ),
-            const SizedBox(height: 7),
-            Text(
-              '${completedDrills.length} of ${session.drills.length} drills complete',
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: BrandColors.muted,
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-                letterSpacing: .7,
-              ),
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    draftFailed
-                        ? 'Couldn’t save your progress'
-                        : draftSaving
-                        ? 'Saving your progress…'
-                        : 'Progress saved · Pick this up anytime',
-                    style: TextStyle(
-                      color: draftFailed
-                          ? BrandColors.error
-                          : BrandColors.muted,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-                if (draftFailed)
-                  TextButton(onPressed: _saveDraft, child: const Text('Retry')),
-              ],
+            const SizedBox(height: 12),
+            const Text(
+              'Mark each drill complete as you go. This workout uses a checklist, so no weighted sets are logged.',
+              style: TextStyle(color: Colors.white70),
             ),
             const SizedBox(height: 20),
             FeatureTip(
               store: widget.store,
               id: ContextualGuideId.athleticSession,
               message:
-                  'Check off each drill as you go. Your place is saved, even if you close the app.',
+                  'This workout uses a drill checklist. Mark each drill complete as you go. Drills save on this device. Finish workout records the completed, partial or skipped session.',
             ),
             for (final entry in session.drills.asMap().entries) ...[
               _ActiveDrillCard(
@@ -1781,20 +1770,6 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen>
               ),
               if (entry.key < session.drills.length - 1)
                 const SizedBox(height: 12),
-            ],
-            const SizedBox(height: 22),
-            GradientAction(
-              label: saving ? 'Saving session…' : 'Finish session',
-              icon: Icons.check_circle_rounded,
-              onPressed: saving ? null : _finish,
-            ),
-            if (completedDrills.length < session.drills.length) ...[
-              const SizedBox(height: 10),
-              const Text(
-                'Finish anytime. If you have drills left, the session saves as partial. If you haven’t completed any, it saves as skipped.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: BrandColors.muted, fontSize: 11),
-              ),
             ],
           ],
         ),
@@ -1925,21 +1900,28 @@ class _ActiveDrillCard extends StatelessWidget {
       key: PageStorageKey('athletic-drill-$index'),
       tilePadding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      leading: InkWell(
-        onTap: () => onChanged(!complete),
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: complete
-                ? BrandColors.success.withValues(alpha: .14)
-                : BrandColors.purple.withValues(alpha: .18),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            complete ? Icons.check_rounded : Icons.circle_outlined,
-            color: complete ? BrandColors.success : BrandColors.violet,
+      leading: Semantics(
+        label: complete
+            ? 'Mark ${drill.name} incomplete'
+            : 'Mark ${drill.name} complete',
+        checked: complete,
+        button: true,
+        child: InkWell(
+          onTap: () => onChanged(!complete),
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: complete
+                  ? BrandColors.success.withValues(alpha: .14)
+                  : BrandColors.purple.withValues(alpha: .18),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              complete ? Icons.check_rounded : Icons.circle_outlined,
+              color: complete ? BrandColors.success : BrandColors.violet,
+            ),
           ),
         ),
       ),
@@ -2079,7 +2061,7 @@ class _SessionFinishSheetState extends State<_SessionFinishSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Finish session · ${widget.completed}/${widget.total} drills',
+              'Finish workout · ${widget.completed}/${widget.total} drills',
               style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 5),
@@ -2090,6 +2072,11 @@ class _SessionFinishSheetState extends State<_SessionFinishSheet> {
                   ? 'This session will save as skipped.'
                   : 'This session will save as partial. Your completed drills stay in history.',
             ),
+            const SizedBox(height: 12),
+            const Text(
+              'Workout rating',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
             const Text(
               'How hard did the session feel overall?',
               style: TextStyle(color: BrandColors.muted),
@@ -2097,11 +2084,12 @@ class _SessionFinishSheetState extends State<_SessionFinishSheet> {
             const SizedBox(height: 20),
             Row(
               children: [
-                const Text(
-                  'Effort',
-                  style: TextStyle(fontWeight: FontWeight.w900),
+                const Expanded(
+                  child: Text(
+                    'Effort',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
                 ),
-                const Spacer(),
                 Text(
                   '${effort.round()} / 10',
                   style: const TextStyle(
@@ -2132,7 +2120,7 @@ class _SessionFinishSheetState extends State<_SessionFinishSheet> {
             ),
             const SizedBox(height: 18),
             GradientAction(
-              label: 'Save & continue',
+              label: 'Save workout',
               icon: Icons.arrow_forward_rounded,
               onPressed: () => Navigator.pop(
                 context,
@@ -2168,7 +2156,7 @@ class AthleticSessionPreviewScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           children: [
             Text(
-              session.name.toUpperCase(),
+              session.name,
               style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 6),
@@ -2380,7 +2368,7 @@ class _AthleticAssessmentScreenState extends State<AthleticAssessmentScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Performance check-in')),
+    appBar: AppBar(title: const Text('Performance test')),
     body: BrandBackdrop(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -2470,7 +2458,9 @@ class _AthleticAssessmentScreenState extends State<AthleticAssessmentScreen> {
           ],
           const SizedBox(height: 20),
           GradientAction(
-            label: saving ? 'Saving check-in…' : 'Save check-in',
+            label: saving
+                ? 'Saving performance test…'
+                : 'Save performance test',
             icon: Icons.save_rounded,
             onPressed: saving ? null : _save,
           ),
@@ -2531,7 +2521,7 @@ class _AthleticAssessmentScreenState extends State<AthleticAssessmentScreen> {
       if (mounted) {
         setState(() {
           saving = false;
-          error = 'Couldn’t save your check-in. Try again.';
+          error = 'Could not save your performance test. Try again.';
         });
       }
     }
@@ -2592,7 +2582,7 @@ class AthleticHistoryScreen extends StatelessWidget {
               if (assessments.isEmpty)
                 const LabPanel(
                   child: Text(
-                    'Your performance check-ins will appear here.',
+                    'Your performance tests will appear here.',
                     style: TextStyle(color: BrandColors.muted),
                   ),
                 )
@@ -2745,5 +2735,4 @@ class _HistoryAssessmentCard extends StatelessWidget {
       : '${value.toStringAsFixed(value == value.roundToDouble() ? 0 : 2)} $suffix';
 }
 
-String _formatDate(DateTime value) =>
-    '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+String _formatDate(DateTime value) => formatAppDate(value);

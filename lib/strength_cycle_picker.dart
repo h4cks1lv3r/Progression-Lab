@@ -82,7 +82,7 @@ Future<int?> showStrengthWorkoutPicker(
             ),
             const SizedBox(height: 8),
             Text(
-              'Phase ${week.phase} · Microcycle ${week.microcycle} · Week ${week.number}',
+              'Phase ${week.phase} · Cycle ${week.microcycle} · Week ${week.number}',
               style: const TextStyle(
                 color: BrandColors.cyan,
                 fontWeight: FontWeight.w700,

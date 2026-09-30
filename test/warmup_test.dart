@@ -110,6 +110,14 @@ void main() {
       );
       await tester.pump();
 
+      // The shared action bar leaves less space on the default test surface.
+      // Follow the real scrolling workflow before inspecting the lazy content.
+      await tester.scrollUntilVisible(
+        find.text('Your warm-up'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+
       expect(find.text('Your warm-up'), findsOneWidget);
       expect(find.text('95 lb × 6'), findsOneWidget);
       expect(find.text('130 lb × 4'), findsOneWidget);

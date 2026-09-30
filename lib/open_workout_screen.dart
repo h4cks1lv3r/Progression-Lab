@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
 import 'brand.dart';
+import 'display_format.dart';
 import 'exercise_library.dart';
 import 'logged_sets.dart';
 import 'open_workout.dart';
-import 'safe_layout.dart';
+import 'workout_logging_controls.dart';
 import 'store.dart';
 
 class OpenWorkoutScreen extends StatefulWidget {
@@ -94,11 +95,7 @@ class _OpenWorkoutScreenState extends State<OpenWorkoutScreen> {
               for (final record in history)
                 Card(
                   child: ListTile(
-                    title: Text(
-                      MaterialLocalizations.of(
-                        context,
-                      ).formatMediumDate(record.startedAt),
-                    ),
+                    title: Text(formatAppDate(record.startedAt)),
                     subtitle: Text(_summary(widget.store, record.sessionId)),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => Navigator.push(
@@ -135,6 +132,8 @@ class OpenWorkoutSessionScreen extends StatefulWidget {
 }
 
 class _OpenWorkoutSessionScreenState extends State<OpenWorkoutSessionScreen> {
+  final _entryKeys = <String, GlobalKey<_OpenSetEntryState>>{};
+  int _pendingInputWrites = 0;
   bool _busy = false;
   String? _error;
 
@@ -176,6 +175,45 @@ class _OpenWorkoutSessionScreenState extends State<OpenWorkoutSessionScreen> {
         exerciseId: exercise.id,
       ),
     );
+  }
+
+  Future<void> _log() async {
+    final draft = widget.store.openWorkoutDraft;
+    if (draft == null || draft.selectedExercise == null || _busy) return;
+    final key =
+        '${draft.sessionId}:${draft.selectedIndex}:${widget.store.unit}';
+    // Logging still works when the entry form has scrolled out of the lazy list.
+    final inputs = _entryKeys[key]?.currentState?.inputs ?? draft.inputs;
+    await _run(() async {
+      final type = draft.selectedExercise!.trackingType;
+      final weight = type.parseWeightInput(inputs['weight'] ?? '');
+      if (type.usesWeight && weight == null) {
+        throw ArgumentError('Enter a valid weight.');
+      }
+      await widget.store.logOpenWorkoutSet(
+        sessionId: draft.sessionId,
+        exerciseIndex: draft.selectedIndex,
+        setSequence: draft.nextSetSequence,
+        weight: weight,
+        reps: int.tryParse((inputs['reps'] ?? '').trim()),
+        seconds: int.tryParse((inputs['seconds'] ?? '').trim()),
+        meters: double.tryParse((inputs['meters'] ?? '').trim()),
+        calories: double.tryParse((inputs['calories'] ?? '').trim()),
+        notes: inputs['notes'] ?? '',
+      );
+      if (!mounted) return;
+      FocusScope.of(context).unfocus();
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Set saved'),
+          duration: Duration(seconds: 3),
+          persist: false,
+          showCloseIcon: true,
+        ),
+      );
+    });
   }
 
   Future<void> _finish() => _run(() async {
@@ -312,6 +350,10 @@ class _OpenWorkoutSessionScreenState extends State<OpenWorkoutSessionScreen> {
       final count = widget.store.logs
           .where((value) => value.sessionId == draft.sessionId)
           .length;
+      final entryKey = _entryKeys.putIfAbsent(
+        '${draft.sessionId}:${draft.selectedIndex}:${widget.store.unit}',
+        () => GlobalKey<_OpenSetEntryState>(),
+      );
       return Scaffold(
         appBar: AppBar(
           title: const Text('Open Workout'),
@@ -324,121 +366,138 @@ class _OpenWorkoutSessionScreenState extends State<OpenWorkoutSessionScreen> {
           ],
         ),
         body: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(
             children: [
-              Text(
-                _summary(widget.store, draft.sessionId),
-                style: const TextStyle(color: BrandColors.muted),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Sets save as you go. Come back anytime to keep training.',
-              ),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                key: const ValueKey('open-add-exercise'),
-                onPressed: _busy ? null : _addExercise,
-                icon: const Icon(Icons.add),
-                label: const Text('Add exercise'),
-              ),
-              if (draft.exercises.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+              if (draft.exercises.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      key: const ValueKey('open-add-exercise'),
+                      onPressed: _busy ? null : _addExercise,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Choose exercise'),
+                    ),
+                  ),
+                ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                   children: [
-                    for (final entry in draft.exercises.asMap().entries)
-                      ChoiceChip(
-                        label: Text(entry.value.name),
-                        selected: draft.selectedIndex == entry.key,
-                        onSelected: _busy
-                            ? null
-                            : (_) => _run(
-                                () => widget.store.selectOpenWorkoutExercise(
-                                  sessionId: draft.sessionId,
-                                  exerciseIndex: entry.key,
-                                ),
-                              ),
+                    WorkoutSaveProgress(
+                      countLabel:
+                          '$count sets saved · ${draft.exercises.length} exercises',
+                      saving: _busy || _pendingInputWrites > 0,
+                      failed: _error != null,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Choose an exercise, enter your result, then tap Log set.',
+                    ),
+                    const SizedBox(height: 16),
+                    if (draft.exercises.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final entry in draft.exercises.asMap().entries)
+                            ChoiceChip(
+                              label: Text(entry.value.name),
+                              selected: draft.selectedIndex == entry.key,
+                              onSelected: _busy
+                                  ? null
+                                  : (_) => _run(
+                                      () => widget.store
+                                          .selectOpenWorkoutExercise(
+                                            sessionId: draft.sessionId,
+                                            exerciseIndex: entry.key,
+                                          ),
+                                    ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      TextButton.icon(
+                        key: const ValueKey('open-remove-exercise'),
+                        onPressed: _busy ? null : _removeExercise,
+                        icon: const Icon(Icons.remove_circle_outline),
+                        label: const Text('Remove selected exercise'),
+                      ),
+                      _OpenSetEntry(
+                        key: entryKey,
+                        store: widget.store,
+                        draft: draft,
+                        disabled: _busy,
+                        onSavePending: (change) {
+                          if (mounted)
+                            setState(() => _pendingInputWrites += change);
+                        },
+                        onSaveError: () {
+                          if (mounted) {
+                            setState(
+                              () => _error =
+                                  'Your latest entry could not be saved. Keep this workout open and try logging the set again.',
+                            );
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Saved sets',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      LoggedSetsEditor(
+                        store: widget.store,
+                        predicate: (log) =>
+                            log.sessionId == draft.sessionId &&
+                            log.exerciseIndex == draft.selectedIndex,
+                        emptyMessage: 'Log your first set for this exercise.',
+                      ),
+                    ] else ...[
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Start with one exercise. You can add more whenever you like.',
+                      ),
+                    ],
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(color: BrandColors.error),
+                        ),
                       ),
                   ],
                 ),
-                const SizedBox(height: 24),
-                TextButton.icon(
-                  key: const ValueKey('open-remove-exercise'),
-                  onPressed: _busy ? null : _removeExercise,
-                  icon: const Icon(Icons.remove_circle_outline),
-                  label: const Text('Remove selected exercise'),
-                ),
-                _OpenSetEntry(
-                  key: ValueKey(
-                    '${draft.sessionId}:${draft.selectedIndex}:${widget.store.unit}',
-                  ),
-                  store: widget.store,
-                  draft: draft,
-                  disabled: _busy,
-                  onRun: _run,
-                  onSaveError: () {
-                    if (mounted) {
-                      setState(
-                        () => _error =
-                            'Your latest entry could not be saved. Keep this workout open and try logging the set again.',
-                      );
-                    }
-                  },
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Saved sets',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                LoggedSetsEditor(
-                  store: widget.store,
-                  predicate: (log) =>
-                      log.sessionId == draft.sessionId &&
-                      log.exerciseIndex == draft.selectedIndex,
-                  emptyMessage: 'Log your first set for this exercise.',
-                ),
-              ] else ...[
-                const SizedBox(height: 24),
-                const Text(
-                  'Start with one exercise. You can add more whenever you like.',
-                ),
-              ],
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: BrandColors.error),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        bottomNavigationBar: LabSafeBottomAction(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (count == 0)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    'Log at least one set to finish, or discard this workout.',
-                  ),
-                ),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  key: const ValueKey('open-finish-workout'),
-                  onPressed: _busy || count == 0 ? null : _finish,
-                  icon: const Icon(Icons.check_rounded),
-                  label: const Text('Finish workout'),
-                ),
               ),
             ],
           ),
+        ),
+        bottomNavigationBar: WorkoutActionBar(
+          primaryKey: draft.selectedExercise == null
+              ? const ValueKey('open-add-exercise')
+              : const ValueKey('open-log-set'),
+          primaryLabel: _busy
+              ? 'Saving progress…'
+              : draft.selectedExercise == null
+              ? 'Choose exercise'
+              : 'Log set',
+          primaryIcon: draft.selectedExercise == null
+              ? Icons.add_rounded
+              : Icons.add_task_rounded,
+          onPrimary: _busy
+              ? null
+              : draft.selectedExercise == null
+              ? _addExercise
+              : _log,
+          finishKey: const ValueKey('open-finish-workout'),
+          onFinish: _busy || count == 0 ? null : _finish,
+          hint: count == 0
+              ? 'Log at least one set to finish, or discard this workout.'
+              : null,
         ),
       );
     },
@@ -451,14 +510,14 @@ class _OpenSetEntry extends StatefulWidget {
     required this.store,
     required this.draft,
     required this.disabled,
-    required this.onRun,
     required this.onSaveError,
+    required this.onSavePending,
   });
   final AppStore store;
   final OpenWorkoutDraft draft;
   final bool disabled;
-  final Future<void> Function(Future<void> Function()) onRun;
   final VoidCallback onSaveError;
+  final ValueChanged<int> onSavePending;
 
   @override
   State<_OpenSetEntry> createState() => _OpenSetEntryState();
@@ -487,6 +546,9 @@ class _OpenSetEntryState extends State<_OpenSetEntry> {
 
   void _saveInputs() {
     final draft = widget.draft;
+    final onSaveError = widget.onSaveError;
+    final onSavePending = widget.onSavePending;
+    onSavePending(1);
     widget.store
         .saveOpenWorkoutInputs(
           sessionId: draft.sessionId,
@@ -496,9 +558,8 @@ class _OpenSetEntryState extends State<_OpenSetEntry> {
             for (final entry in _fields.entries) entry.key: entry.value.text,
           },
         )
-        .catchError((Object _) {
-          if (mounted) widget.onSaveError();
-        });
+        .catchError((Object _) => onSaveError())
+        .whenComplete(() => onSavePending(-1));
   }
 
   Widget _field(String key, String label, {String? hint}) => Padding(
@@ -517,37 +578,9 @@ class _OpenSetEntryState extends State<_OpenSetEntry> {
     ),
   );
 
-  Future<void> _log() => widget.onRun(() async {
-    final draft = widget.draft;
-    final type = draft.selectedExercise!.trackingType;
-    final weight = type.parseWeightInput(_fields['weight']!.text);
-    if (type.usesWeight && weight == null) {
-      throw ArgumentError('Enter a valid weight.');
-    }
-    await widget.store.logOpenWorkoutSet(
-      sessionId: draft.sessionId,
-      exerciseIndex: draft.selectedIndex,
-      setSequence: draft.nextSetSequence,
-      weight: weight,
-      reps: int.tryParse(_fields['reps']!.text.trim()),
-      seconds: int.tryParse(_fields['seconds']!.text.trim()),
-      meters: double.tryParse(_fields['meters']!.text.trim()),
-      calories: double.tryParse(_fields['calories']!.text.trim()),
-      notes: _fields['notes']!.text,
-    );
-    if (!mounted) return;
-    FocusScope.of(context).unfocus();
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.clearSnackBars();
-    messenger.showSnackBar(
-      const SnackBar(
-        content: Text('Set saved'),
-        duration: Duration(seconds: 3),
-        persist: false,
-        showCloseIcon: true,
-      ),
-    );
-  });
+  Map<String, String> get inputs => {
+    for (final field in _fields.entries) field.key: field.value.text,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -575,15 +608,6 @@ class _OpenSetEntryState extends State<_OpenSetEntry> {
         if (type.usesDistance) _field('meters', 'Distance (meters)'),
         if (type.usesCalories) _field('calories', 'Calories (kcal)'),
         _field('notes', 'Notes (optional)'),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            key: const ValueKey('open-log-set'),
-            onPressed: widget.disabled ? null : _log,
-            icon: const Icon(Icons.add_task_rounded),
-            label: const Text('Log set'),
-          ),
-        ),
       ],
     );
   }
@@ -635,7 +659,7 @@ class _OpenExercisePickerState extends State<_OpenExercisePicker> {
       });
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('Choose an exercise')),
+      appBar: AppBar(title: const Text('Choose exercise')),
       body: SafeArea(
         child: Column(
           children: [
@@ -727,9 +751,7 @@ class OpenWorkoutHistoryScreen extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             children: [
               Text(
-                MaterialLocalizations.of(
-                  context,
-                ).formatFullDate(record.startedAt),
+                formatAppDate(record.startedAt),
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 8),

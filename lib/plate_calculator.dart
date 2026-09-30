@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'brand.dart';
+import 'exercise_models.dart';
 
 /// Largest-first plate pairs for a standard bar. The unmatched load is explicit.
 List<double> platesPerSide(double target, double bar, String unit) {
@@ -21,17 +22,24 @@ Future<void> showPlateCalculator(
   BuildContext context, {
   required String unit,
   double? target,
+  ExerciseEquipment equipment = ExerciseEquipment.barbell,
 }) => showModalBottomSheet<void>(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
-  builder: (_) => _PlateCalculator(unit: unit, target: target),
+  builder: (_) =>
+      _PlateCalculator(unit: unit, target: target, equipment: equipment),
 );
 
 class _PlateCalculator extends StatefulWidget {
-  const _PlateCalculator({required this.unit, this.target});
+  const _PlateCalculator({
+    required this.unit,
+    this.target,
+    required this.equipment,
+  });
   final String unit;
   final double? target;
+  final ExerciseEquipment equipment;
   @override
   State<_PlateCalculator> createState() => _PlateCalculatorState();
 }
@@ -41,7 +49,11 @@ class _PlateCalculatorState extends State<_PlateCalculator> {
     text: widget.target?.toString() ?? '',
   );
   late final bar = TextEditingController(
-    text: widget.unit == 'kg' ? '20' : '45',
+    text: widget.equipment == ExerciseEquipment.barbell
+        ? widget.unit == 'kg'
+              ? '20'
+              : '45'
+        : '',
   );
   @override
   void dispose() {
@@ -91,6 +103,15 @@ class _PlateCalculatorState extends State<_PlateCalculator> {
               'Total load includes the bar. Add the same plates to each side.',
               style: TextStyle(color: BrandColors.muted),
             ),
+            if (widget.equipment != ExerciseEquipment.barbell) ...[
+              const SizedBox(height: 8),
+              Text(
+                widget.equipment == ExerciseEquipment.smithMachine
+                    ? 'Enter the effective starting weight shown on this Smith machine. Its bar can be counterbalanced; do not assume 45 lb or 20 kg.'
+                    : 'Enter the actual weight of this ${widget.equipment.label}. These bars vary; do not assume 45 lb or 20 kg.',
+                style: const TextStyle(color: Colors.white70),
+              ),
+            ],
             const SizedBox(height: 20),
             TextField(
               controller: target,

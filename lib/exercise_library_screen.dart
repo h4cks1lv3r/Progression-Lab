@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'display_format.dart';
+
 import 'brand.dart';
 import 'exercise_library.dart';
 import 'safe_layout.dart';
@@ -464,7 +466,7 @@ class ExerciseDetailScreen extends StatelessWidget {
                 body: history.isEmpty
                     ? 'No sets logged yet. Your history will appear here.'
                     : '${history.length} logged set${history.length == 1 ? '' : 's'} · '
-                          'Last used ${_shortDate(history.first.date)}${best == null ? '' : ' · Best ${_bestSummary(best, current.trackingType, store.unit)}'}',
+                          'Last used ${formatAppDate(history.first.date)}${best == null ? '' : ' · Best ${_bestSummary(best, current.trackingType, store.unit)}'}',
               ),
               if (substitutes.isNotEmpty) ...[
                 const SizedBox(height: 18),
@@ -617,9 +619,6 @@ class ExerciseDetailScreen extends StatelessWidget {
       );
     },
   );
-
-  static String _shortDate(DateTime value) =>
-      '${value.month}/${value.day}/${value.year}';
 
   static String _bestSummary(
     SetLog log,

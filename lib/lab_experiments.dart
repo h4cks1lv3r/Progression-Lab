@@ -1,5 +1,6 @@
 import 'store.dart';
 import 'lab_data.dart';
+import 'lab_conditions.dart';
 import 'dart:math' as math;
 
 enum LabExperimentTemplate {
@@ -66,6 +67,45 @@ class LabExperimentCondition {
   final int? windowMinutes;
   final int? rollingDays;
   final Map<String, dynamic> metadata;
+
+  /// Explain the stored rules without changing them. Old and custom experiments
+  /// keep their original thresholds and date joins when the defaults change.
+  String get description {
+    String number(double value) => value == value.roundToDouble()
+        ? value.toInt().toString()
+        : value.toString();
+    switch (kind) {
+      case 'caffeineBeforeWorkout':
+        final dose = minimum != null && maximum != null
+            ? '${number(minimum!)}–${number(maximum!)} mg'
+            : minimum != null
+            ? 'at least ${number(minimum!)} mg'
+            : maximum == 0
+            ? '0 mg'
+            : maximum != null
+            ? 'at most ${number(maximum!)} mg'
+            : 'any amount';
+        final lead = (metadata['minimumLeadMinutes'] as num?)?.toInt() ?? 0;
+        return '$label. Logged caffeine total: $dose; timing: '
+            '$lead–${windowMinutes ?? 240} minutes before workout start, '
+            'including both endpoints.';
+      case 'workoutDaySleep':
+      case 'previousNightSleep':
+        final hours = minimum != null && maximum != null
+            ? '${number(minimum!)}–${number(maximum!)} hours'
+            : minimum != null
+            ? 'at least ${number(minimum!)} hours'
+            : maximum != null
+            ? '${kind == 'workoutDaySleep' && metadata['maximumExclusive'] == true ? 'under' : 'at most'} ${number(maximum!)} hours'
+            : 'any recorded sleep duration';
+        final join = kind == 'workoutDaySleep'
+            ? 'Uses previous-night sleep from the recovery entry on the workout’s local date. Workouts without a sleep entry are excluded.'
+            : 'Uses the recovery entry for the previous UTC date (saved criteria).';
+        return '$label. Sleep duration: $hours. $join';
+      default:
+        return label;
+    }
+  }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     'id': id,
@@ -324,19 +364,27 @@ abstract final class LabExperimentTemplates {
     metric: LabExperimentMetric.estimatedStrength,
     conditionA: const LabExperimentCondition(
       id: 'caffeine-window',
-      label: '100–300 mg, 30–120 minutes before training',
+      label: LabConditionDefinitions.caffeineWithLabel,
       kind: 'caffeineBeforeWorkout',
-      minimum: 100,
-      maximum: 300,
-      windowMinutes: 120,
-      metadata: <String, dynamic>{'minimumLeadMinutes': 30},
+      minimum: LabConditionDefinitions.caffeineMinimumMg,
+      windowMinutes: LabConditionDefinitions.caffeineWindowMinutes,
+      metadata: <String, dynamic>{
+        'minimumLeadMinutes':
+            LabConditionDefinitions.caffeineMinimumLeadMinutes,
+        'definitionVersion': LabConditionDefinitions.version,
+      },
     ),
     conditionB: const LabExperimentCondition(
       id: 'no-caffeine-window',
-      label: 'No caffeine in the prior 4 hours',
+      label: LabConditionDefinitions.caffeineWithoutLabel,
       kind: 'caffeineBeforeWorkout',
       maximum: 0,
-      windowMinutes: 240,
+      windowMinutes: LabConditionDefinitions.caffeineWindowMinutes,
+      metadata: <String, dynamic>{
+        'minimumLeadMinutes':
+            LabConditionDefinitions.caffeineMinimumLeadMinutes,
+        'definitionVersion': LabConditionDefinitions.version,
+      },
     ),
     startedAt: start ?? DateTime.now().toUtc(),
     minimumSessionsPerCondition: 6,
@@ -395,7 +443,7 @@ abstract final class LabExperimentTemplates {
 
   static LabExperiment sleepTarget({
     DateTime? start,
-    double targetHours = 7.5,
+    double targetHours = LabConditionDefinitions.sleepTargetHours,
   }) => LabExperiment(
     id: _id('sleep'),
     name: 'Sleep target and workout performance',
@@ -404,14 +452,21 @@ abstract final class LabExperimentTemplates {
     conditionA: LabExperimentCondition(
       id: 'sleep-target',
       label: 'At least ${targetHours.toStringAsFixed(1)} hours of sleep',
-      kind: 'previousNightSleep',
+      kind: 'workoutDaySleep',
       minimum: targetHours,
+      metadata: const <String, dynamic>{
+        'definitionVersion': LabConditionDefinitions.version,
+      },
     ),
     conditionB: LabExperimentCondition(
       id: 'below-sleep-target',
       label: 'Less than ${targetHours.toStringAsFixed(1)} hours of sleep',
-      kind: 'previousNightSleep',
-      maximum: targetHours - 0.01,
+      kind: 'workoutDaySleep',
+      maximum: targetHours,
+      metadata: const <String, dynamic>{
+        'definitionVersion': LabConditionDefinitions.version,
+        'maximumExclusive': true,
+      },
     ),
     startedAt: start ?? DateTime.now().toUtc(),
     minimumSessionsPerCondition: 6,
@@ -739,25 +794,13 @@ abstract final class LabExperimentAnalyzer {
     double? value;
     switch (condition.kind) {
       case 'caffeineBeforeWorkout':
-        final window = Duration(minutes: condition.windowMinutes ?? 240);
-        final minimumLead = Duration(
-          minutes:
+        value = LabConditionDefinitions.caffeineBeforeWorkout(
+          state,
+          session.occurredAt,
+          windowMinutes: condition.windowMinutes ?? 240,
+          minimumLeadMinutes:
               (condition.metadata['minimumLeadMinutes'] as num?)?.toInt() ?? 0,
         );
-        final start = session.occurredAt.subtract(window);
-        final end = session.occurredAt.subtract(minimumLead);
-        value = _maps(state['supplementEvents'])
-            .where((item) {
-              final time = _date(item['takenAt']);
-              return time != null &&
-                  !time.isBefore(start) &&
-                  !time.isAfter(end);
-            })
-            .fold<double>(
-              0,
-              (total, item) =>
-                  total + ((item['caffeineMg'] as num?)?.toDouble() ?? 0),
-            );
         break;
       case 'mealBeforeWorkout':
         final window = Duration(minutes: condition.windowMinutes ?? 180);
@@ -777,7 +820,15 @@ abstract final class LabExperimentAnalyzer {
             .length
             .toDouble();
         break;
+      case 'workoutDaySleep':
+        value = LabConditionDefinitions.sleepHoursForWorkout(
+          state,
+          session.occurredAt,
+        );
+        break;
       case 'previousNightSleep':
+        // Keep saved experiments unchanged. Their description exposes this
+        // legacy UTC-date join; new templates use workoutDaySleep instead.
         final targetDate = _dateOnly(
           session.occurredAt.subtract(const Duration(days: 1)),
         );
@@ -817,9 +868,15 @@ abstract final class LabExperimentAnalyzer {
         value = null;
         break;
     }
-    if (value == null) return false;
+    if (value == null || !value.isFinite) return false;
     if (condition.minimum != null && value < condition.minimum!) return false;
-    if (condition.maximum != null && value > condition.maximum!) return false;
+    if (condition.maximum != null &&
+        (condition.kind == 'workoutDaySleep' &&
+                condition.metadata['maximumExclusive'] == true
+            ? value >= condition.maximum!
+            : value > condition.maximum!)) {
+      return false;
+    }
     return true;
   }
 
@@ -828,10 +885,10 @@ abstract final class LabExperimentAnalyzer {
     Map<String, dynamic> state,
   ) {
     final values = <String>[];
-    final recovery = _maps(state['recoveryCheckIns']).where((item) {
-      final date = _date(item['localDate']);
-      return date != null && _dateOnly(date) == _dateOnly(session.occurredAt);
-    }).firstOrNull;
+    final recovery = LabConditionDefinitions.recoveryForWorkoutDay(
+      state,
+      session.occurredAt,
+    );
     if (recovery == null) {
       values.add('Recovery data missing');
     } else {
@@ -873,12 +930,12 @@ abstract final class LabExperimentAnalyzer {
   ) {
     if (confidence == LabExperimentConfidence.insufficient || percent == null) {
       return 'More matched workouts are needed. '
-          '${experiment.conditionA.label}: $countA; '
-          '${experiment.conditionB.label}: $countB. Missing habit entries do not prove absence.';
+          '${experiment.conditionA.description}: $countA; '
+          '${experiment.conditionB.description}: $countB. Missing habit entries do not prove absence.';
     }
     final direction = percent >= 0 ? 'higher' : 'lower';
     return '${experiment.metric.label} was ${percent.abs().toStringAsFixed(1)}% '
-        '$direction under “${experiment.conditionA.label}” across $countA versus '
+        '$direction under “${experiment.conditionA.description}” across $countA versus '
         '$countB matched workouts. This is an association, not proof of cause. Missing habit entries do not prove absence.';
   }
 

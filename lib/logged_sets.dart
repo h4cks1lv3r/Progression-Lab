@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'display_format.dart';
+import 'brand.dart';
+
 import 'exercise_library.dart';
 import 'store.dart';
 
@@ -91,17 +94,17 @@ class LoggedWorkoutScreen extends StatelessWidget {
             ),
             const SizedBox(height: 5),
             Text(
-              'Run ${record.programRun} • Week ${record.week} • $state • Planned ${_date(record.scheduledDate)}',
+              'Run ${record.programRun} • Week ${record.week} • $state • Planned ${formatAppDate(record.scheduledDate)}',
               style: const TextStyle(color: Colors.white60),
             ),
             Text(
-              'Performed ${_dateTime(record.date)} · Entered ${_dateTime(record.loggedAt)}',
-              style: const TextStyle(color: Colors.white38, fontSize: 12),
+              'Performed ${formatAppDateTime(record.date)} · Entered ${formatAppDateTime(record.loggedAt)}',
+              style: const TextStyle(color: BrandColors.muted, fontSize: 12),
             ),
             if (record.importedWorkoutId != null) ...[
               const SizedBox(height: 10),
               Text(
-                'Trained ${_dateTime(record.date)} · Imported sets',
+                'Trained ${formatAppDateTime(record.date)} · Imported sets',
                 style: const TextStyle(color: Colors.white60),
               ),
               TextButton.icon(
@@ -531,7 +534,7 @@ class _EditableSetCardState extends State<_EditableSetCard> {
           children: [
             Expanded(
               child: Text(
-                '${_date(widget.log.date)}  •  ${widget.log.workout}',
+                '${formatAppDate(widget.log.date)}  •  ${widget.log.workout}',
                 style: const TextStyle(
                   color: Colors.white54,
                   fontSize: 11,
@@ -707,10 +710,3 @@ String _formatNumber(double value) => value == value.roundToDouble()
 String _formatDurationInput(int seconds) => seconds >= 60
     ? '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}'
     : '$seconds';
-
-String _date(DateTime value) =>
-    '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
-
-String _dateTime(DateTime value) =>
-    '${_date(value)} ${value.hour.toString().padLeft(2, '0')}:'
-    '${value.minute.toString().padLeft(2, '0')}';

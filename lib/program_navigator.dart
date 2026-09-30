@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'display_format.dart';
+
 import 'brand.dart';
 import 'logged_sets.dart';
 import 'program.dart';
@@ -143,7 +145,7 @@ Future<void> showCadenceSwitchSheet(
                             ),
                           ),
                           IconButton(
-                            tooltip: 'Close',
+                            tooltip: 'Close schedule choices',
                             onPressed: saving
                                 ? null
                                 : () => Navigator.of(sheetContext).pop(),
@@ -179,7 +181,7 @@ Future<void> showCadenceSwitchSheet(
                                   children: [
                                     TextSpan(
                                       text:
-                                          'Phase ${currentWeek.phase} · Microcycle ${currentWeek.microcycle} ',
+                                          'Phase ${currentWeek.phase} · Cycle ${currentWeek.microcycle} ',
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w900,
@@ -512,7 +514,7 @@ Future<void> showProgramPositionSheet(
                                 ),
                                 SizedBox(height: 4),
                                 Text(
-                                  'Start at any microcycle. Bring in past workouts or jump to the week that fits you.',
+                                  'Start at any cycle. Bring in past workouts or jump to the week that fits you.',
                                   style: TextStyle(
                                     color: Colors.white60,
                                     height: 1.35,
@@ -522,7 +524,7 @@ Future<void> showProgramPositionSheet(
                             ),
                           ),
                           IconButton(
-                            tooltip: 'Close',
+                            tooltip: 'Close starting point choices',
                             onPressed: saving
                                 ? null
                                 : () => Navigator.of(sheetContext).pop(),
@@ -542,7 +544,7 @@ Future<void> showProgramPositionSheet(
                                   setSheetState(() => targetPhase = phase),
                       ),
                       const SizedBox(height: 22),
-                      const _Eyebrow('Microcycle (training week)'),
+                      const _Eyebrow('Cycle (training week)'),
                       const SizedBox(height: 10),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 15),
@@ -568,7 +570,7 @@ Future<void> showProgramPositionSheet(
                                 DropdownMenuItem(
                                   value: cycle,
                                   child: Text(
-                                    'Microcycle $cycle · Week ${ProgramEngine.firstWeekOfPhase(targetPhase) + cycle - 1}',
+                                    'Cycle $cycle · Week ${ProgramEngine.firstWeekOfPhase(targetPhase) + cycle - 1}',
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -636,7 +638,7 @@ Future<void> showProgramPositionSheet(
                       OutlinedButton.icon(
                         onPressed: saving ? null : chooseDate,
                         icon: const Icon(Icons.calendar_month_rounded),
-                        label: Text(_formatDate(nextWorkoutDate)),
+                        label: Text(formatAppDate(nextWorkoutDate)),
                       ),
                       const SizedBox(height: 22),
                       const _Eyebrow('How do you want to start?'),
@@ -743,7 +745,7 @@ Future<void> showProgramPositionSheet(
                             ),
                             const SizedBox(height: 7),
                             Text(
-                              'Run ${startNewRun ? store.strengthProgramRun + 1 : store.strengthProgramRun} · Phase $targetPhase · Microcycle $targetMicrocycle',
+                              'Run ${startNewRun ? store.strengthProgramRun + 1 : store.strengthProgramRun} · Phase $targetPhase · Cycle $targetMicrocycle',
                               style: const TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w900,
@@ -751,7 +753,7 @@ Future<void> showProgramPositionSheet(
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${targetWeek.workouts[selectedWorkout].name} · $targetDays days/week · ${_formatDate(nextWorkoutDate)}',
+                              '${targetWeek.workouts[selectedWorkout].name} · $targetDays days/week · ${formatAppDate(nextWorkoutDate)}',
                               style: const TextStyle(
                                 color: Colors.white60,
                                 height: 1.35,
@@ -936,7 +938,7 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Year One Strength',
+                                      'Build your strength',
                                       style: TextStyle(
                                         fontSize: 32,
                                         fontWeight: FontWeight.w900,
@@ -1952,7 +1954,7 @@ class _MicrocycleCardState extends State<_MicrocycleCard> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Microcycle ${widget.week.microcycle} · ${widget.store.strengthCompletedWorkouts(widget.week.number)} of ${widget.week.workouts.length} completed',
+                          'Cycle ${widget.week.microcycle} · ${widget.store.strengthCompletedWorkouts(widget.week.number)} of ${widget.week.workouts.length} completed',
                           style: const TextStyle(
                             color: BrandColors.muted,
                             fontSize: 11,
@@ -2005,7 +2007,7 @@ class _MicrocycleCardState extends State<_MicrocycleCard> {
                             label: Text(
                               widget.current
                                   ? 'Edit starting point'
-                                  : 'Start from this microcycle',
+                                  : 'Start from this cycle',
                             ),
                           ),
                         ),
@@ -2117,7 +2119,7 @@ class _WorkoutDetailCardState extends State<_WorkoutDetailCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            workout.name.toUpperCase(),
+            workout.name,
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w900,
@@ -2153,7 +2155,7 @@ class _WorkoutDetailCardState extends State<_WorkoutDetailCard> {
           const SizedBox(height: 3),
           Text(
             [
-              _formatDate(store.dateForSlot(week.number, workoutIndex)),
+              formatAppDate(store.dateForSlot(week.number, workoutIndex)),
               if (record?.importedWorkoutId != null) 'Imported',
               if (record?.retroactive == true) 'Added later',
             ].join(' · '),
@@ -2211,6 +2213,13 @@ class _WorkoutDetailCardState extends State<_WorkoutDetailCard> {
               ],
             ),
           ],
+          if (workout.exercises.any((exercise) => exercise.amrap)) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'AMRAP means as many reps as possible with good form. “+ 4” means 4 reps in the second set.',
+              style: TextStyle(color: BrandColors.muted, fontSize: 12),
+            ),
+          ],
           if (record != null) ...[
             const SizedBox(height: 10),
             SizedBox(
@@ -2263,10 +2272,6 @@ class _WorkoutDetailCardState extends State<_WorkoutDetailCard> {
     );
   }
 }
-
-String _formatDate(DateTime value) =>
-    '${value.day.toString().padLeft(2, '0')}/'
-    '${value.month.toString().padLeft(2, '0')}/${value.year}';
 
 class _NextWorkoutOption extends StatelessWidget {
   const _NextWorkoutOption({

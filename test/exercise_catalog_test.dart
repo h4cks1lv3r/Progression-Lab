@@ -106,12 +106,12 @@ void main() {
 
         expect(weighted, isNotNull);
         expect(weighted!.trackingType, ExerciseTrackingType.weightedBodyweight);
-        expect(weighted.trackingType.weightLabel, 'ADDED WEIGHT');
+        expect(weighted.trackingType.weightLabel, 'Added weight');
         expect(weighted.trackingType.requiresPositiveWeight, isFalse);
 
         expect(assisted, isNotNull);
         expect(assisted!.trackingType, ExerciseTrackingType.assistedBodyweight);
-        expect(assisted.trackingType.weightLabel, 'ASSISTANCE');
+        expect(assisted.trackingType.weightLabel, 'Assistance');
         expect(assisted.trackingType.performanceLabel, 'Lowest Assistance');
       },
     );

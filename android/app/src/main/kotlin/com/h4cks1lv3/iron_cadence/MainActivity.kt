@@ -77,6 +77,14 @@ class MainActivity : FlutterActivity() {
                             result.success(null)
                         }
                         "status" -> result.success(durableStateStore.status())
+                        "deleteAllLocalData" -> {
+                            // Use Android's complete reset boundary. This also
+                            // stops this process, so pending plugin callbacks
+                            // cannot recreate deleted drafts or credentials.
+                            val manager = getSystemService(android.content.Context.ACTIVITY_SERVICE)
+                                as android.app.ActivityManager
+                            result.success(manager.clearApplicationUserData())
+                        }
                         "quarantine" -> result.success(durableStateStore.quarantine())
                         else -> result.notImplemented()
                     }

@@ -70,7 +70,7 @@ void main() {
       expect(paintedMark(tester).size, const Size(68, 68));
       expect(paintedMark(tester).left, 20);
       expect(find.text(plan.fileName), findsOneWidget);
-      expect(find.text('IMPORT 1 WORKOUTS'), findsOneWidget);
+      expect(find.text('Import 1 workout'), findsOneWidget);
       expect(tester.takeException(), isNull);
     }
     expect(store.exportState(), before);

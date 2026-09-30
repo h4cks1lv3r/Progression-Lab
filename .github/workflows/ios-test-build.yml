@@ -27,6 +27,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.44.9'
           cache: true
 
       - name: Show tool versions
@@ -79,6 +80,43 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent \
             build/ios/iphonesimulator/Runner.app \
             "dist/Progression-Lab-${{ steps.version.outputs.name }}-iOS-Simulator.app.zip"
+
+      - name: Run native iOS reset tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          simulator_id="$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          for runtime in sorted(devices, reverse=True):
+              if ".iOS-" not in runtime:
+                  continue
+              for device in devices[runtime]:
+                  if device.get("isAvailable") and device["name"].startswith("iPhone"):
+                      print(device["udid"])
+                      sys.exit(0)
+          sys.exit("No available iPhone simulator was found.")
+          ')"
+          xcrun simctl bootstatus "$simulator_id" -b
+          xcodebuild test \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=$simulator_id" \
+            -destination-timeout 180 \
+            -parallel-testing-enabled NO \
+            -only-testing:RunnerTests \
+            -resultBundlePath build/ios/native-reset-tests.xcresult \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Upload native iOS test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iOS-native-reset-tests-${{ github.sha }}
+          path: build/ios/native-reset-tests.xcresult
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Build unsigned iPhone app
         shell: bash

@@ -6,7 +6,7 @@ import 'data_portability.dart';
 import 'data_portability_bridge.dart';
 import 'store.dart';
 
-enum _StartupDataChoice { restore, import, fresh, later }
+enum _StartupDataChoice { restore, import, fresh, later, retry }
 
 abstract final class FirstLaunchDataFlow {
   static const int version = 1;
@@ -35,12 +35,13 @@ abstract final class FirstLaunchDataFlow {
 
     final hasValidState = store.primaryStateLoaded;
     final damagedState = store.hadPersistedState && !hasValidState;
+    final needsRecovery = damagedState || store.loadFailure != null;
     final choice = await showDialog<_StartupDataChoice>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         icon: Icon(
-          damagedState
+          needsRecovery
               ? Icons.health_and_safety_outlined
               : verifiedBackup != null && !hasValidState
               ? Icons.restore_rounded
@@ -49,7 +50,7 @@ abstract final class FirstLaunchDataFlow {
           size: 34,
         ),
         title: Text(
-          damagedState
+          needsRecovery
               ? 'Let us recover your saved data'
               : verifiedBackup != null && !hasValidState
               ? 'We found your backup'
@@ -58,9 +59,9 @@ abstract final class FirstLaunchDataFlow {
               : 'Bring your training with you',
         ),
         content: Text(
-          damagedState
-              ? '${store.loadFailure ?? 'Your saved data could not be read.'}\n\n'
-                    '${verifiedBackup == null ? 'No usable automatic backup was found. Import another backup or start fresh. We will keep a copy of the damaged file before resetting.' : 'A checked automatic backup is ready to restore. Restore it to recover your training.'}'
+          needsRecovery
+              ? 'Your saved training data could not be opened. Retry before you reset anything.\n\n'
+                    '${verifiedBackup == null ? 'No usable automatic backup was found. You can import another backup. Start fresh resets the training data on this device; an unreadable saved file is kept when available.' : 'A checked automatic backup is ready to restore. Restore it to recover your training.'}'
               : verifiedBackup != null && !hasValidState
               ? 'There is no training data on this device yet. ${verifiedBackup.name} passed its integrity check. Restore it, import another file, or start fresh.'
               : hasValidState
@@ -68,6 +69,12 @@ abstract final class FirstLaunchDataFlow {
               : 'Start fresh and choose how you want to train, or bring past workouts from another app. You can import history later from Backup & data.',
         ),
         actions: [
+          if (needsRecovery)
+            OutlinedButton(
+              onPressed: () =>
+                  Navigator.pop(dialogContext, _StartupDataChoice.retry),
+              child: const Text('Retry reading data'),
+            ),
           if (hasValidState)
             TextButton(
               onPressed: () =>
@@ -98,6 +105,10 @@ abstract final class FirstLaunchDataFlow {
 
     try {
       switch (choice) {
+        case _StartupDataChoice.retry:
+          await store.load();
+          if (context.mounted) await present(context, store);
+          return;
         case _StartupDataChoice.restore:
           final backup = verifiedBackup;
           if (backup == null) return;

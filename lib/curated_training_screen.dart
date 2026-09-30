@@ -7,6 +7,8 @@ import 'brand.dart';
 import 'curated_programs.dart';
 import 'curated_training.dart';
 import 'logged_sets.dart';
+import 'workout_logging_controls.dart';
+import 'display_format.dart';
 import 'store.dart';
 import 'source_links.dart';
 
@@ -259,7 +261,7 @@ class _CuratedProgramScreenState extends State<CuratedProgramScreen> {
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
             children: [
               Text(
-                program.role.toUpperCase(),
+                program.role,
                 style: const TextStyle(
                   color: BrandColors.cyan,
                   letterSpacing: 1.4,
@@ -685,9 +687,33 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
   }
 
   Future<void> _log() async {
-    if (_busy || !(_form.currentState?.validate() ?? false)) return;
+    if (_busy) return;
     final draft = _draft!;
     final step = draft.steps[draft.nextStepIndex];
+    final form = _form.currentState;
+    if (form != null && !form.validate()) return;
+    if (form == null) {
+      final metric = step.movement.metric;
+      final invalid =
+          (_usesWeight(metric) &&
+              _validateNumber(_weight.text, whole: false) != null) ||
+          (_usesReps(metric) &&
+              _validateNumber(_reps.text, whole: true) != null) ||
+          (metric == CuratedMetric.duration &&
+              _validateNumber(_seconds.text, whole: true) != null) ||
+          (_usesDistance(metric) &&
+              _validateNumber(_meters.text, whole: false) != null);
+      if (invalid) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Enter your actual result above zero before logging this set.',
+            ),
+          ),
+        );
+        return;
+      }
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -718,6 +744,16 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
       _form.currentState?.reset();
       _restoreInputs(_draft!);
       HapticFeedback.lightImpact();
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Set saved'),
+          duration: Duration(seconds: 3),
+          persist: false,
+          showCloseIcon: true,
+        ),
+      );
     } on Object {
       if (mounted) {
         setState(
@@ -994,6 +1030,41 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
           ),
         ],
       ),
+      bottomNavigationBar: AnimatedBuilder(
+        animation: widget.store,
+        builder: (context, _) {
+          final draft = _draft;
+          if (_loading || draft == null) return const SizedBox.shrink();
+          final complete = draft.nextStepIndex >= draft.steps.length;
+          final count = widget.store.logs
+              .where((log) => log.sessionId == draft.sessionId)
+              .length;
+          return WorkoutActionBar(
+            primaryKey: ValueKey(
+              complete ? 'curated-finish' : 'curated-log-set',
+            ),
+            primaryLabel: _busy
+                ? complete
+                      ? 'Saving workout…'
+                      : 'Saving set…'
+                : complete
+                ? 'Finish workout'
+                : 'Log set',
+            primaryIcon: complete
+                ? Icons.check_circle_rounded
+                : Icons.add_task_rounded,
+            onPrimary: _busy || (complete && count == 0)
+                ? null
+                : complete
+                ? _finish
+                : _log,
+            finishKey: complete
+                ? null
+                : const ValueKey('curated-finish-partial'),
+            onFinish: complete || _busy || count == 0 ? null : _finish,
+          );
+        },
+      ),
       body: BrandBackdrop(
         child: AnimatedBuilder(
           animation: widget.store,
@@ -1038,32 +1109,15 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
                   ),
                 ),
                 const SizedBox(height: 16),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: LinearProgressIndicator(
-                    value: draft.steps.isEmpty
-                        ? 0
-                        : loggedCount / draft.steps.length,
-                    minHeight: 8,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '$loggedCount of ${draft.steps.length} sets saved',
-                  key: const ValueKey('curated-saved-count'),
-                  style: const TextStyle(color: BrandColors.muted),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _inputWrites > 0
-                      ? 'Saving your entries…'
-                      : _error != null
-                      ? 'Couldn’t save · Retry below'
-                      : 'Progress saved · Pick this up anytime',
-                  style: const TextStyle(
-                    color: BrandColors.muted,
-                    fontSize: 12,
-                  ),
+                WorkoutSaveProgress(
+                  countLabel:
+                      '$loggedCount of ${draft.steps.length} sets saved',
+                  countKey: const ValueKey('curated-saved-count'),
+                  progress: draft.steps.isEmpty
+                      ? 0
+                      : loggedCount / draft.steps.length,
+                  saving: _inputWrites > 0 || _busy,
+                  failed: _error != null,
                 ),
                 const SizedBox(height: 18),
                 if (!complete) ...[
@@ -1185,23 +1239,6 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
                   ),
                 ],
                 const SizedBox(height: 16),
-                if (complete)
-                  GradientAction(
-                    key: const ValueKey('curated-finish'),
-                    label: _busy
-                        ? 'Saving…'
-                        : loggedCount < draft.steps.length
-                        ? 'Save partial workout'
-                        : 'Finish workout',
-                    icon: Icons.check_rounded,
-                    onPressed: _busy || loggedCount == 0 ? null : _finish,
-                  )
-                else if (loggedCount > 0)
-                  OutlinedButton(
-                    key: const ValueKey('curated-finish-partial'),
-                    onPressed: _busy ? null : _finish,
-                    child: const Text('Finish early'),
-                  ),
                 if (loggedCount > 0) ...[
                   const SizedBox(height: 20),
                   ExpansionTile(
@@ -1315,16 +1352,22 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
               onChanged: _changed,
             ),
             const SizedBox(height: 18),
-            GradientAction(
-              key: const ValueKey('curated-log-set'),
-              label: _busy ? 'Saving set…' : 'Log set',
-              icon: Icons.add_task_rounded,
-              onPressed: _busy ? null : _log,
-            ),
           ],
         ),
       ),
     );
+  }
+
+  String? _validateNumber(String value, {required bool whole}) {
+    final parsed = whole
+        ? int.tryParse(value.trim())
+        : double.tryParse(value.trim());
+    if (parsed == null || !parsed.isFinite || parsed <= 0) {
+      return whole
+          ? 'Enter a whole number above zero.'
+          : 'Enter a number above zero.';
+    }
+    return null;
   }
 
   Widget _numberField(
@@ -1344,17 +1387,7 @@ class _CuratedSessionScreenState extends State<CuratedSessionScreen>
     ],
     decoration: InputDecoration(labelText: label),
     onChanged: _changed,
-    validator: (value) {
-      final parsed = whole
-          ? int.tryParse(value?.trim() ?? '')
-          : double.tryParse(value?.trim() ?? '');
-      if (parsed == null || !parsed.isFinite || parsed <= 0) {
-        return whole
-            ? 'Enter a whole number above zero.'
-            : 'Enter a number above zero.';
-      }
-      return null;
-    },
+    validator: (value) => _validateNumber(value ?? '', whole: whole),
   );
 }
 
@@ -1516,8 +1549,7 @@ bool _usesDistance(CuratedMetric metric) =>
 String _duration(int seconds) => seconds >= 60
     ? '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}'
     : '${seconds}s';
-String _date(DateTime date) =>
-    '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+String _date(DateTime date) => formatAppDate(date);
 
 String _targetText(CuratedSetTarget target) => [
   if (target.reps != null) '${target.reps} reps',
