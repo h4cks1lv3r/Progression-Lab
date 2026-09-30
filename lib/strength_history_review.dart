@@ -186,7 +186,11 @@ class _StrengthHistoryReviewState extends State<StrengthHistoryReviewScreen> {
           key: const ValueKey('confirm-history-matches'),
           onPressed: confirm,
           icon: const Icon(Icons.check),
-          label: Text('Use ${assignments.length} matches'),
+          label: Text(
+            assignments.isEmpty
+                ? 'Continue without matches'
+                : 'Use ${assignments.length} matches',
+          ),
         ),
       ),
     );

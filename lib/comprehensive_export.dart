@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 
 import 'data_portability_core.dart';
+import 'lab_data.dart';
 
 /// Builds the user-facing portable export from every current Progression Lab
 /// data domain. Exact restoration still uses the versioned `.plab` archive;
@@ -273,15 +274,16 @@ abstract final class ComprehensivePortableExport {
         'updated_at',
       ],
     ];
-    for (final item in _maps(state['recoveryCheckIns'])) {
-      if (item['bodyWeight'] == null) continue;
+    // The same daily reading shown by Body and the Lab, including legacy days.
+    final unit = state['unit'] == 'kg' ? 'kg' : 'lb';
+    for (final item in labDailyWeights(state)) {
       rows.add(<Object?>[
-        item['id'],
-        item['localDate'],
-        item['bodyWeight'],
-        item['weightUnit'] ?? state['unit'] ?? 'lb',
-        item['createdAt'],
-        item['updatedAt'],
+        item.id,
+        item.date,
+        item.displayValue(unit, 'cm'),
+        unit,
+        item.recordedAt.toIso8601String(),
+        item.recordedAt.toIso8601String(),
       ]);
     }
     return rows;

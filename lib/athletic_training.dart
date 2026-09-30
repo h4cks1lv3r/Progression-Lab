@@ -578,130 +578,136 @@ class AthleticTrainingPage extends StatelessWidget {
       final latestAssessment = runAssessments.isEmpty
           ? null
           : runAssessments.last;
-      return BrandBackdrop(
-        child: SafeArea(
-          child: CustomScrollView(
-            key: const PageStorageKey('athletic-training-page'),
-            slivers: [
-              SliverToBoxAdapter(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 980),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-                      child: _AthleticHeader(
-                        store: store,
-                        week: week,
-                        run: store.athleticProgramRun,
+      return Scaffold(
+        appBar: AppBar(title: const Text('Functional Training')),
+        body: BrandBackdrop(
+          child: SafeArea(
+            child: CustomScrollView(
+              key: const PageStorageKey('athletic-training-page'),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 980),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                        child: _AthleticHeader(
+                          store: store,
+                          week: week,
+                          run: store.athleticProgramRun,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              SliverToBoxAdapter(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 980),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _ProgramProgressPanel(
-                            store: store,
-                            week: week,
-                            cycle: cycle,
-                          ),
-                          const SizedBox(height: 18),
-                          if (store.athleticProgramComplete)
-                            _ProgramCompletePanel(store: store)
-                          else
-                            _NextAthleticSessionPanel(
+                SliverToBoxAdapter(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 980),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _ProgramProgressPanel(
                               store: store,
                               week: week,
-                              session: session,
+                              cycle: cycle,
                             ),
-                          const SizedBox(height: 26),
-                          BrandSectionLabel(
-                            'This week',
-                            trailing: Text(
-                              week.stage.toUpperCase(),
-                              style: const TextStyle(
-                                color: BrandColors.cyan,
+                            const SizedBox(height: 18),
+                            if (store.athleticProgramComplete)
+                              _ProgramCompletePanel(store: store)
+                            else
+                              _NextAthleticSessionPanel(
+                                store: store,
+                                week: week,
+                                session: session,
+                              ),
+                            const SizedBox(height: 26),
+                            BrandSectionLabel(
+                              'This week',
+                              trailing: Text(
+                                week.stage.toUpperCase(),
+                                style: const TextStyle(
+                                  color: BrandColors.cyan,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: .7,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _WeekRoutine(store: store, week: week),
+                            const SizedBox(height: 26),
+                            const BrandSectionLabel('Your week at a glance'),
+                            const SizedBox(height: 12),
+                            const _WeeklyRhythmPanel(),
+                            const SizedBox(height: 26),
+                            BrandSectionLabel(
+                              'Training cycles',
+                              trailing: TextButton(
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        AthleticPlanScreen(store: store),
+                                  ),
+                                ),
+                                child: const Text('View 12 weeks'),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _CycleCards(currentCycle: cycle.number),
+                            const SizedBox(height: 26),
+                            const BrandSectionLabel('What you’ll build'),
+                            const SizedBox(height: 12),
+                            const _QualityGrid(),
+                            const SizedBox(height: 26),
+                            BrandSectionLabel(
+                              'Performance checks',
+                              trailing: TextButton.icon(
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        AthleticAssessmentScreen(store: store),
+                                  ),
+                                ),
+                                icon: const Icon(
+                                  Icons.science_rounded,
+                                  size: 17,
+                                ),
+                                label: const Text('Add check-in'),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _AssessmentPanel(
+                              assessment: latestAssessment,
+                              onOpenHistory: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      AthleticHistoryScreen(store: store),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              'Stop if you feel sharp pain, dizziness, or loss of control. Performance checks help you track change over time; they don’t diagnose health conditions.',
+                              style: TextStyle(
+                                color: BrandColors.muted.withValues(alpha: .8),
                                 fontSize: 12,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: .7,
+                                height: 1.45,
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          _WeekRoutine(store: store, week: week),
-                          const SizedBox(height: 26),
-                          const BrandSectionLabel('Your week at a glance'),
-                          const SizedBox(height: 12),
-                          const _WeeklyRhythmPanel(),
-                          const SizedBox(height: 26),
-                          BrandSectionLabel(
-                            'Training cycles',
-                            trailing: TextButton(
-                              onPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      AthleticPlanScreen(store: store),
-                                ),
-                              ),
-                              child: const Text('View 12 weeks'),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          _CycleCards(currentCycle: cycle.number),
-                          const SizedBox(height: 26),
-                          const BrandSectionLabel('What you’ll build'),
-                          const SizedBox(height: 12),
-                          const _QualityGrid(),
-                          const SizedBox(height: 26),
-                          BrandSectionLabel(
-                            'Performance checks',
-                            trailing: TextButton.icon(
-                              onPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      AthleticAssessmentScreen(store: store),
-                                ),
-                              ),
-                              icon: const Icon(Icons.science_rounded, size: 17),
-                              label: const Text('Add check-in'),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          _AssessmentPanel(
-                            assessment: latestAssessment,
-                            onOpenHistory: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    AthleticHistoryScreen(store: store),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            'Stop if you feel sharp pain, dizziness, or loss of control. Performance checks help you track change over time; they don’t diagnose health conditions.',
-                            style: TextStyle(
-                              color: BrandColors.muted.withValues(alpha: .8),
-                              fontSize: 12,
-                              height: 1.45,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       );
@@ -1553,7 +1559,8 @@ class AthleticSessionScreen extends StatefulWidget {
   State<AthleticSessionScreen> createState() => _AthleticSessionScreenState();
 }
 
-class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
+class _AthleticSessionScreenState extends State<AthleticSessionScreen>
+    with WidgetsBindingObserver {
   final Set<int> completedDrills = {};
   late DateTime startedAt;
   late String sessionId;
@@ -1561,17 +1568,25 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
   bool draftSaving = false;
   bool draftFailed = false;
   Future<void> _writes = Future.value();
+  int _savedElapsedSeconds = 0;
+  DateTime? _activeSince;
+  Timer? _checkpointTimer;
 
   @override
   void initState() {
     super.initState();
-    final draft = widget.store.athleticDraft;
+    WidgetsBinding.instance.addObserver(this);
+    final draft = widget.store.athleticDraftFor(
+      weekNumber: widget.week.number,
+      sessionIndex: widget.sessionIndex,
+    );
     if (draft != null &&
         draft.week == widget.week.number &&
         draft.sessionIndex == widget.sessionIndex &&
         draft.programRun == widget.store.athleticProgramRun) {
       startedAt = draft.startedAt;
       sessionId = draft.sessionId;
+      _savedElapsedSeconds = draft.elapsedSeconds;
       completedDrills.addAll(
         draft.completedDrills.where((i) => i >= 0 && i < session.drills.length),
       );
@@ -1579,12 +1594,54 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
       startedAt = DateTime.now();
       sessionId = createRecordId('athletic-session');
     }
+    _resumeClock();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _saveDraft();
     });
   }
 
-  Future<void> _saveDraft() async {
+  int get _elapsedSeconds =>
+      (_savedElapsedSeconds +
+              (_activeSince == null
+                  ? 0
+                  : DateTime.now().difference(_activeSince!).inSeconds))
+          .clamp(0, 2147483647);
+
+  void _resumeClock() {
+    _activeSince = DateTime.now();
+    _checkpointTimer?.cancel();
+    _checkpointTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      unawaited(_saveDraft(updateUi: false));
+    });
+  }
+
+  void _pauseClock() {
+    _savedElapsedSeconds = _elapsedSeconds;
+    _activeSince = null;
+    _checkpointTimer?.cancel();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (saving) return;
+    if (state == AppLifecycleState.resumed) {
+      if (_activeSince == null) _resumeClock();
+    } else {
+      _pauseClock();
+      unawaited(_saveDraft(updateUi: false));
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _pauseClock();
+    if (!saving) unawaited(_saveDraft(updateUi: false));
+    super.dispose();
+  }
+
+  Future<void> _saveDraft({bool updateUi = true}) async {
+    if (saving) return;
     final draft = AthleticSessionDraft(
       sessionId: sessionId,
       programRun: widget.store.athleticProgramRun,
@@ -1592,22 +1649,25 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
       sessionIndex: widget.sessionIndex,
       startedAt: startedAt,
       completedDrills: completedDrills.toList()..sort(),
+      elapsedSeconds: _elapsedSeconds,
     );
-    setState(() => draftSaving = true);
+    if (mounted && updateUi) setState(() => draftSaving = true);
     _writes = _writes.then((_) async {
       try {
         await widget.store.saveAthleticDraft(draft);
-        if (mounted)
+        if (mounted) {
           setState(() {
             draftFailed = false;
             draftSaving = false;
           });
+        }
       } on Object {
-        if (mounted)
+        if (mounted) {
           setState(() {
             draftFailed = true;
             draftSaving = false;
           });
+        }
       }
     });
     await _writes;
@@ -1744,6 +1804,9 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
 
   Future<void> _finish() async {
     if (saving) return;
+    _pauseClock();
+    await _saveDraft();
+    if (!mounted) return;
     final result = await showModalBottomSheet<_SessionFinishResult>(
       context: context,
       isScrollControlled: true,
@@ -1752,7 +1815,11 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
         total: session.drills.length,
       ),
     );
-    if (result == null || !mounted) return;
+    if (!mounted) return;
+    if (result == null) {
+      _resumeClock();
+      return;
+    }
     setState(() => saving = true);
     await _writes;
     try {
@@ -1762,12 +1829,16 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
         sessionId: sessionId,
         completedDrills: completedDrills.toList()..sort(),
         startedAt: startedAt,
+        elapsedSeconds: _elapsedSeconds,
+        weekNumber: widget.week.number,
+        targetSessionIndex: widget.sessionIndex,
         partial: completedDrills.length < session.drills.length,
         skipped: completedDrills.isEmpty,
       );
     } on Object {
       if (!mounted) return;
       setState(() => saving = false);
+      _resumeClock();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -1792,7 +1863,7 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
                 : 'partial',
             workout: session.name,
             completedAt: DateTime.now(),
-            duration: DateTime.now().difference(startedAt),
+            duration: Duration(seconds: _elapsedSeconds),
             sets: 0,
             exercises: 0,
             drills: completedDrills.length,
@@ -1815,7 +1886,7 @@ class _AthleticSessionScreenState extends State<AthleticSessionScreen> {
           metrics: [
             ShareMetric(
               'Duration',
-              formatShareDuration(DateTime.now().difference(startedAt)),
+              formatShareDuration(Duration(seconds: _elapsedSeconds)),
             ),
             ShareMetric('Drills', '${completedDrills.length}'),
             ShareMetric('Effort', '${result.effort}/10'),
@@ -2550,11 +2621,18 @@ class _HistorySessionCard extends StatelessWidget {
     final session = week.sessions[record.sessionIndex];
     return LabPanel(
       padding: const EdgeInsets.all(14),
-      accent: BrandColors.success,
+      accent: record.isComplete ? BrandColors.success : BrandColors.muted,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.check_circle_rounded, color: BrandColors.success),
+          Icon(
+            record.isComplete
+                ? Icons.check_circle_rounded
+                : record.status == 'skipped'
+                ? Icons.skip_next_rounded
+                : Icons.timelapse_rounded,
+            color: record.isComplete ? BrandColors.success : BrandColors.muted,
+          ),
           const SizedBox(width: 11),
           Expanded(
             child: Column(
@@ -2565,6 +2643,14 @@ class _HistorySessionCard extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 4),
+                Text(
+                  record.isComplete
+                      ? 'Completed'
+                      : record.status == 'skipped'
+                      ? 'Skipped'
+                      : 'Partial session',
+                  style: const TextStyle(color: BrandColors.muted),
+                ),
                 Text(
                   'Run ${record.programRun} · Week ${record.week} · ${_formatDate(record.completedAt)} · Effort ${record.effort}/10',
                   style: const TextStyle(

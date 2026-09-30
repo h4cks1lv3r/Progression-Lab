@@ -22,6 +22,17 @@ final class IntegrationBridgeIOS: NSObject, UIDocumentPickerDelegate, ASWebAuthe
   func register(messenger: FlutterBinaryMessenger, viewController: UIViewController) {
     self.viewController = viewController
 
+    FlutterMethodChannel(name: "progression_lab/links", binaryMessenger: messenger)
+      .setMethodCallHandler { call, result in
+        guard call.method == "open" else { result(FlutterMethodNotImplemented); return }
+        guard let arguments = call.arguments as? [String: Any],
+              let value = arguments["url"] as? String,
+              let url = URL(string: value),
+              ["https", "http"].contains(url.scheme ?? ""),
+              let host = url.host, !host.isEmpty else { result(false); return }
+        UIApplication.shared.open(url, options: [:]) { opened in result(opened) }
+      }
+
     FlutterMethodChannel(name: "progression_lab/health", binaryMessenger: messenger)
       .setMethodCallHandler { [weak self] call, result in
         self?.handleHealth(call, result: result)
@@ -347,6 +358,7 @@ final class IntegrationBridgeIOS: NSObject, UIDocumentPickerDelegate, ASWebAuthe
 
     case "disconnectFolder":
       defaults.removeObject(forKey: Keys.cloudBookmark)
+      defaults.removeObject(forKey: Keys.lastSync)
       defaults.set(false, forKey: Keys.automaticSync)
       result(nil)
 
@@ -448,6 +460,7 @@ final class IntegrationBridgeIOS: NSObject, UIDocumentPickerDelegate, ASWebAuthe
           relativeTo: nil
         )
         defaults.set(bookmark, forKey: Keys.cloudBookmark)
+        defaults.removeObject(forKey: Keys.lastSync)
         result([
           "configured": true,
           "provider": url.path.contains("Mobile Documents") ? "iCloudDrive" : "filesProvider",

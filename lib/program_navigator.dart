@@ -228,7 +228,7 @@ Future<void> showCadenceSwitchSheet(
                           Text(
                             '${targetWeek.workouts.length} sessions',
                             style: const TextStyle(
-                              color: Colors.white38,
+                              color: BrandColors.muted,
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                             ),
@@ -611,7 +611,7 @@ Future<void> showProgramPositionSheet(
                           Text(
                             '${targetWeek.workouts.length} sessions',
                             style: const TextStyle(
-                              color: Colors.white38,
+                              color: BrandColors.muted,
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                             ),
@@ -736,7 +736,7 @@ Future<void> showProgramPositionSheet(
                               'Your new starting point',
                               style: TextStyle(
                                 color: _electric,
-                                fontSize: 10,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 1,
                               ),
@@ -907,9 +907,10 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
         ),
       ).where((week) => _visibleKinds.contains(week.kind)).toList();
 
-      return Material(
-        color: _ink,
-        child: SafeArea(
+      return Scaffold(
+        backgroundColor: _ink,
+        appBar: AppBar(title: const Text('Year One Strength')),
+        body: SafeArea(
           child: CustomScrollView(
             slivers: [
               SliverToBoxAdapter(
@@ -959,21 +960,6 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
                             ],
                           ),
                           const SizedBox(height: 22),
-                          FeatureTip(
-                            store: widget.store,
-                            id: ContextualGuideId.strengthWeekNavigator,
-                            message:
-                                'Train the days in each cycle in any order. Switch workouts when equipment is busy, or explore another phase or week.',
-                          ),
-                          _CadencePanel(
-                            days: widget.store.days,
-                            onSelected: (days) => showCadenceSwitchSheet(
-                              context,
-                              widget.store,
-                              requestedDays: days,
-                            ),
-                          ),
-                          const SizedBox(height: 22),
                           _PositionPanel(
                             current: current,
                             run: widget.store.strengthProgramRun,
@@ -988,6 +974,34 @@ class _ProgramNavigatorPageState extends State<ProgramNavigatorPage> {
                                 _showCurrentPhase(current.phase),
                             onChangePosition: () =>
                                 showProgramPositionSheet(context, widget.store),
+                            resuming:
+                                widget.store.draftFor(
+                                  weekNumber: current.number,
+                                  targetWorkoutIndex: widget.store.workoutIndex,
+                                  cadence: widget.store.days,
+                                  retroactive: false,
+                                ) !=
+                                null,
+                            onStartWorkout: () => widget.onOpenWorkout(
+                              current,
+                              widget.store.workoutIndex,
+                              false,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          FeatureTip(
+                            store: widget.store,
+                            id: ContextualGuideId.strengthWeekNavigator,
+                            message:
+                                'Train the days in each cycle in any order. Switch workouts when equipment is busy, or explore another phase or week.',
+                          ),
+                          _CadencePanel(
+                            days: widget.store.days,
+                            onSelected: (days) => showCadenceSwitchSheet(
+                              context,
+                              widget.store,
+                              requestedDays: days,
+                            ),
                           ),
                           const SizedBox(height: 24),
                           const _Eyebrow('Explore the plan'),
@@ -1251,6 +1265,8 @@ class _PositionPanel extends StatelessWidget {
     required this.onSwitchWorkout,
     required this.onJumpToCurrent,
     required this.onChangePosition,
+    required this.resuming,
+    required this.onStartWorkout,
   });
 
   final ProgramWeek current;
@@ -1261,6 +1277,8 @@ class _PositionPanel extends StatelessWidget {
   final VoidCallback? onSwitchWorkout;
   final VoidCallback onJumpToCurrent;
   final VoidCallback onChangePosition;
+  final bool resuming;
+  final VoidCallback onStartWorkout;
 
   @override
   Widget build(BuildContext context) {
@@ -1305,7 +1323,7 @@ class _PositionPanel extends StatelessWidget {
                     const Text(
                       'Your place in the plan',
                       style: TextStyle(
-                        color: Colors.white38,
+                        color: BrandColors.muted,
                         fontSize: 11,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 1.1,
@@ -1353,6 +1371,16 @@ class _PositionPanel extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
+              key: const ValueKey('program-start-workout'),
+              onPressed: onStartWorkout,
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: Text(resuming ? 'Resume workout' : 'Start workout'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
               key: const ValueKey('program-switch-workout'),
               onPressed: onSwitchWorkout,
               icon: const Icon(Icons.swap_horiz_rounded, size: 20),
@@ -1559,8 +1587,8 @@ class _PhaseSelector extends StatelessWidget {
                             style: TextStyle(
                               color: selected == phase
                                   ? Colors.white
-                                  : Colors.white38,
-                              fontSize: 9,
+                                  : BrandColors.muted,
+                              fontSize: 12,
                               fontWeight: FontWeight.w900,
                               letterSpacing: .8,
                             ),
@@ -1676,7 +1704,7 @@ class _KindChip extends StatelessWidget {
       ),
       label: Text(meta.shortLabel),
       labelStyle: TextStyle(
-        color: selected ? Colors.white : Colors.white38,
+        color: selected ? Colors.white : BrandColors.muted,
         fontSize: 11,
         fontWeight: FontWeight.w800,
       ),
@@ -1720,7 +1748,11 @@ class _WeekGrid extends StatelessWidget {
         ),
         child: const Column(
           children: [
-            Icon(Icons.filter_alt_off_rounded, color: Colors.white38, size: 32),
+            Icon(
+              Icons.filter_alt_off_rounded,
+              color: BrandColors.muted,
+              size: 32,
+            ),
             SizedBox(height: 12),
             Text(
               'Choose a week focus',
@@ -1789,7 +1821,19 @@ class _MicrocycleCard extends StatefulWidget {
 }
 
 class _MicrocycleCardState extends State<_MicrocycleCard> {
-  var _expanded = false;
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.current;
+  }
+
+  @override
+  void didUpdateWidget(covariant _MicrocycleCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.current && widget.current) _expanded = true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1873,7 +1917,7 @@ class _MicrocycleCardState extends State<_MicrocycleCard> {
                                   'Now',
                                   style: TextStyle(
                                     color: _acid,
-                                    fontSize: 9,
+                                    fontSize: 12,
                                     fontWeight: FontWeight.w900,
                                   ),
                                 ),
@@ -1898,7 +1942,7 @@ class _MicrocycleCardState extends State<_MicrocycleCard> {
                                 meta.label,
                                 style: TextStyle(
                                   color: meta.color,
-                                  fontSize: 10,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: .65,
                                 ),
@@ -1910,7 +1954,7 @@ class _MicrocycleCardState extends State<_MicrocycleCard> {
                         Text(
                           'Microcycle ${widget.week.microcycle} · ${widget.store.strengthCompletedWorkouts(widget.week.number)} of ${widget.week.workouts.length} completed',
                           style: const TextStyle(
-                            color: Colors.white38,
+                            color: BrandColors.muted,
                             fontSize: 11,
                           ),
                         ),
@@ -2090,7 +2134,7 @@ class _WorkoutDetailCardState extends State<_WorkoutDetailCard> {
                   'Selected',
                   style: TextStyle(
                     color: _electric,
-                    fontSize: 10,
+                    fontSize: 12,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -2100,7 +2144,7 @@ class _WorkoutDetailCardState extends State<_WorkoutDetailCard> {
                   color: record?.status == WorkoutStatus.skipped
                       ? Colors.white54
                       : _acid,
-                  fontSize: 10,
+                  fontSize: 12,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -2113,7 +2157,7 @@ class _WorkoutDetailCardState extends State<_WorkoutDetailCard> {
               if (record?.importedWorkoutId != null) 'Imported',
               if (record?.retroactive == true) 'Added later',
             ].join(' · '),
-            style: const TextStyle(color: Colors.white38, fontSize: 11),
+            style: const TextStyle(color: BrandColors.muted, fontSize: 11),
           ),
           const SizedBox(height: 10),
           for (final entry in workout.exercises.asMap().entries) ...[
@@ -2128,7 +2172,7 @@ class _WorkoutDetailCardState extends State<_WorkoutDetailCard> {
                     '${entry.key + 1}'.padLeft(2, '0'),
                     style: const TextStyle(
                       color: Colors.white24,
-                      fontSize: 10,
+                      fontSize: 12,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -2341,14 +2385,14 @@ class _CurrentBadge extends StatelessWidget {
           'Current',
           style: TextStyle(
             color: _acid,
-            fontSize: 9,
+            fontSize: 12,
             fontWeight: FontWeight.w900,
             letterSpacing: .8,
           ),
         ),
         const SizedBox(height: 2),
         Text(
-          'P$phase · M$microcycle',
+          'Cycle $microcycle',
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
         ),
       ],
@@ -2365,7 +2409,7 @@ class _Eyebrow extends StatelessWidget {
   Widget build(BuildContext context) => Text(
     text,
     style: const TextStyle(
-      color: Colors.white38,
+      color: BrandColors.muted,
       fontSize: 11,
       fontWeight: FontWeight.w900,
       letterSpacing: 1.2,

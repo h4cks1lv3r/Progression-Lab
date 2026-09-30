@@ -14,15 +14,14 @@ import 'integrations_hub.dart';
 import 'body_progress_screen.dart';
 
 String dataOperationErrorMessage(Object error) {
+  debugPrint('Backup or import action failed: $error');
   if (error is FormatException) return error.message;
-  if (error is PlatformException) {
-    return error.message ?? 'Could not finish this file action. Try again.';
+  if (error is BackupValidationException) return error.message;
+  if (error is StateError &&
+      error.message.contains('Your current data has not been replaced.')) {
+    return error.message;
   }
-  if (error is StateError) return '${error.message}';
-  return '$error'.replaceFirst(
-    RegExp(r'^(?:FormatException|Exception|Bad state):\s*'),
-    '',
-  );
+  return 'Could not finish this file action. Check the file or folder access and try again.';
 }
 
 class DataManagementScreen extends StatefulWidget {
@@ -280,7 +279,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               ),
             const _DataHeader(),
             const SizedBox(height: 22),
-            const BrandSectionLabel('Automatic backups'),
+            const BrandSectionLabel('Backups on this device'),
             const SizedBox(height: 10),
             LabPanel(
               accent: BrandColors.cyan,
@@ -291,7 +290,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                     contentPadding: EdgeInsets.zero,
                     value: widget.store.automaticBackupsEnabled,
                     title: const Text(
-                      'Automatic backups',
+                      'Automatic device backups',
                       style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                     subtitle: const Text(
@@ -369,6 +368,24 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             const SizedBox(height: 24),
             const BrandSectionLabel('Back up & restore'),
             const SizedBox(height: 10),
+            _ActionTile(
+              icon: Icons.cloud_outlined,
+              title: 'Cloud backup',
+              subtitle:
+                  'Choose a synced folder, check backup status, or restore a backup from another device.',
+              badge: 'Cloud',
+              onTap: _busy
+                  ? null
+                  : () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => IntegrationsHubScreen(
+                          store: widget.store,
+                          section: IntegrationSection.backup,
+                        ),
+                      ),
+                    ),
+            ),
             _ActionTile(
               icon: Icons.save_alt_rounded,
               title: 'Save a full backup',
@@ -585,29 +602,11 @@ class _CsvMappingScreenState extends State<CsvMappingScreen> {
             ),
             const SizedBox(height: 20),
             _mapping('Workout date *', date, (value) => date = value),
-            _mapping('Workout end date', endDate, (value) => endDate = value),
-            _mapping('Workout name', workout, (value) => workout = value),
             _mapping('Exercise *', exercise, (value) => exercise = value),
-            _mapping('Set order', setOrder, (value) => setOrder = value),
+            _mapping('Workout name', workout, (value) => workout = value),
             _mapping('Weight', weight, (value) => weight = value),
-            _mapping(
-              'Alternate weight',
-              alternateWeight,
-              (value) => alternateWeight = value,
-            ),
             _mapping('Weight unit', weightUnit, (value) => weightUnit = value),
             _mapping('Repetitions', reps, (value) => reps = value),
-            _mapping('Set notes', notes, (value) => notes = value),
-            _mapping(
-              'Workout notes',
-              workoutNotes,
-              (value) => workoutNotes = value,
-            ),
-            _mapping(
-              'Workout duration',
-              workoutDuration,
-              (value) => workoutDuration = value,
-            ),
             _mapping(
               'Set duration',
               setDuration,
@@ -619,11 +618,50 @@ class _CsvMappingScreenState extends State<CsvMappingScreen> {
               distanceUnit,
               (value) => distanceUnit = value,
             ),
-            _mapping('Set type', setType, (value) => setType = value),
-            _mapping('RPE', rpe, (value) => rpe = value),
-            _mapping('RIR', rir, (value) => rir = value),
-            _mapping('Superset ID', supersetId, (value) => supersetId = value),
-            _mapping('Source ID', sourceId, (value) => sourceId = value),
+            _mapping('Set notes', notes, (value) => notes = value),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: const Text('More fields (optional)'),
+              subtitle: const Text(
+                'Set order, effort ratings, workout details, and source identifiers',
+              ),
+              children: [
+                _mapping(
+                  'Workout end date',
+                  endDate,
+                  (value) => endDate = value,
+                ),
+                _mapping('Set order', setOrder, (value) => setOrder = value),
+                _mapping(
+                  'Alternate weight',
+                  alternateWeight,
+                  (value) => alternateWeight = value,
+                ),
+                _mapping(
+                  'Workout notes',
+                  workoutNotes,
+                  (value) => workoutNotes = value,
+                ),
+                _mapping(
+                  'Workout duration',
+                  workoutDuration,
+                  (value) => workoutDuration = value,
+                ),
+                _mapping('Set type', setType, (value) => setType = value),
+                _mapping('Effort rating (RPE)', rpe, (value) => rpe = value),
+                _mapping('Reps in reserve (RIR)', rir, (value) => rir = value),
+                _mapping(
+                  'Superset group',
+                  supersetId,
+                  (value) => supersetId = value,
+                ),
+                _mapping(
+                  'Source workout ID',
+                  sourceId,
+                  (value) => sourceId = value,
+                ),
+              ],
+            ),
             const SizedBox(height: 18),
             GradientAction(
               label: 'Preview import',
@@ -1086,7 +1124,10 @@ class _AutomaticBackupsScreenState extends State<AutomaticBackupsScreen> {
             context: context,
             builder: (dialogContext) => AlertDialog(
               title: const Text('Restore automatic backup?'),
-              content: Text(item.name),
+              content: Text(
+                '${item.name}\n\n'
+                'This replaces all current app data, including workouts, measurements, unfinished sessions, and settings. It does not merge histories. A verified safety backup of current data is required first.',
+              ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext, false),
@@ -1112,8 +1153,29 @@ class _AutomaticBackupsScreenState extends State<AutomaticBackupsScreen> {
           await widget.controller.exportAutomaticBackup(item);
           break;
         case 'delete':
-          await widget.controller.deleteAutomaticBackup(item);
-          refresh();
+          final delete = await showDialog<bool>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: const Text('Delete this device backup?'),
+              content: Text(
+                '${item.name}\n\nThis backup file will be permanently removed. Your current app data and other backups will remain.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('Delete backup'),
+                ),
+              ],
+            ),
+          );
+          if (delete == true) {
+            await widget.controller.deleteAutomaticBackup(item);
+            if (mounted) refresh();
+          }
           break;
       }
     } on Object catch (error) {

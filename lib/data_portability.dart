@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'comprehensive_export.dart';
@@ -135,9 +136,37 @@ class DataPortabilityController {
   }
 
   Future<void> restoreDocument(PortableBackupDocument document) async {
-    await store.createAutomaticBackup(reason: 'before-restore', required: true);
+    await createVerifiedSafetyBackup(reason: 'before-restore');
     await store.restoreState(document.state);
     await store.createAutomaticBackup(reason: 'after-restore');
+  }
+
+  Future<void> createVerifiedSafetyBackup({required String reason}) async {
+    final state = store.exportState();
+    final snapshot = jsonEncode(state);
+    final bytes = ProgressionBackupCodec.encode(state, reason: reason);
+    final path = await DataPortabilityBridge.writeAutomaticBackup(
+      bytes: bytes,
+      fileName:
+          'Progression-Lab-$reason-${DateTime.now().microsecondsSinceEpoch}.plab',
+    );
+    if (path == null || path.isEmpty) {
+      throw StateError(
+        'A safety backup could not be saved. Your current data has not been replaced.',
+      );
+    }
+    final saved = await DataPortabilityBridge.readAutomaticBackup(path);
+    ProgressionBackupCodec.decode(saved);
+    if (sha256Hex(saved) != sha256Hex(bytes)) {
+      throw StateError(
+        'The safety backup could not be verified. Your current data has not been replaced.',
+      );
+    }
+    if (jsonEncode(store.exportState()) != snapshot) {
+      throw StateError(
+        'Device data changed while the safety backup was being saved. Review the backup again. Your current data has not been replaced.',
+      );
+    }
   }
 
   Future<List<AutomaticBackupInfo>> automaticBackups() =>

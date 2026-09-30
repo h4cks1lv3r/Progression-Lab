@@ -1,11 +1,11 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'cloud_sync.dart';
 import 'contextual_guides.dart';
+import 'data_portability_core.dart';
 import 'external_workout_formats.dart';
 import 'health_sync.dart';
 import 'body_progress.dart';
@@ -92,12 +92,14 @@ class IntegrationPreferencesStore extends ChangeNotifier {
                   ExternalWorkoutSource source = ExternalWorkoutSource.file;
                   ExternalWorkoutFormat format = ExternalWorkoutFormat.fit;
                   for (final candidate in ExternalWorkoutSource.values) {
-                    if (candidate.name == '${value['source']}')
+                    if (candidate.name == '${value['source']}') {
                       source = candidate;
+                    }
                   }
                   for (final candidate in ExternalWorkoutFormat.values) {
-                    if (candidate.name == '${value['format']}')
+                    if (candidate.name == '${value['format']}') {
                       format = candidate;
+                    }
                   }
                   return ExternalWorkout(
                     id: '${value['id']}',
@@ -268,7 +270,14 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
   late final IntegrationPreferencesStore _preferences;
   final _fileBridge = const IntegrationFileBridge();
   List<int> get _sections => switch (widget.section) {
-    IntegrationSection.connections => [0, 1, 2],
+    IntegrationSection.connections => [
+      0,
+      if (TrainingProvider.values.any(
+        (provider) => ProviderConfiguration.forProvider(provider).configured,
+      ))
+        1,
+      2,
+    ],
     IntegrationSection.backup => [3],
     IntegrationSection.sharing => [4],
     IntegrationSection.lab => [5],
@@ -298,13 +307,20 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
   }
 
   Future<void> _load() async {
-    await Future.wait<void>(<Future<void>>[
-      _health.refreshStatus().then((_) {}),
-      _cloud.initialize(),
-      _providers.initialize(),
-      _guides.load(),
-      _preferences.load(),
-    ]);
+    try {
+      await Future.wait<void>(<Future<void>>[
+        _health.refreshStatus().then((_) {}),
+        _cloud.initialize(),
+        _providers.initialize(),
+        _guides.load(),
+        _preferences.load(),
+      ]);
+    } catch (error, stack) {
+      debugPrint('Connection settings could not load: $error');
+      debugPrintStack(stackTrace: stack);
+      _message =
+          'Some connection settings could not load. Reopen this screen to try again.';
+    }
     if (mounted) setState(() {});
   }
 
@@ -387,12 +403,29 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
       HealthPlatformKind.appleHealth => 'Apple Health',
       HealthPlatformKind.unavailable => 'Health platform',
     };
-    final localWeights =
-        widget.store.recoveryCheckIns
-            .where((item) => item.bodyWeight != null)
-            .toList()
-          ..sort((a, b) => a.localDate.compareTo(b.localDate));
-    final latestLocalWeight = localWeights.isEmpty ? null : localWeights.last;
+    final weightsByDay = <String, HealthBodyMetric>{
+      for (final item in widget.store.recoveryCheckIns)
+        if (item.bodyWeight != null)
+          bodyDay(item.localDate): HealthBodyMetric(
+            type: 'bodyWeight',
+            value: item.bodyWeight!,
+            unit: item.weightUnit ?? widget.store.unit,
+            recordedAt: item.updatedAt.toUtc(),
+          ),
+      for (final item in BodyAnalysis.dailyWeights(
+        widget.store.bodyMeasurements,
+      ))
+        item.date: HealthBodyMetric(
+          type: 'bodyWeight',
+          value: item.value,
+          unit: 'kg',
+          recordedAt: item.recordedAt.toUtc(),
+        ),
+    };
+    final weightDays = weightsByDay.keys.toList()..sort();
+    final latestLocalWeight = weightDays.isEmpty
+        ? null
+        : weightsByDay[weightDays.last];
     final recentHealthMetrics = List<HealthBodyMetric>.of(
       _preferences.healthBodyMetrics,
     )..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
@@ -475,9 +508,9 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
                   final written = await _health.writeBodyWeight(
                     HealthBodyMetric(
                       type: 'bodyWeight',
-                      value: entry.bodyWeight!,
-                      unit: entry.weightUnit ?? widget.store.unit,
-                      recordedAt: entry.updatedAt.toUtc(),
+                      value: entry.value,
+                      unit: entry.unit,
+                      recordedAt: entry.recordedAt,
                     ),
                   );
                   _message = written
@@ -539,7 +572,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
         const _Info(
           title: 'What is shared',
           text:
-              'You choose access for workout summaries and body measurements. Imported bodyweight fills an empty Daily check-in weight field. Existing entries, detailed sets, notes, exercise swaps, meals, supplements, water, and recovery ratings stay as you saved them.',
+              'You choose access for workout summaries and body measurements. Imported bodyweight fills an empty Body weight entry. Existing entries, detailed sets, notes, exercise swaps, meals, supplements, water, and recovery ratings stay as you saved them.',
         ),
       ],
     );
@@ -550,14 +583,13 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
       const _Hero(
         icon: Icons.hub_rounded,
         eyebrow: 'Training connections',
-        title: 'Strava & Garmin',
+        title: 'Training accounts',
         description:
-            'Connect your account to bring in activity summaries. Connection availability depends on your app version.',
+            'Connect an available account to bring in activity summaries.',
       ),
-      for (final provider in TrainingProvider.values) ...<Widget>[
-        _providerCard(provider),
-        const SizedBox(height: 12),
-      ],
+      for (final provider in TrainingProvider.values.where(
+        (provider) => ProviderConfiguration.forProvider(provider).configured,
+      )) ...<Widget>[_providerCard(provider), const SizedBox(height: 12)],
       const _Info(
         title: 'No account connection required',
         text:
@@ -598,7 +630,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
                           ? (status.accountName.isEmpty
                                 ? 'Connected'
                                 : status.accountName)
-                          : status.state.name,
+                          : _providerStateLabel(status.state),
                       style: const TextStyle(color: Colors.white60),
                     ),
                   ],
@@ -654,7 +686,15 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
                 OutlinedButton(
                   onPressed: _providers.busy
                       ? null
-                      : () => _run(() => _providers.disconnect(provider)),
+                      : () => _run(() async {
+                          if (await _confirm(
+                            'Disconnect $title?',
+                            'New activities will no longer sync from this account. Activities already imported stay on this device.',
+                            confirmLabel: 'Disconnect',
+                          )) {
+                            await _providers.disconnect(provider);
+                          }
+                        }),
                   child: const Text('Disconnect'),
                 ),
               ],
@@ -737,14 +777,35 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
             'Choose a folder from Files. Android can use Drive, OneDrive, Dropbox, or another document provider. iOS can use iCloud Drive or another Files provider.',
       ),
       _StatusCard(
-        title: _cloud.status.configured
-            ? 'Folder connected'
-            : 'Choose a backup folder',
+        title: !_cloud.status.configured
+            ? 'Choose a backup folder'
+            : _cloud.status.lastSuccessfulSync == null
+            ? 'No successful cloud backup yet'
+            : 'Last successful cloud backup',
         detail: _cloud.status.configured
-            ? '${_cloud.status.displayName} · ${_cloud.status.provider.name}'
+            ? '${_cloud.status.displayName} · ${_cloud.status.provider.label}\n'
+                  '${_cloud.status.lastSuccessfulSync == null ? 'A connected folder does not mean a backup has been saved.' : _localDateTime(_cloud.status.lastSuccessfulSync!)}\n'
+                  '${!_cloud.backupStatusVerified
+                      ? 'Backup status has not been verified on this device.'
+                      : _cloud.pendingChanges
+                      ? 'Changes are waiting to be backed up.'
+                      : 'Saved data matches the verified backup.'}'
             : 'Choose a folder before enabling automatic sync.',
-        positive: _cloud.status.configured,
+        positive:
+            _cloud.status.lastSuccessfulSync != null &&
+            _cloud.lastError == null &&
+            !_cloud.pendingChanges,
       ),
+      if (_cloud.lastError != null) ...<Widget>[
+        const SizedBox(height: 12),
+        _Info(title: 'Backup needs attention', text: _cloud.lastError!),
+      ],
+      if (_cloud.busy) ...<Widget>[
+        const SizedBox(height: 12),
+        const LinearProgressIndicator(),
+        const SizedBox(height: 6),
+        const Text('Working with your backup folder…'),
+      ],
       const SizedBox(height: 12),
       FilledButton.icon(
         onPressed: _cloud.busy
@@ -773,38 +834,116 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
             : null,
       ),
       const SizedBox(height: 8),
+      FilledButton.icon(
+        onPressed: !_cloud.status.configured || _cloud.busy
+            ? null
+            : () => _run(() async {
+                await _cloud.uploadNow();
+                _message = 'Cloud backup saved successfully.';
+              }),
+        icon: const Icon(Icons.cloud_upload_outlined),
+        label: Text(_cloud.lastError == null ? 'Back up now' : 'Retry backup'),
+      ),
+      const SizedBox(height: 12),
       OutlinedButton.icon(
+        onPressed: !_cloud.status.configured || _cloud.busy
+            ? null
+            : () => _run(_chooseCloudRestore),
+        icon: const Icon(Icons.cloud_download_outlined),
+        label: const Text('Restore from cloud'),
+      ),
+      const SizedBox(height: 8),
+      TextButton.icon(
         onPressed: !_cloud.status.configured || _cloud.busy
             ? null
             : () => _run(() async {
                 final preview = await _cloud.preview();
-                if (preview.direction == CloudSyncDirection.download &&
-                    preview.remote != null) {
-                  final restore = await _confirm(
-                    'Cloud backup is newer',
-                    'Restore ${preview.remote!.name}? A verified safety backup will be created first.',
-                    confirmLabel: 'Restore',
-                  );
-                  if (restore) await _cloud.restoreRemote(preview.remote!);
-                } else if (preview.direction == CloudSyncDirection.upload) {
-                  await _cloud.uploadNow();
-                }
                 _message = preview.reason;
               }),
-        icon: const Icon(Icons.sync_rounded),
-        label: const Text('Review and sync'),
+        icon: const Icon(Icons.fact_check_outlined),
+        label: const Text('Check backup status'),
       ),
       const SizedBox(height: 12),
       if (_cloud.status.configured)
         TextButton.icon(
           onPressed: _cloud.busy
               ? null
-              : () => _run(() => _cloud.disconnectFolder()),
+              : () => _run(() async {
+                  if (await _confirm(
+                    'Disconnect backup folder?',
+                    'Automatic cloud backups will stop. Backups already in the folder and training data on this device will remain.',
+                    confirmLabel: 'Disconnect',
+                  )) {
+                    await _cloud.disconnectFolder();
+                  }
+                }),
           icon: const Icon(Icons.link_off_rounded),
           label: const Text('Disconnect folder'),
         ),
     ],
   );
+
+  String _localDateTime(DateTime date) {
+    final local = date.toLocal();
+    return '${MaterialLocalizations.of(context).formatMediumDate(local)} · ${TimeOfDay.fromDateTime(local).format(context)}';
+  }
+
+  String _providerStateLabel(ProviderConnectionState state) => switch (state) {
+    ProviderConnectionState.unavailable => 'Unavailable',
+    ProviderConnectionState.disconnected => 'Not connected',
+    ProviderConnectionState.connecting => 'Connecting…',
+    ProviderConnectionState.connected => 'Connected',
+    ProviderConnectionState.expired => 'Reconnect your account',
+    ProviderConnectionState.error => 'Connection needs attention',
+  };
+
+  Future<void> _chooseCloudRestore() async {
+    final backups = await _cloud.listBackups();
+    if (!mounted) return;
+    if (backups.isEmpty) {
+      _message =
+          'No cloud backups were found in this folder. Choose the folder used by your previous device.';
+      return;
+    }
+    final selected = await showModalBottomSheet<CloudBackupInfo>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => ListView(
+        shrinkWrap: true,
+        children: [
+          const ListTile(
+            title: Text('Choose a cloud backup'),
+            subtitle: Text('Review what will be replaced before restoring.'),
+          ),
+          for (final backup in backups)
+            ListTile(
+              title: Text(backup.name),
+              subtitle: Text(
+                '${_localDateTime(backup.createdAt ?? backup.modifiedAt)} · ${(backup.size / 1024).ceil()} KB',
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.pop(sheetContext, backup),
+            ),
+        ],
+      ),
+    );
+    if (selected == null || !mounted) return;
+    final preview = await _cloud.prepareRestore(selected);
+    if (!mounted) return;
+    final restore = await _confirm(
+      'Replace device data with this backup?',
+      '${selected.name}\n${_localDateTime(preview.document.createdAt)}\n\n'
+          'Backup: ${preview.backupWorkoutCount} workouts and ${preview.backupSetCount} sets.\n'
+          'This device: ${preview.currentWorkoutCount} workouts and ${preview.currentSetCount} sets.\n\n'
+          'Restore replaces all current app data, including measurements, unfinished sessions, settings, and imports. It does not merge histories. A verified safety backup of this device is required first.',
+      confirmLabel: 'Replace and restore',
+    );
+    if (!restore) return;
+    await _cloud.restorePrepared(preview);
+    _message =
+        'Cloud backup restored. Your previous device data is in Automatic backups.';
+  }
 
   Widget _sharingTab() {
     final preferences = _preferences.sharePreferences;
@@ -1042,6 +1181,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
             !r.retroactive &&
             r.sessionId != null &&
             r.startedAt != null &&
+            r.date.isAfter(r.startedAt!) &&
             r.elapsedSeconds > 0)
           HealthWorkoutWriteRequest(
             externalId: 'strength-${r.sessionId}',
@@ -1049,12 +1189,15 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
                 '${r.workout}${r.status == WorkoutStatus.partial ? ' (partial)' : ''}',
             sport: 'strength',
             startedAt: r.startedAt!,
-            endedAt: r.startedAt!.add(Duration(seconds: r.elapsedSeconds)),
+            endedAt: r.date,
+            notes:
+                'Active training time: ${r.elapsedSeconds} seconds. The start/end interval includes pauses.',
           ),
       for (final r in widget.store.athleticHistory)
         if (r.status != 'skipped' &&
             r.sessionId != null &&
             r.startedAt != null &&
+            r.completedAt.isAfter(r.startedAt!) &&
             r.durationSeconds > 0)
           HealthWorkoutWriteRequest(
             externalId: 'athletic-${r.sessionId}',
@@ -1062,7 +1205,9 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
                 'Functional Training · Week ${r.week}${r.isComplete ? '' : ' (partial)'}',
             sport: 'functionalStrength',
             startedAt: r.startedAt!,
-            endedAt: r.startedAt!.add(Duration(seconds: r.durationSeconds)),
+            endedAt: r.completedAt,
+            notes:
+                'Active training time: ${r.durationSeconds} seconds. The start/end interval includes pauses.',
             rateOfPerceivedExertion: r.effort.toDouble(),
           ),
     ]..sort((a, b) => b.startedAt.compareTo(a.startedAt));
@@ -1081,14 +1226,14 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
           const Padding(
             padding: EdgeInsets.all(20),
             child: Text(
-              'Choose a workout to export. Only its summary is shared.',
+              'Choose a workout to export. Only its summary is shared. The start/end interval includes pauses; active training time is included in notes.',
             ),
           ),
           for (final r in requests.take(30))
             ListTile(
               title: Text(r.title),
               subtitle: Text(
-                '${MaterialLocalizations.of(ctx).formatMediumDate(r.startedAt.toLocal())} · ${r.endedAt.difference(r.startedAt).inMinutes} min',
+                '${MaterialLocalizations.of(ctx).formatMediumDate(r.startedAt.toLocal())} · ${r.endedAt.difference(r.startedAt).inMinutes} min from first start to finish',
               ),
               trailing: const Icon(Icons.upload_outlined),
               onTap: () => Navigator.pop(ctx, r),
@@ -1126,8 +1271,15 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
               ),
               IconButton(
                 tooltip: 'Delete experiment',
-                onPressed: () =>
-                    _run(() => _preferences.removeExperiment(experiment.id)),
+                onPressed: () => _run(() async {
+                  if (await _confirm(
+                    'Delete this experiment?',
+                    'Remove “${experiment.name}” and its saved setup? Your workouts and daily entries will remain.',
+                    confirmLabel: 'Delete experiment',
+                  )) {
+                    await _preferences.removeExperiment(experiment.id);
+                  }
+                }),
                 icon: const Icon(Icons.delete_outline_rounded),
               ),
             ],
@@ -1142,9 +1294,13 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
             spacing: 8,
             runSpacing: 8,
             children: <Widget>[
-              _Chip('${result.samplesA.length} A'),
-              _Chip('${result.samplesB.length} B'),
-              _Chip(result.confidence.name),
+              _Chip(
+                '${experiment.conditionA.label}: ${result.samplesA.length}/${experiment.minimumSessionsPerCondition} workouts',
+              ),
+              _Chip(
+                '${experiment.conditionB.label}: ${result.samplesB.length}/${experiment.minimumSessionsPerCondition} workouts',
+              ),
+              _Chip(result.confidence.label),
               if (result.percentDifference != null)
                 _Chip('${result.percentDifference!.toStringAsFixed(1)}%'),
             ],
@@ -1168,8 +1324,16 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
         _message =
             '${parsed.workouts.length} workout${parsed.workouts.length == 1 ? '' : 's'} imported from ${file.name}.';
       });
-    } on Object catch (error) {
-      setState(() => _message = 'Import stopped: $error');
+    } on Object catch (error, stack) {
+      debugPrint('Activity import failed: $error');
+      debugPrintStack(stackTrace: stack);
+      if (mounted) {
+        setState(
+          () => _message = error is FormatException
+              ? error.message
+              : 'Could not import that activity file. Check the file and try again.',
+        );
+      }
     } finally {
       if (mounted) setState(() => _fileBusy = false);
     }
@@ -1219,8 +1383,33 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
       LabExperimentTemplate.sleepTarget => LabExperimentTemplates.sleepTarget(),
       _ => LabExperimentTemplates.caffeineTiming(),
     };
-    await _preferences.addExperiment(experiment);
+    if (!mounted) return;
+    final start = await _confirm(
+      'Review ${_templateName(template).toLowerCase()}',
+      'Compare:\n• ${experiment.conditionA.label}\n• ${experiment.conditionB.label}\n\n'
+          'Result measured: ${experiment.metric.label}.\n'
+          'At least ${experiment.minimumSessionsPerCondition} comparable workouts in each condition are needed before a conclusion.\n\n'
+          '${_experimentRequirements(template)}\n\n'
+          'Data collection begins today. Missing entries cannot establish that a habit was absent. These comparisons describe associations; they do not prove cause and effect.',
+      confirmLabel: 'Start experiment',
+    );
+    if (start) await _run(() => _preferences.addExperiment(experiment));
   }
+
+  String _experimentRequirements(
+    LabExperimentTemplate template,
+  ) => switch (template) {
+    LabExperimentTemplate.caffeineTiming =>
+      'Log caffeine amount and time, plus completed workouts with comparable exercises.',
+    LabExperimentTemplate.creatineConsistency =>
+      'Log daily creatine use and comparable completed workouts. Each workout also needs the prior seven days of habit data.',
+    LabExperimentTemplate.preWorkoutMealTiming =>
+      'Log meal times and completed workouts, then answer the workout energy question.',
+    LabExperimentTemplate.sleepTarget =>
+      'Log sleep hours for the night before each comparable completed workout.',
+    _ =>
+      'Log the selected habit and comparable completed workouts consistently.',
+  };
 
   String _templateName(LabExperimentTemplate value) => switch (value) {
     LabExperimentTemplate.caffeineTiming => 'Caffeine timing',
@@ -1355,8 +1544,21 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
     try {
       await action();
       if (mounted) setState(() {});
-    } on Object catch (error) {
-      if (mounted) setState(() => _message = '$error');
+    } on Object catch (error, stack) {
+      debugPrint('Connection action failed: $error');
+      debugPrintStack(stackTrace: stack);
+      if (mounted) {
+        setState(
+          () => _message = error is BackupValidationException
+              ? error.message
+              : error is StateError &&
+                    error.message.contains(
+                      'Your current data has not been replaced.',
+                    )
+              ? error.message
+              : 'Could not finish this action. Check the connection or selected file and try again.',
+        );
+      }
     }
   }
 
@@ -1368,6 +1570,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
       await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
+          scrollable: true,
           title: Text(title),
           content: Text(message),
           actions: <Widget>[

@@ -1,4 +1,5 @@
 import 'store.dart';
+import 'lab_data.dart';
 import 'dart:math' as math;
 
 enum LabExperimentTemplate {
@@ -20,9 +21,30 @@ enum LabExperimentMetric {
   athleticAssessment,
 }
 
+extension LabExperimentMetricLabel on LabExperimentMetric {
+  String get label => switch (this) {
+    LabExperimentMetric.estimatedStrength => 'Estimated strength',
+    LabExperimentMetric.totalVolume => 'Total lifting volume',
+    LabExperimentMetric.topSetRepetitions => 'Top-set repetitions',
+    LabExperimentMetric.workoutCompletion => 'Workout completion',
+    LabExperimentMetric.sessionEnergy => 'Session energy',
+    LabExperimentMetric.sessionFocus => 'Session focus',
+    LabExperimentMetric.athleticAssessment => 'Functional assessment',
+  };
+}
+
 enum LabExperimentStatus { draft, active, collecting, complete, archived }
 
 enum LabExperimentConfidence { insufficient, preliminary, moderate, strong }
+
+extension LabExperimentConfidenceLabel on LabExperimentConfidence {
+  String get label => switch (this) {
+    LabExperimentConfidence.insufficient => 'More data needed',
+    LabExperimentConfidence.preliminary => 'Early pattern',
+    LabExperimentConfidence.moderate => 'Building evidence',
+    LabExperimentConfidence.strong => 'Stronger evidence',
+  };
+}
 
 class LabExperimentCondition {
   const LabExperimentCondition({
@@ -207,6 +229,7 @@ class LabExperimentSample {
     required this.value,
     required this.workoutName,
     this.confounders = const <String>[],
+    this.comparisonKey = '',
   });
 
   final String sessionId;
@@ -215,6 +238,7 @@ class LabExperimentSample {
   final double value;
   final String workoutName;
   final List<String> confounders;
+  final String comparisonKey;
 }
 
 class LabExperimentResult {
@@ -230,9 +254,11 @@ class LabExperimentResult {
     required this.confidence,
     required this.summary,
     required this.confounders,
+    this.excludedSessions = 0,
   });
 
   final LabExperiment experiment;
+  final int excludedSessions;
   final List<LabExperimentSample> samplesA;
   final List<LabExperimentSample> samplesB;
   final double? meanA;
@@ -250,6 +276,7 @@ class LabExperimentResult {
     'experimentId': experiment.id,
     'sampleCountA': samplesA.length,
     'sampleCountB': samplesB.length,
+    'excludedSessions': excludedSessions,
     if (meanA != null) 'meanA': meanA,
     if (meanB != null) 'meanB': meanB,
     if (difference != null) 'difference': difference,
@@ -400,6 +427,7 @@ abstract final class LabExperimentAnalyzer {
     LabExperiment experiment,
     Map<String, dynamic> state,
   ) {
+    state = selectedLabState(state);
     final sessions = _sessions(state, experiment);
     final samplesA = <LabExperimentSample>[];
     final samplesB = <LabExperimentSample>[];
@@ -418,9 +446,34 @@ abstract final class LabExperimentAnalyzer {
         value: value,
         workoutName: session.workoutName,
         confounders: _confounders(session, state),
+        comparisonKey: session.comparisonKey,
       );
       (conditionA ? samplesA : samplesB).add(sample);
     }
+
+    // Compare one cohort with identical movements/tracking rules. A generic
+    // workout title is insufficient: bench and squat sessions are unrelated.
+    final keys = {
+      ...samplesA.map((s) => s.comparisonKey),
+      ...samplesB.map((s) => s.comparisonKey),
+    }.toList();
+    int count(List<LabExperimentSample> values, String key) =>
+        values.where((s) => s.comparisonKey == key).length;
+    keys.sort((a, b) {
+      final balance = math
+          .min(count(samplesA, b), count(samplesB, b))
+          .compareTo(math.min(count(samplesA, a), count(samplesB, a)));
+      if (balance != 0) return balance;
+      final total = (count(samplesA, b) + count(samplesB, b)).compareTo(
+        count(samplesA, a) + count(samplesB, a),
+      );
+      return total != 0 ? total : a.compareTo(b);
+    });
+    final selectedKey = keys.firstOrNull;
+    final before = samplesA.length + samplesB.length;
+    samplesA.removeWhere((sample) => sample.comparisonKey != selectedKey);
+    samplesB.removeWhere((sample) => sample.comparisonKey != selectedKey);
+    final excluded = before - samplesA.length - samplesB.length;
 
     final meanA = _mean(samplesA.map((sample) => sample.value));
     final meanB = _mean(samplesB.map((sample) => sample.value));
@@ -453,14 +506,19 @@ abstract final class LabExperimentAnalyzer {
       percentDifference: percent,
       effectSize: effect,
       confidence: confidence,
-      summary: _summary(
-        experiment,
-        samplesA.length,
-        samplesB.length,
-        percent,
-        confidence,
-      ),
+      summary:
+          _summary(
+            experiment,
+            samplesA.length,
+            samplesB.length,
+            percent,
+            confidence,
+          ) +
+          (excluded == 0
+              ? ''
+              : ' $excluded sessions with different exercises were excluded.'),
       confounders: confounders,
+      excludedSessions: excluded,
     );
   }
 
@@ -468,17 +526,15 @@ abstract final class LabExperimentAnalyzer {
     Map<String, dynamic> state, {
     DateTime? ending,
   }) {
+    state = selectedLabState(state);
     final end = (ending ?? DateTime.now()).toUtc();
     final start = end.subtract(const Duration(days: 7));
-    final workoutHistory = _maps(state['workoutHistory']).where((item) {
-      if (item['status'] != 'completed') return false;
-      final date = _date(
-        item['importedWorkoutId'] == null
-            ? (item['loggedAt'] ?? item['date'])
-            : item['date'],
-      );
-      return date != null && !date.isBefore(start) && !date.isAfter(end);
-    }).toList();
+    final workoutHistory = labCompletedSessions(state)
+        .where(
+          (item) =>
+              !item.occurredAt.isBefore(start) && !item.occurredAt.isAfter(end),
+        )
+        .toList();
     final athleticHistory = _maps(state['athleticHistory']).where((item) {
       if (item['status'] != null && item['status'] != 'completed') return false;
       final date = _date(item['completedAt'] ?? item['date']);
@@ -514,7 +570,9 @@ abstract final class LabExperimentAnalyzer {
     final signals = <String>[];
     final dataGaps = <String>[];
     if (workoutHistory.isNotEmpty) {
-      signals.add('${workoutHistory.length} Strength workouts completed.');
+      signals.add(
+        '${workoutHistory.length} Strength, Open and Iconic workouts completed.',
+      );
     }
     if (athleticHistory.isNotEmpty) {
       signals.add('${athleticHistory.length} Athletic sessions completed.');
@@ -551,8 +609,9 @@ abstract final class LabExperimentAnalyzer {
     for (final log in allLogs) {
       if (!log.date.isBefore(start) &&
           !log.date.isAfter(end) &&
-          policy.isPr(log))
+          policy.isPr(log)) {
         records++;
+      }
       policy.logs.add(log);
     }
     policy.dispose();
@@ -575,35 +634,40 @@ abstract final class LabExperimentAnalyzer {
     Map<String, dynamic> state,
     LabExperiment experiment,
   ) {
-    final history = _maps(state['workoutHistory']);
     final sessions = <_Session>[];
-    for (final item in history) {
-      final status = '${item['status']}';
-      if (status.isNotEmpty && status != 'completed') continue;
-      final occurredAt = _date(
-        item['importedWorkoutId'] == null
-            ? (item['loggedAt'] ?? item['date'])
-            : item['date'],
-      );
-      if (occurredAt == null || occurredAt.isBefore(experiment.startedAt))
-        continue;
-      if (experiment.endedAt != null &&
-          occurredAt.isAfter(experiment.endedAt!)) {
+    for (final item in labCompletedSessions(state)) {
+      final occurredAt = item.occurredAt.toUtc();
+      if (occurredAt.isBefore(experiment.startedAt) ||
+          (experiment.endedAt != null &&
+              occurredAt.isAfter(experiment.endedAt!))) {
         continue;
       }
-      final workoutName = '${item['workout'] ?? item['name'] ?? 'Workout'}';
       if (experiment.workoutNameFilter case final String filter) {
-        if (!workoutName.toLowerCase().contains(filter.toLowerCase())) continue;
+        if (!item.workoutName.toLowerCase().contains(filter.toLowerCase())) {
+          continue;
+        }
       }
-      final sessionId =
-          '${item['sessionId'] ?? '${occurredAt.microsecondsSinceEpoch}-$workoutName'}';
+      final logs = item.logs
+          .where(
+            (log) =>
+                experiment.exerciseFilter == null ||
+                labExerciseName(log).toLowerCase().contains(
+                  experiment.exerciseFilter!.toLowerCase(),
+                ),
+          )
+          .toList();
+      if (experiment.exerciseFilter != null && logs.isEmpty) continue;
       sessions.add(
         _Session(
-          id: sessionId,
+          id: item.id,
           occurredAt: occurredAt,
-          workoutName: workoutName,
-          week: (item['week'] as num?)?.toInt(),
-          days: (item['days'] as num?)?.toInt(),
+          workoutName: item.workoutName,
+          logs: logs,
+          comparisonKey: item.comparisonKey(
+            exerciseFilter: experiment.exerciseFilter,
+          ),
+          week: item.week,
+          days: item.days,
         ),
       );
     }
@@ -616,15 +680,7 @@ abstract final class LabExperimentAnalyzer {
     _Session session,
     Map<String, dynamic> state,
   ) {
-    final sessionLogs = _maps(state['logs']).where((item) {
-      final id = '${item['s'] ?? item['sessionId'] ?? ''}';
-      if (id.isNotEmpty) return id == session.id;
-      final date = _date(item['d'] ?? item['date']);
-      final workout = '${item['o'] ?? item['workout'] ?? ''}';
-      return date != null &&
-          _dateOnly(date) == _dateOnly(session.occurredAt) &&
-          workout == session.workoutName;
-    }).toList();
+    final sessionLogs = session.logs;
     final responses = _maps(
       state['workoutResponses'],
     ).where((item) => '${item['workoutSessionId']}' == session.id);
@@ -632,8 +688,9 @@ abstract final class LabExperimentAnalyzer {
       LabExperimentMetric.estimatedStrength => _maxDouble(
         sessionLogs.map((item) {
           if (item['trackingType'] != null &&
-              item['trackingType'] != 'weightReps')
+              item['trackingType'] != 'weightReps') {
             return null;
+          }
           final weight = (item['w'] ?? item['weight']) as num?;
           final reps = (item['r'] ?? item['reps']) as num?;
           if (weight == null ||
@@ -655,8 +712,9 @@ abstract final class LabExperimentAnalyzer {
             ![
               'weightReps',
               'weightedBodyweight',
-            ].contains(item['trackingType']))
+            ].contains(item['trackingType'])) {
           return total;
+        }
         final weight = ((item['w'] ?? item['weight']) as num?)?.toDouble() ?? 0;
         final reps = ((item['r'] ?? item['reps']) as num?)?.toDouble() ?? 0;
         return total + weight * reps;
@@ -742,8 +800,9 @@ abstract final class LabExperimentAnalyzer {
         final end = _dateOnly(session.occurredAt);
         value = _maps(state['supplementEvents'])
             .where((item) {
-              if (!'${item['name']}'.toLowerCase().contains(supplement))
+              if (!'${item['name']}'.toLowerCase().contains(supplement)) {
                 return false;
+              }
               final date = _date(item['takenAt']);
               return date != null &&
                   !_dateOnly(date).isBefore(start) &&
@@ -815,12 +874,12 @@ abstract final class LabExperimentAnalyzer {
     if (confidence == LabExperimentConfidence.insufficient || percent == null) {
       return 'More matched workouts are needed. '
           '${experiment.conditionA.label}: $countA; '
-          '${experiment.conditionB.label}: $countB.';
+          '${experiment.conditionB.label}: $countB. Missing habit entries do not prove absence.';
     }
     final direction = percent >= 0 ? 'higher' : 'lower';
-    return '${experiment.metric.name} was ${percent.abs().toStringAsFixed(1)}% '
+    return '${experiment.metric.label} was ${percent.abs().toStringAsFixed(1)}% '
         '$direction under “${experiment.conditionA.label}” across $countA versus '
-        '$countB matched workouts. This is an association, not proof of cause.';
+        '$countB matched workouts. This is an association, not proof of cause. Missing habit entries do not prove absence.';
   }
 
   static double? _cohensD(List<double> a, List<double> b) {
@@ -880,15 +939,15 @@ class _Session {
     required this.id,
     required this.occurredAt,
     required this.workoutName,
+    required this.logs,
+    required this.comparisonKey,
     this.week,
     this.days,
   });
-
-  final String id;
+  final String id, workoutName, comparisonKey;
   final DateTime occurredAt;
-  final String workoutName;
-  final int? week;
-  final int? days;
+  final List<Map<String, dynamic>> logs;
+  final int? week, days;
 }
 
 extension _FirstOrNull<T> on Iterable<T> {

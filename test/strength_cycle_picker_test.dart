@@ -280,11 +280,9 @@ void main() {
     );
     final weekCard = find.byKey(const ValueKey('week-1'));
     await tester.scrollUntilVisible(weekCard, 300);
-    await tester.tap(
-      find.descendant(of: weekCard, matching: find.byType(InkWell)).first,
-    );
-    await tester.pumpAndSettle();
+    // The current cycle opens expanded so its start controls are discoverable.
     final start = find.byKey(const ValueKey('start-cycle-workout-0'));
+    expect(start, findsOneWidget);
     await tester.ensureVisible(start);
     await tester.pumpAndSettle();
     await tester.tap(start);
@@ -315,11 +313,9 @@ void main() {
       );
       final weekCard = find.byKey(const ValueKey('week-1'));
       await tester.scrollUntilVisible(weekCard, 300);
-      await tester.tap(
-        find.descendant(of: weekCard, matching: find.byType(InkWell)).first,
-      );
-      await tester.pumpAndSettle();
+      // The current cycle opens expanded so its start controls are discoverable.
       final start = find.byKey(const ValueKey('start-cycle-workout-0'));
+      expect(start, findsOneWidget);
       await tester.ensureVisible(start);
       await tester.pumpAndSettle();
 

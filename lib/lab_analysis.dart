@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'daily_inputs.dart';
 import 'store.dart';
+import 'lab_data.dart';
 
 enum LabConfidence { insufficient, preliminary, developing, stronger }
 
@@ -19,6 +20,7 @@ class LabEvidence {
     required this.confounders,
     this.effectPercent,
     this.positive = true,
+    this.neutral = false,
   });
 
   final String id;
@@ -31,6 +33,7 @@ class LabEvidence {
   final List<String> confounders;
   final double? effectPercent;
   final bool positive;
+  final bool neutral;
 
   bool get hasEnoughData => confidence != LabConfidence.insufficient;
 
@@ -44,7 +47,8 @@ class LabEvidence {
     'confidence': confidence.name,
     'confounders': confounders,
     if (effectPercent != null) 'effectPercent': effectPercent,
-    'positive': positive,
+    if (!neutral) 'positive': positive,
+    'neutral': neutral,
   };
 }
 
@@ -69,7 +73,7 @@ class LabReport {
   String toPromptPacket({String? question}) {
     final payload = {
       'task': question == null ? 'progress_summary' : 'answer_user_question',
-      if (question != null) 'question': question,
+      'question': ?question,
       'generatedAt': generatedAt.toIso8601String(),
       'window': {
         'start': windowStart.toIso8601String(),
@@ -101,23 +105,37 @@ class LabAnalysisEngine {
     final end = now ?? DateTime.now();
     final start = end.subtract(const Duration(days: 56));
     final domains = enabledDomains ?? store.labDataDomains;
-    final sessions = _strengthSessions(store, start: start, end: end);
+    final workoutsIncluded = domains.contains(LabDataDomain.workouts);
+    final sessions = workoutsIncluded
+        ? _strengthSessions(store, start: start, end: end)
+        : <_StrengthSession>[];
+    final completed = workoutsIncluded
+        ? labCompletedSessions(store.exportState())
+              .where(
+                (item) =>
+                    !item.occurredAt.isBefore(start) &&
+                    !item.occurredAt.isAfter(end),
+              )
+              .length
+        : 0;
     final evidence = <LabEvidence>[];
 
     if (domains.contains(LabDataDomain.workouts)) {
       evidence.add(_strengthTrend(store, end));
     }
     if (domains.contains(LabDataDomain.supplements)) {
-      evidence.add(_caffeineAssociation(store, sessions));
-      evidence.add(_creatineConsistency(store, end));
+      if (workoutsIncluded) evidence.add(_caffeineAssociation(store, sessions));
+      evidence.add(
+        _creatineConsistency(store, end, workoutsIncluded: workoutsIncluded),
+      );
     }
-    if (domains.contains(LabDataDomain.meals)) {
+    if (workoutsIncluded && domains.contains(LabDataDomain.meals)) {
       evidence.add(_mealAssociation(store, sessions));
     }
-    if (domains.contains(LabDataDomain.hydration)) {
+    if (workoutsIncluded && domains.contains(LabDataDomain.hydration)) {
       evidence.add(_hydrationAssociation(store, sessions));
     }
-    if (domains.contains(LabDataDomain.recovery)) {
+    if (workoutsIncluded && domains.contains(LabDataDomain.recovery)) {
       evidence.add(_sleepAssociation(store, sessions));
       evidence.add(_workoutResponseSummary(store, end));
     }
@@ -135,27 +153,84 @@ class LabAnalysisEngine {
       evidence: evidence,
       dataSummary: {
         'strengthSessions': sessions.length,
-        'strengthSets': store.logs
-            .where((log) => !log.date.isBefore(start))
-            .length,
-        'athleticSessions': store.athleticHistory
-            .where(
-              (record) =>
-                  record.isComplete && !record.completedAt.isBefore(start),
-            )
-            .length,
-        'supplementEvents': store.supplementEvents
-            .where((event) => !event.takenAt.isBefore(start))
-            .length,
-        'mealEvents': store.mealEvents
-            .where((event) => !event.occurredAt.isBefore(start))
-            .length,
-        'recoveryCheckIns': store.recoveryCheckIns
-            .where((item) => !item.localDate.isBefore(dateOnly(start)))
-            .length,
-        'workoutResponses': store.workoutResponses
-            .where((item) => !item.recordedAt.isBefore(start))
-            .length,
+        'completedWorkouts': completed,
+        'workoutsWithoutComparableStrength': completed - sessions.length,
+        'strengthSets': workoutsIncluded
+            ? store.logs
+                  .where(
+                    (log) =>
+                        !log.date.isBefore(start) && !log.date.isAfter(end),
+                  )
+                  .length
+            : 0,
+        'athleticSessions': domains.contains(LabDataDomain.athletic)
+            ? store.athleticHistory
+                  .where(
+                    (record) =>
+                        record.isComplete &&
+                        !record.completedAt.isBefore(start) &&
+                        !record.completedAt.isAfter(end),
+                  )
+                  .length
+            : 0,
+        'supplementEvents': domains.contains(LabDataDomain.supplements)
+            ? store.supplementEvents
+                  .where(
+                    (event) =>
+                        !event.takenAt.isBefore(start) &&
+                        !event.takenAt.isAfter(end),
+                  )
+                  .length
+            : 0,
+        'mealEvents': domains.contains(LabDataDomain.meals)
+            ? store.mealEvents
+                  .where(
+                    (event) =>
+                        !event.occurredAt.isBefore(start) &&
+                        !event.occurredAt.isAfter(end),
+                  )
+                  .length
+            : 0,
+        'hydrationEvents': domains.contains(LabDataDomain.hydration)
+            ? store.hydrationEvents
+                  .where(
+                    (event) =>
+                        !event.occurredAt.isBefore(start) &&
+                        !event.occurredAt.isAfter(end),
+                  )
+                  .length
+            : 0,
+        'recoveryCheckIns': domains.contains(LabDataDomain.recovery)
+            ? store.recoveryCheckIns
+                  .where(
+                    (item) =>
+                        !item.localDate.isBefore(dateOnly(start)) &&
+                        !item.localDate.isAfter(dateOnly(end)),
+                  )
+                  .length
+            : 0,
+        'workoutResponses':
+            workoutsIncluded && domains.contains(LabDataDomain.recovery)
+            ? store.workoutResponses
+                  .where(
+                    (item) =>
+                        !item.recordedAt.isBefore(start) &&
+                        !item.recordedAt.isAfter(end),
+                  )
+                  .length
+            : 0,
+        'bodyWeightEntries': domains.contains(LabDataDomain.bodyMetrics)
+            ? labDailyWeights(store.exportState())
+                  .where(
+                    (item) =>
+                        item.date.compareTo(_dayKey(start)) >= 0 &&
+                        item.date.compareTo(_dayKey(end)) <= 0,
+                  )
+                  .length
+            : 0,
+        'includedCategories': domains.map((domain) => domain.name).toList(),
+        'sessionMatching':
+            'Completed Strength, Open and Iconic sessions plus imported workouts with the same exercises and tracking rules',
       },
     );
   }
@@ -175,8 +250,9 @@ class LabAnalysisEngine {
           : null;
       if (target == null) continue;
       final current = target[log.exercise];
-      if (current == null || log.e1rm > current)
+      if (current == null || log.e1rm > current) {
         target[log.exercise] = log.e1rm;
+      }
     }
     final common = recent.keys.where(previous.containsKey).toList();
     if (common.length < 2) {
@@ -231,7 +307,8 @@ class LabAnalysisEngine {
         title: 'Caffeine and performance',
         finding: 'More matched workouts with and without caffeine are needed.',
         metric: 'Normalized session strength score',
-        comparison: '25+ mg caffeine 20–180 minutes before training vs none',
+        comparison:
+            '25+ mg caffeine 20–180 minutes before training vs no logged caffeine',
         sampleLabel:
             '${grouped.withCondition} with · ${grouped.withoutCondition} without',
         confidence: LabConfidence.insufficient,
@@ -239,7 +316,8 @@ class LabAnalysisEngine {
           'Sleep',
           'meal timing',
           'program phase',
-          'dose tolerance',
+          'Dose tolerance',
+          'Missing entries do not confirm caffeine absence',
         ],
       );
     }
@@ -251,7 +329,8 @@ class LabAnalysisEngine {
           ? 'Matched session performance was similar with and without caffeine.'
           : 'Matched session performance was ${effect >= 0 ? 'higher' : 'lower'} after logged caffeine.',
       metric: 'Normalized session strength score',
-      comparison: '25+ mg caffeine 20–180 minutes before training vs none',
+      comparison:
+          '25+ mg caffeine 20–180 minutes before training vs no logged caffeine',
       sampleLabel:
           '${grouped.withCondition} with · ${grouped.withoutCondition} without',
       confidence: _confidence(grouped.withCondition, grouped.withoutCondition),
@@ -259,7 +338,8 @@ class LabAnalysisEngine {
         'Sleep',
         'meal timing',
         'program phase',
-        'dose tolerance',
+        'Dose tolerance',
+        'Missing entries do not confirm caffeine absence',
       ],
       effectPercent: effect,
       positive: effect >= 0,
@@ -393,24 +473,31 @@ class LabAnalysisEngine {
     );
   }
 
-  LabEvidence _creatineConsistency(AppStore store, DateTime end) {
+  LabEvidence _creatineConsistency(
+    AppStore store,
+    DateTime end, {
+    required bool workoutsIncluded,
+  }) {
     final start = dateOnly(end.subtract(const Duration(days: 27)));
     final creatineDays = <String>{};
     for (final event in store.supplementEvents) {
-      if (!event.containsCreatine || event.takenAt.isBefore(start)) continue;
+      if (!event.containsCreatine ||
+          event.takenAt.isBefore(start) ||
+          event.takenAt.isAfter(end)) {
+        continue;
+      }
       creatineDays.add(_dayKey(event.takenAt));
     }
     final adherence = creatineDays.length / 28 * 100;
-    final workoutCount = store.workoutHistory
-        .where(
-          (record) =>
-              record.status == WorkoutStatus.completed &&
-              !(record.importedWorkoutId == null
-                      ? record.loggedAt
-                      : record.date)
-                  .isBefore(start),
-        )
-        .length;
+    final workoutCount = workoutsIncluded
+        ? labCompletedSessions(store.exportState())
+              .where(
+                (record) =>
+                    !record.occurredAt.isBefore(start) &&
+                    !record.occurredAt.isAfter(end),
+              )
+              .length
+        : 0;
     if (store.supplementEvents
         .where((event) => event.containsCreatine)
         .isEmpty) {
@@ -432,7 +519,8 @@ class LabAnalysisEngine {
           'Creatine was logged on ${creatineDays.length} of the last 28 days. This is an adherence signal, not proof of effect.',
       metric: 'Daily adherence',
       comparison: 'Last 28 days',
-      sampleLabel: '${creatineDays.length}/28 days · $workoutCount workouts',
+      sampleLabel:
+          '${creatineDays.length}/28 days${workoutsIncluded ? ' · $workoutCount workouts' : ''}',
       confidence: creatineDays.length >= 14
           ? LabConfidence.developing
           : LabConfidence.preliminary,
@@ -449,7 +537,10 @@ class LabAnalysisEngine {
   LabEvidence _workoutResponseSummary(AppStore store, DateTime end) {
     final start = end.subtract(const Duration(days: 28));
     final values = store.workoutResponses
-        .where((item) => !item.recordedAt.isBefore(start))
+        .where(
+          (item) =>
+              !item.recordedAt.isBefore(start) && !item.recordedAt.isAfter(end),
+        )
         .toList();
     if (values.length < 3) {
       return LabEvidence(
@@ -485,14 +576,13 @@ class LabAnalysisEngine {
 
   LabEvidence _bodyweightTrend(AppStore store, DateTime end) {
     final start = dateOnly(end.subtract(const Duration(days: 56)));
-    final values =
-        store.recoveryCheckIns
-            .where(
-              (item) =>
-                  item.bodyWeight != null && !item.localDate.isBefore(start),
-            )
-            .toList()
-          ..sort((a, b) => a.localDate.compareTo(b.localDate));
+    final values = labDailyWeights(store.exportState())
+        .where(
+          (item) =>
+              item.date.compareTo(_dayKey(start)) >= 0 &&
+              item.date.compareTo(_dayKey(end)) <= 0,
+        )
+        .toList();
     if (values.length < 3) {
       return LabEvidence(
         id: 'bodyweight',
@@ -505,8 +595,8 @@ class LabAnalysisEngine {
         confounders: const ['Hydration', 'time of day', 'food intake'],
       );
     }
-    final first = values.first.bodyWeight!;
-    final last = values.last.bodyWeight!;
+    final first = values.first.value;
+    final last = values.last.value;
     final change = ((last - first) / first) * 100;
     return LabEvidence(
       id: 'bodyweight',
@@ -515,19 +605,25 @@ class LabAnalysisEngine {
           'Bodyweight changed ${change >= 0 ? 'up' : 'down'} by ${change.abs().toStringAsFixed(1)}% across the logged period.',
       metric: 'Bodyweight',
       comparison:
-          '${_shortDate(values.first.localDate)} to ${_shortDate(values.last.localDate)}',
+          '${_shortDate(DateTime.parse(values.first.date))} to ${_shortDate(DateTime.parse(values.last.date))}',
       sampleLabel: '${values.length} entries',
       confidence: _confidence(values.length, values.length),
       confounders: const ['Hydration', 'time of day', 'food intake'],
       effectPercent: change,
-      positive: change.abs() <= 2,
+      positive: true,
+      neutral: true,
     );
   }
 
   LabEvidence _athleticConsistency(AppStore store, DateTime end) {
     final start = end.subtract(const Duration(days: 28));
     final records = store.athleticHistory
-        .where((item) => item.isComplete && !item.completedAt.isBefore(start))
+        .where(
+          (item) =>
+              item.isComplete &&
+              !item.completedAt.isBefore(start) &&
+              !item.completedAt.isAfter(end),
+        )
         .toList();
     if (records.isEmpty) {
       return const LabEvidence(
@@ -564,38 +660,32 @@ class LabAnalysisEngine {
     required DateTime end,
   }) {
     final result = <_StrengthSession>[];
-    for (final record in store.workoutHistory) {
-      if (record.status != WorkoutStatus.completed ||
-          record.sessionId == null) {
-        continue;
-      }
-      final sessionLogs = store.logs
-          .where(
-            (log) =>
-                log.sessionId == record.sessionId &&
-                supportsStrengthEstimate(log),
-          )
+    for (final record in labCompletedSessions(store.exportState())) {
+      final sessionLogs = record.logs
+          .map(SetLog.fromJson)
+          .where(supportsStrengthEstimate)
           .toList();
       if (sessionLogs.isEmpty) continue;
-      sessionLogs.sort((a, b) => a.date.compareTo(b.date));
-      final startedAt = sessionLogs.first.date;
+      final startedAt = record.occurredAt;
       if (startedAt.isBefore(start) || startedAt.isAfter(end)) continue;
       final bestByExercise = <String, double>{};
       for (final log in sessionLogs) {
-        final current = bestByExercise[log.exercise];
+        final key = log.exerciseId ?? log.exercise.trim().toLowerCase();
+        final current = bestByExercise[key];
         if (current == null || log.e1rm > current) {
-          bestByExercise[log.exercise] = log.e1rm;
+          bestByExercise[key] = log.e1rm;
         }
       }
-      if (bestByExercise.isEmpty) continue;
-      final score =
-          bestByExercise.values.reduce((a, b) => a + b) / bestByExercise.length;
+      final keys = bestByExercise.keys.toList()..sort();
       result.add(
         _StrengthSession(
-          id: record.sessionId!,
-          workoutName: record.workout,
+          id: record.id,
+          workoutName: record.workoutName,
+          comparisonKey: keys.join('|'),
           startedAt: startedAt,
-          score: score,
+          score:
+              bestByExercise.values.reduce((a, b) => a + b) /
+              bestByExercise.length,
         ),
       );
     }
@@ -608,7 +698,7 @@ class LabAnalysisEngine {
   ) {
     final byWorkout = <String, List<_StrengthSession>>{};
     for (final session in sessions) {
-      byWorkout.putIfAbsent(session.workoutName, () => []).add(session);
+      byWorkout.putIfAbsent(session.comparisonKey, () => []).add(session);
     }
     var withCount = 0;
     var withoutCount = 0;
@@ -698,12 +788,14 @@ class _StrengthSession {
   const _StrengthSession({
     required this.id,
     required this.workoutName,
+    required this.comparisonKey,
     required this.startedAt,
     required this.score,
   });
 
   final String id;
   final String workoutName;
+  final String comparisonKey;
   final DateTime startedAt;
   final double score;
 }

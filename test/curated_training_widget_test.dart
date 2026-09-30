@@ -5,6 +5,7 @@ import 'package:progression_lab/brand.dart';
 import 'package:progression_lab/curated_programs.dart';
 import 'package:progression_lab/curated_training.dart';
 import 'package:progression_lab/curated_training_screen.dart';
+import 'package:progression_lab/logged_sets.dart';
 import 'package:progression_lab/store.dart';
 
 void main() {
@@ -119,6 +120,100 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
   }
+
+  testWidgets(
+    'a busy first movement can be done later and unfinished entries return when chosen',
+    (tester) async {
+      phone(tester);
+      final store = session([
+        CuratedMetric.loadedReps,
+        CuratedMetric.duration,
+        CuratedMetric.loadedReps,
+      ]);
+      final id = CuratedPrograms.all.first.id;
+      await tester.pumpWidget(
+        app(CuratedSessionScreen(store: store, programId: id)),
+      );
+      await tester.pumpAndSettle();
+      await enter(tester, 'curated-weight', '100');
+      await enter(tester, 'curated-reps', '8');
+      await enter(tester, 'curated-notes', 'machine busy');
+      await tap(tester, 'curated-do-later');
+      expect(store.curatedDraftFor(id)!.nextStepIndex, 1);
+      expect(store.logs, isEmpty);
+      await enter(tester, 'curated-seconds', '45');
+      await tap(tester, 'curated-log-set');
+      expect(store.curatedDraftFor(id)!.nextStepIndex, 2);
+      await tap(tester, 'curated-choose-exercise');
+      await tester.tap(find.text('Movement 1'));
+      await tester.pumpAndSettle();
+      expect(store.curatedDraftFor(id)!.nextStepIndex, 0);
+      expect(
+        tester
+            .widget<TextFormField>(find.byKey(const ValueKey('curated-weight')))
+            .controller!
+            .text,
+        '100',
+      );
+      expect(
+        tester
+            .widget<TextFormField>(find.byKey(const ValueKey('curated-notes')))
+            .controller!
+            .text,
+        'machine busy',
+      );
+      expect(store.logs, hasLength(1));
+      expect(tester.takeException(), isNull);
+      await close(tester);
+    },
+  );
+
+  testWidgets(
+    'saved-set deletion is confirmed and Undo restores the exact set and remaining target',
+    (tester) async {
+      phone(tester);
+      final store = session([CuratedMetric.reps, CuratedMetric.duration]);
+      final draft = store.curatedTraining.drafts.values.single;
+      await store.logCuratedSet(
+        programId: draft.programId,
+        sessionId: draft.sessionId,
+        stepIndex: 0,
+        reps: 9,
+      );
+      final original = store.logs.single.toJson();
+      await tester.pumpWidget(
+        app(
+          Scaffold(
+            body: ListView(
+              children: [
+                LoggedSetsEditor(
+                  store: store,
+                  predicate: (_) => true,
+                  emptyMessage: 'No sets',
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tap(tester, 'saved-set-delete');
+      expect(store.logs, hasLength(1));
+      await tester.tap(find.text('Keep set'));
+      await tester.pumpAndSettle();
+      expect(store.logs, hasLength(1));
+      await tap(tester, 'saved-set-delete');
+      await tap(tester, 'saved-set-delete-confirm');
+      expect(store.logs, isEmpty);
+      expect(store.curatedDraftFor(draft.programId)!.nextStepIndex, 0);
+      await tester.tap(find.text('Undo'));
+      await tester.pumpAndSettle();
+      expect(store.logs.single.toJson(), original);
+      expect(store.curatedDraftFor(draft.programId)!.nextStepIndex, 1);
+      expect(tester.takeException(), isNull);
+      await close(tester);
+    },
+  );
 
   testWidgets('program selection exposes evidence, all five days, and start', (
     tester,

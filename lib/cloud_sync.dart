@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -20,6 +20,19 @@ enum CloudFolderProvider {
 }
 
 enum CloudSyncDirection { none, upload, download, conflict }
+
+extension CloudFolderProviderLabel on CloudFolderProvider {
+  String get label => switch (this) {
+    CloudFolderProvider.localFolder => 'Device folder',
+    CloudFolderProvider.googleDrive => 'Google Drive',
+    CloudFolderProvider.iCloudDrive => 'iCloud Drive',
+    CloudFolderProvider.oneDrive => 'OneDrive',
+    CloudFolderProvider.dropbox => 'Dropbox',
+    CloudFolderProvider.filesProvider => 'Files',
+    CloudFolderProvider.webDav => 'WebDAV',
+    CloudFolderProvider.unknown => 'Selected folder',
+  };
+}
 
 class CloudFolderStatus {
   const CloudFolderStatus({
@@ -109,6 +122,80 @@ class CloudSyncPreview {
   final String reason;
 }
 
+class CloudRestorePreview {
+  const CloudRestorePreview({
+    required this.backup,
+    required this.document,
+    required this.currentSetCount,
+    required this.currentWorkoutCount,
+    required this.currentStateFingerprint,
+  });
+
+  final CloudBackupInfo backup;
+  final PortableBackupDocument document;
+  final int currentSetCount;
+  final int currentWorkoutCount;
+  final String currentStateFingerprint;
+
+  int get backupSetCount => _listLength(document.state['logs']);
+  int get backupWorkoutCount => _workoutCount(document.state);
+}
+
+int _listLength(Object? value) => value is List ? value.length : 0;
+
+int _workoutCount(Map<String, dynamic> state) =>
+    _listLength(state['workoutHistory']) +
+    _listLength(state['athleticHistory']) +
+    _listLength(state['importedWorkouts']) +
+    _listLength((state['openWorkout'] as Map?)?['history']) +
+    _listLength((state['curatedTraining'] as Map?)?['history']);
+
+// JSON map order and the time an export was created are not data revisions.
+String _stateFingerprint(Map<String, dynamic> state) {
+  Object? canonical(Object? value) {
+    if (value is Map) {
+      final keys = value.keys.map((key) => '$key').toList()..sort();
+      return {for (final key in keys) key: canonical(value[key])};
+    }
+    if (value is List) return value.map(canonical).toList();
+    return value;
+  }
+
+  return sha256Hex(utf8.encode(jsonEncode(canonical(state))));
+}
+
+bool _hasSavedUserData(Map<String, dynamic> state) {
+  const domains = [
+    'logs',
+    'workoutHistory',
+    'athleticHistory',
+    'athleticAssessments',
+    'importedWorkouts',
+    'bodyMeasurements',
+    'customExercises',
+    'supplementEvents',
+    'mealEvents',
+    'hydrationEvents',
+    'recoveryCheckIns',
+    'workoutResponses',
+    'labMessages',
+    'drafts',
+    'athleticDrafts',
+  ];
+  if (domains.any((key) => _listLength(state[key]) > 0)) return true;
+  if (state['draft'] != null || state['athleticDraft'] != null) return true;
+  for (final key in ['openWorkout', 'curatedTraining']) {
+    final value = state[key];
+    if (value is Map &&
+        (value['draft'] != null ||
+            (value['drafts'] is Map && (value['drafts'] as Map).isNotEmpty) ||
+            _listLength(value['history']) > 0)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /// Coordinates user-selected folder sync. The platform implementation uses
 /// Android's Storage Access Framework or the iOS document picker so Drive,
 /// iCloud Drive, OneDrive, Dropbox, and other Files providers can participate
@@ -134,17 +221,23 @@ class CloudBackupSyncService extends ChangeNotifier {
   String? _lastError;
   Timer? _debounce;
   bool _listening = false;
+  bool _pendingChanges = true;
+  String? _lastUploadedFingerprint;
 
   CloudFolderStatus get status => _status;
   bool get automaticSyncEnabled => _automaticSyncEnabled;
   bool get busy => _busy;
   String? get lastError => _lastError;
+  bool get pendingChanges => _lastUploadedFingerprint == null
+      ? _pendingChanges
+      : _stateFingerprint(_store.exportState()) != _lastUploadedFingerprint;
+  bool get backupStatusVerified => _lastUploadedFingerprint != null;
 
   Future<void> initialize() async {
     final result = await _channel.invokeMapMethod<Object?, Object?>('status');
     _status = CloudFolderStatus.fromJson(result ?? const <Object?, Object?>{});
     _automaticSyncEnabled = result?['automaticSyncEnabled'] == true;
-    if (_automaticSyncEnabled) _startListening();
+    _startListening();
     notifyListeners();
   }
 
@@ -159,6 +252,10 @@ class CloudBackupSyncService extends ChangeNotifier {
       );
       if (result == null) return _status;
       _status = CloudFolderStatus.fromJson(result);
+      _lastUploadedFingerprint = null;
+      _pendingChanges = true;
+      _lastError = null;
+      _startListening();
       notifyListeners();
       return _status;
     });
@@ -169,6 +266,9 @@ class CloudBackupSyncService extends ChangeNotifier {
       await _channel.invokeMethod<void>('disconnectFolder');
       _status = const CloudFolderStatus(configured: false);
       _automaticSyncEnabled = false;
+      _lastUploadedFingerprint = null;
+      _pendingChanges = true;
+      _lastError = null;
       _stopListening();
       notifyListeners();
     });
@@ -184,11 +284,9 @@ class CloudBackupSyncService extends ChangeNotifier {
       'enabled': enabled,
     });
     _automaticSyncEnabled = enabled;
-    if (enabled) {
-      _startListening();
-    } else {
-      _stopListening();
-    }
+    _startListening();
+    if (enabled && pendingChanges) _scheduleAutomaticUpload();
+    if (!enabled) _debounce?.cancel();
     notifyListeners();
   }
 
@@ -210,61 +308,53 @@ class CloudBackupSyncService extends ChangeNotifier {
   }
 
   Future<CloudSyncPreview> preview() async {
-    final localBytes = _portability.buildBackup(reason: 'cloud-preview');
-    final localDocument = ProgressionBackupCodec.decode(localBytes);
-    final localCreatedAt = DateTime.tryParse(
-      '${localDocument.manifest['createdAt']}',
-    )?.toUtc();
     final backups = await listBackups();
     if (backups.isEmpty) {
       return CloudSyncPreview(
         direction: CloudSyncDirection.upload,
-        localCreatedAt: localCreatedAt,
         reason: 'No cloud backup exists yet.',
       );
     }
     final remote = backups.first;
-    final remoteCreatedAt = remote.createdAt ?? remote.modifiedAt;
-    if (localCreatedAt == null) {
-      return CloudSyncPreview(
-        direction: CloudSyncDirection.conflict,
-        remote: remote,
-        reason: 'The local backup timestamp could not be verified.',
-      );
-    }
-    final delta = remoteCreatedAt.difference(localCreatedAt).abs();
-    if (delta < const Duration(seconds: 2)) {
-      return CloudSyncPreview(
-        direction: CloudSyncDirection.none,
-        remote: remote,
-        localCreatedAt: localCreatedAt,
-        reason: 'Local and cloud backups are aligned.',
-      );
-    }
-    if (remoteCreatedAt.isAfter(localCreatedAt)) {
+    if (!_hasSavedUserData(_store.exportState())) {
       return CloudSyncPreview(
         direction: CloudSyncDirection.download,
         remote: remote,
-        localCreatedAt: localCreatedAt,
-        reason: 'The cloud backup is newer. Review before restoring it.',
+        reason:
+            'This device has no saved history. Choose a cloud backup to review and restore.',
+      );
+    }
+    final remoteDocument = await _guard(() => _readBackup(remote));
+    final fingerprint = _stateFingerprint(_store.exportState());
+    if (fingerprint == _stateFingerprint(remoteDocument.state)) {
+      _lastUploadedFingerprint = fingerprint;
+      _pendingChanges = false;
+      notifyListeners();
+      return CloudSyncPreview(
+        direction: CloudSyncDirection.none,
+        remote: remote,
+        reason:
+            'This device and the latest cloud backup contain the same data.',
       );
     }
     return CloudSyncPreview(
-      direction: CloudSyncDirection.upload,
+      direction: CloudSyncDirection.conflict,
       remote: remote,
-      localCreatedAt: localCreatedAt,
-      reason: 'The local data is newer than the cloud backup.',
+      reason:
+          'This device and the cloud contain different data. Choose Back up now to save this device, or Restore from cloud to review a replacement.',
     );
   }
 
   Future<CloudBackupInfo> uploadNow({
     String reason = 'manual-cloud-sync',
   }) async {
-    if (!_status.configured)
+    if (!_status.configured) {
       throw StateError('No cloud backup folder is configured.');
+    }
     return _guard(() async {
       final bytes = _portability.buildBackup(reason: reason);
       final document = ProgressionBackupCodec.decode(bytes);
+      final uploadedFingerprint = _stateFingerprint(document.state);
       final createdAt = '${document.manifest['createdAt']}';
       final fileName = 'Progression-Lab-${_safeTimestamp(createdAt)}.plab';
       final result = await _channel
@@ -274,8 +364,13 @@ class CloudBackupSyncService extends ChangeNotifier {
             'createdAt': createdAt,
             'schemaVersion': AppStore.schemaVersion,
           });
-      if (result == null)
+      if (result == null) {
         throw StateError('The cloud provider did not return a saved backup.');
+      }
+      final saved = CloudBackupInfo.fromJson(result);
+      _lastUploadedFingerprint = uploadedFingerprint;
+      _pendingChanges = pendingChanges;
+      _lastError = null;
       _status = CloudFolderStatus(
         configured: _status.configured,
         provider: _status.provider,
@@ -284,33 +379,61 @@ class CloudBackupSyncService extends ChangeNotifier {
         lastSuccessfulSync: DateTime.now().toUtc(),
       );
       notifyListeners();
-      return CloudBackupInfo.fromJson(result);
+      return saved;
     });
   }
 
   Future<void> restoreRemote(CloudBackupInfo backup) async {
+    final preview = await prepareRestore(backup);
+    await restorePrepared(preview);
+  }
+
+  Future<PortableBackupDocument> _readBackup(CloudBackupInfo backup) async {
+    final bytes = await _channel.invokeMethod<Uint8List>(
+      'readBackup',
+      <String, String>{'token': backup.token, 'name': backup.name},
+    );
+    if (bytes == null || bytes.isEmpty) {
+      throw StateError('The selected cloud backup could not be read.');
+    }
+    return ProgressionBackupCodec.decode(bytes);
+  }
+
+  Future<CloudRestorePreview> prepareRestore(CloudBackupInfo backup) => _guard(
+    () async => CloudRestorePreview(
+      backup: backup,
+      document: await _readBackup(backup),
+      currentSetCount: _store.logs.length,
+      currentWorkoutCount: _workoutCount(_store.exportState()),
+      currentStateFingerprint: _stateFingerprint(_store.exportState()),
+    ),
+  );
+
+  Future<void> restorePrepared(CloudRestorePreview preview) async {
     await _guard(() async {
-      await _store.createAutomaticBackup(
-        reason: 'before-cloud-restore',
-        required: true,
-      );
-      final bytes = await _channel.invokeMethod<Uint8List>(
-        'readBackup',
-        <String, String>{'token': backup.token, 'name': backup.name},
-      );
-      if (bytes == null || bytes.isEmpty) {
-        throw StateError('The selected cloud backup could not be read.');
+      if (_stateFingerprint(_store.exportState()) !=
+          preview.currentStateFingerprint) {
+        throw StateError(
+          'Device data changed after this restore was reviewed. Review the backup again. Your current data has not been replaced.',
+        );
       }
-      final document = ProgressionBackupCodec.decode(bytes);
-      await _store.restoreState(document.state);
-      await _store.createAutomaticBackup(reason: 'after-cloud-restore');
-      _status = CloudFolderStatus(
-        configured: _status.configured,
-        provider: _status.provider,
-        displayName: _status.displayName,
-        locationToken: _status.locationToken,
-        lastSuccessfulSync: DateTime.now().toUtc(),
+      await _portability.createVerifiedSafetyBackup(
+        reason: 'before-cloud-restore',
       );
+      if (_stateFingerprint(_store.exportState()) !=
+          preview.currentStateFingerprint) {
+        throw StateError(
+          'Device data changed while the safety backup was being saved. Review the backup again. Your current data has not been replaced.',
+        );
+      }
+      _debounce?.cancel();
+      await _store.restoreState(preview.document.state);
+      await _store.createAutomaticBackup(reason: 'after-cloud-restore');
+      _debounce?.cancel();
+      // Restoring is not an upload. Keep the last successful backup date honest.
+      _lastUploadedFingerprint = _stateFingerprint(preview.document.state);
+      _pendingChanges = pendingChanges;
+      _lastError = null;
       notifyListeners();
     });
   }
@@ -330,9 +453,15 @@ class CloudBackupSyncService extends ChangeNotifier {
   }
 
   void _scheduleAutomaticUpload() {
+    _pendingChanges = true;
+    notifyListeners();
     if (!_automaticSyncEnabled || !_status.configured) return;
     _debounce?.cancel();
     _debounce = Timer(const Duration(seconds: 8), () async {
+      if (_busy) {
+        _scheduleAutomaticUpload();
+        return;
+      }
       try {
         await uploadNow(reason: 'automatic-cloud-sync');
       } on Object {
@@ -345,15 +474,20 @@ class CloudBackupSyncService extends ChangeNotifier {
   Future<T> _guard<T>(Future<T> Function() action) async {
     if (_busy) throw StateError('A cloud-sync operation is already running.');
     _busy = true;
-    _lastError = null;
     notifyListeners();
     try {
       return await action();
-    } on PlatformException catch (error) {
-      _lastError = error.message ?? error.code;
-      rethrow;
-    } catch (error) {
-      _lastError = '$error';
+    } catch (error, stack) {
+      debugPrint('Cloud backup operation failed: $error');
+      debugPrintStack(stackTrace: stack);
+      _lastError = error is BackupValidationException
+          ? error.message
+          : error is StateError &&
+                error.message.contains(
+                  'Your current data has not been replaced.',
+                )
+          ? error.message
+          : 'Cloud backup could not finish. Check your connection and folder access, then try again.';
       rethrow;
     } finally {
       _busy = false;

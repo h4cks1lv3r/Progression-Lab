@@ -1,6 +1,6 @@
 # Progression Lab 2.1 external integrations
 
-Version 2.1 exposes health, wearable, provider, backup, sharing, guide, and experiment controls from **More → Connections & Experiments**. A single Flutter-facing native bridge on each platform keeps permission, secure-storage, document-picker, OAuth-callback, and health APIs outside the Dart business logic.
+Version 2.1 exposes health, wearable, provider, backup, sharing, guide, and experiment controls from **Settings → Connections & Experiments**. A single Flutter-facing native bridge on each platform keeps permission, secure-storage, document-picker, OAuth-callback, and health APIs outside the Dart business logic.
 
 ## Health platforms
 

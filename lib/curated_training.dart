@@ -74,8 +74,14 @@ class CuratedWorkoutDraft {
     required this.day,
     this.nextStepIndex = 0,
     Map<String, String> inputs = const {},
+    Map<int, Map<String, String>> inputsByStep = const {},
     this.restEndsAt,
-  }) : inputs = Map.unmodifiable(inputs);
+  }) : inputsByStep = Map.unmodifiable({
+         for (final entry in inputsByStep.entries)
+           entry.key: Map<String, String>.unmodifiable(entry.value),
+         if (inputs.isNotEmpty)
+           nextStepIndex: Map<String, String>.unmodifiable(inputs),
+       });
   final String programId;
   final String sessionId;
   final int week;
@@ -84,7 +90,8 @@ class CuratedWorkoutDraft {
   final DateTime startedAt;
   final CuratedDay day;
   final int nextStepIndex;
-  final Map<String, String> inputs;
+  final Map<int, Map<String, String>> inputsByStep;
+  Map<String, String> get inputs => inputsByStep[nextStepIndex] ?? const {};
   final DateTime? restEndsAt;
   List<CuratedStep> get steps => curatedSteps(day);
 
@@ -99,6 +106,7 @@ class CuratedWorkoutDraft {
         day: day,
         nextStepIndex: nextStepIndex,
         inputs: value,
+        inputsByStep: {...inputsByStep, nextStepIndex: value},
         restEndsAt: restEndsAt,
       );
   CuratedWorkoutDraft moveTo(int stepIndex, {DateTime? restEnd}) =>
@@ -111,6 +119,7 @@ class CuratedWorkoutDraft {
         startedAt: startedAt,
         day: day,
         nextStepIndex: stepIndex,
+        inputsByStep: inputsByStep,
         restEndsAt: restEnd,
       );
   Map<String, dynamic> toJson() => {
@@ -122,6 +131,9 @@ class CuratedWorkoutDraft {
     'startedAt': startedAt.toIso8601String(),
     'nextStepIndex': nextStepIndex,
     'inputs': inputs,
+    'inputsByStep': {
+      for (final entry in inputsByStep.entries) '${entry.key}': entry.value,
+    },
     if (restEndsAt != null) 'restEndsAt': restEndsAt!.toIso8601String(),
     'day': _dayJson(day),
   };
@@ -135,7 +147,15 @@ class CuratedWorkoutDraft {
       startedAt: DateTime.parse(json['startedAt'] as String),
       day: _readDay(Map<String, dynamic>.from(json['day'] as Map)),
       nextStepIndex: (json['nextStepIndex'] as num).toInt(),
-      inputs: Map<String, String>.from(json['inputs'] as Map? ?? {}),
+      inputs: json['inputsByStep'] == null
+          ? Map<String, String>.from(json['inputs'] as Map? ?? {})
+          : const {},
+      inputsByStep: {
+        for (final entry in (json['inputsByStep'] as Map? ?? {}).entries)
+          int.parse('${entry.key}'): Map<String, String>.from(
+            entry.value as Map,
+          ),
+      },
       restEndsAt: DateTime.tryParse('${json['restEndsAt']}'),
     );
     if (draft.programId.isEmpty ||
@@ -187,7 +207,11 @@ class CuratedSessionRecord {
     title: title,
     startedAt: startedAt,
     completedAt: completedAt,
-    status: count < totalSteps ? 'partial' : status,
+    status: status == 'skipped'
+        ? 'skipped'
+        : count == totalSteps
+        ? 'completed'
+        : 'partial',
     setCount: count,
     totalSteps: totalSteps,
   );

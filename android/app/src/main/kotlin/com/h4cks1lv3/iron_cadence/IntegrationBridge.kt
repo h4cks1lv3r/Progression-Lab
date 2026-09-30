@@ -87,6 +87,22 @@ class IntegrationBridge(
     }
 
     init {
+        MethodChannel(messenger, "progression_lab/links").setMethodCallHandler { call, result ->
+            val url = call.argument<String>("url")
+            val uri = url?.let(Uri::parse)
+            if (call.method != "open") {
+                result.notImplemented()
+            } else if (uri == null || uri.scheme !in setOf("http", "https") || uri.host.isNullOrEmpty()) {
+                result.success(false)
+            } else {
+                try {
+                    activity.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                    result.success(true)
+                } catch (_: android.content.ActivityNotFoundException) {
+                    result.success(false)
+                }
+            }
+        }
         MethodChannel(messenger, "progression_lab/health")
             .setMethodCallHandler(::handleHealth)
         MethodChannel(messenger, "progression_lab/cloud_sync")
@@ -171,7 +187,10 @@ class IntegrationBridge(
                 } catch (_: SecurityException) {
                     // Some providers grant only session-scoped access.
                 }
-                preferences.edit().putString(KEY_CLOUD_TREE_URI, uri.toString()).apply()
+                preferences.edit()
+                    .putString(KEY_CLOUD_TREE_URI, uri.toString())
+                    .remove(KEY_LAST_SYNC)
+                    .apply()
                 pending.success(folderStatus(uri))
                 return true
             }
@@ -444,6 +463,7 @@ class IntegrationBridge(
                 }
                 preferences.edit()
                     .remove(KEY_CLOUD_TREE_URI)
+                    .remove(KEY_LAST_SYNC)
                     .putBoolean(KEY_AUTOMATIC_SYNC, false)
                     .apply()
                 result.success(null)
