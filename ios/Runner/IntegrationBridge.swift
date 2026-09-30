@@ -1,6 +1,7 @@
 import AuthenticationServices
 import Flutter
 import HealthKit
+import MobileCoreServices
 import Security
 import UIKit
 import UniformTypeIdentifiers
@@ -359,7 +360,14 @@ final class IntegrationBridgeIOS: NSObject, UIDocumentPickerDelegate, ASWebAuthe
         return
       }
       folderResult = result
-      let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.folder], asCopy: false)
+      let picker: UIDocumentPickerViewController
+      if #available(iOS 14.0, *) {
+        picker = UIDocumentPickerViewController(forOpeningContentTypes: [.folder], asCopy: false)
+      } else {
+        // Open the provider's folder in place so the saved security bookmark
+        // keeps access to that folder rather than an imported copy.
+        picker = UIDocumentPickerViewController(documentTypes: [kUTTypeFolder as String], in: .open)
+      }
       picker.delegate = self
       picker.allowsMultipleSelection = false
       viewController?.present(picker, animated: true)
@@ -447,8 +455,25 @@ final class IntegrationBridgeIOS: NSObject, UIDocumentPickerDelegate, ASWebAuthe
       return
     }
     fileResult = result
-    let types = ["fit", "tcx", "gpx"].compactMap { UTType(filenameExtension: $0) }
-    let picker = UIDocumentPickerViewController(forOpeningContentTypes: types.isEmpty ? [.data] : types, asCopy: true)
+    let picker: UIDocumentPickerViewController
+    if #available(iOS 14.0, *) {
+      let types = ["fit", "tcx", "gpx"].compactMap { UTType(filenameExtension: $0) }
+      picker = UIDocumentPickerViewController(forOpeningContentTypes: types.isEmpty ? [.data] : types, asCopy: true)
+    } else {
+      let types: [String] = ["fit", "tcx", "gpx"].compactMap { extensionName in
+        guard let identifier = UTTypeCreatePreferredIdentifierForTag(
+          kUTTagClassFilenameExtension,
+          extensionName as CFString,
+          nil
+        )?.takeRetainedValue() else { return nil }
+        return identifier as String
+      }
+      // Import matches asCopy: true and gives the app a readable local file.
+      picker = UIDocumentPickerViewController(
+        documentTypes: types.isEmpty ? [kUTTypeData as String] : types,
+        in: .import
+      )
+    }
     picker.delegate = self
     picker.allowsMultipleSelection = false
     viewController?.present(picker, animated: true)

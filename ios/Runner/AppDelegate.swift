@@ -3,6 +3,7 @@ import Photos
 import UIKit
 import UniformTypeIdentifiers
 import Security
+import MobileCoreServices
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, UIDocumentPickerDelegate {
@@ -193,8 +194,8 @@ import Security
     guard let image = UIImage(data: data) else {
       throw DataPortabilityError("The generated workout image is invalid.")
     }
-    PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
-      guard status == .authorized || status == .limited else {
+    let saveAuthorizedImage: (Bool) -> Void = { authorized in
+      guard authorized else {
         DispatchQueue.main.async {
           result(
             FlutterError(
@@ -222,6 +223,15 @@ import Security
             )
           }
         }
+      }
+    }
+    if #available(iOS 14.0, *) {
+      PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+        saveAuthorizedImage(status == .authorized || status == .limited)
+      }
+    } else {
+      PHPhotoLibrary.requestAuthorization { status in
+        saveAuthorizedImage(status == .authorized)
       }
     }
   }
@@ -312,7 +322,12 @@ import Security
     let url = directory.appendingPathComponent(name)
     try data.write(to: url, options: .atomic)
     pickerOperation = .save(result, url)
-    let picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
+    let picker: UIDocumentPickerViewController
+    if #available(iOS 14.0, *) {
+      picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
+    } else {
+      picker = UIDocumentPickerViewController(urls: [url], in: .exportToService)
+    }
     picker.delegate = self
     present(picker)
   }
@@ -322,10 +337,18 @@ import Security
       throw DataPortabilityError("Another file picker is already open.")
     }
     pickerOperation = .open(result)
-    let picker = UIDocumentPickerViewController(
-      forOpeningContentTypes: [.zip, .commaSeparatedText, .data],
-      asCopy: true
-    )
+    let picker: UIDocumentPickerViewController
+    if #available(iOS 14.0, *) {
+      picker = UIDocumentPickerViewController(
+        forOpeningContentTypes: [.zip, .commaSeparatedText, .data],
+        asCopy: true
+      )
+    } else {
+      picker = UIDocumentPickerViewController(
+        documentTypes: [kUTTypeZipArchive as String, kUTTypeCommaSeparatedText as String, kUTTypeData as String],
+        in: .import
+      )
+    }
     picker.allowsMultipleSelection = false
     picker.delegate = self
     present(picker)
@@ -355,11 +378,26 @@ import Security
         if data.count > 100 * 1024 * 1024 {
           throw DataPortabilityError("The selected file is larger than 100 MB.")
         }
-        let values = try url.resourceValues(forKeys: [.contentTypeKey])
+        let mimeType: String
+        if #available(iOS 14.0, *) {
+          let values = try url.resourceValues(forKeys: [.contentTypeKey])
+          mimeType = values.contentType?.preferredMIMEType ?? "application/octet-stream"
+        } else if let identifier = UTTypeCreatePreferredIdentifierForTag(
+          kUTTagClassFilenameExtension,
+          url.pathExtension as CFString,
+          nil
+        )?.takeRetainedValue(), let value = UTTypeCopyPreferredTagWithClass(
+          identifier,
+          kUTTagClassMIMEType
+        )?.takeRetainedValue() {
+          mimeType = value as String
+        } else {
+          mimeType = "application/octet-stream"
+        }
         result([
           "name": url.lastPathComponent,
           "bytes": FlutterStandardTypedData(bytes: data),
-          "mimeType": values.contentType?.preferredMIMEType ?? "application/octet-stream",
+          "mimeType": mimeType,
         ])
       } catch {
         result(
