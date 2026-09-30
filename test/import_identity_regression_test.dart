@@ -237,12 +237,12 @@ void main() {
       final origin = tester.getTopLeft(chart), size = tester.getSize(chart);
       await tester.tapAt(origin + Offset(size.width - 10, 10));
       await tester.pumpAndSettle();
-      expect(find.text('9/29/2026 · 200 lb · 5 reps'), findsOneWidget);
+      expect(find.text('Sep 29, 2026 · 200 lb · 5 reps'), findsOneWidget);
       final recent = find.widgetWithText(ListTile, '100 lb · 5 reps').first;
       await tester.ensureVisible(recent);
       await tester.tap(recent);
       await tester.pumpAndSettle();
-      expect(find.text('9/29/2026 · 100 lb · 5 reps'), findsOneWidget);
+      expect(find.text('Sep 29, 2026 · 100 lb · 5 reps'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

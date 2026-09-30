@@ -12,17 +12,12 @@ import 'program_navigator.dart';
 import 'contextual_guides.dart';
 import 'integrations_hub.dart';
 import 'body_progress_screen.dart';
+import 'display_format.dart';
+import 'user_feedback.dart';
+import 'cloud_sync.dart';
 
-String dataOperationErrorMessage(Object error) {
-  debugPrint('Backup or import action failed: $error');
-  if (error is FormatException) return error.message;
-  if (error is BackupValidationException) return error.message;
-  if (error is StateError &&
-      error.message.contains('Your current data has not been replaced.')) {
-    return error.message;
-  }
-  return 'Could not finish this file action. Check the file or folder access and try again.';
-}
+String dataOperationErrorMessage(Object error) =>
+    userFacingError(error, action: UserFeedbackAction.backup);
 
 class DataManagementScreen extends StatefulWidget {
   const DataManagementScreen({super.key, required this.store});
@@ -37,6 +32,11 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
   late final DataPortabilityController controller;
   Future<List<AutomaticBackupInfo>>? _backups;
   bool _busy = false;
+  bool get _dataActionsBlocked =>
+      _busy ||
+      widget.store.deletingAllLocalData ||
+      widget.store.deletedAllLocalData ||
+      widget.store.localDataDeletionNeedsRetry;
 
   @override
   void initState() {
@@ -63,7 +63,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
       ).showSnackBar(SnackBar(content: Text(success)));
     } on PlatformException catch (error) {
       if (!mounted) return;
-      _error(error.message ?? 'Could not finish this file action. Try again.');
+      _error(error);
     } on Object catch (error) {
       if (!mounted) return;
       _error(error);
@@ -97,9 +97,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
       }
     } on PlatformException catch (error) {
       if (mounted) {
-        _error(
-          error.message ?? 'Could not open that file. Try selecting it again.',
-        );
+        _error(error);
       }
     } on Object catch (error) {
       if (mounted) _error(error);
@@ -219,15 +217,17 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
         IconButton(
           tooltip: 'Cloud backup',
           icon: const Icon(Icons.cloud_outlined),
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => IntegrationsHubScreen(
-                store: widget.store,
-                section: IntegrationSection.backup,
-              ),
-            ),
-          ),
+          onPressed: _dataActionsBlocked
+              ? null
+              : () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => IntegrationsHubScreen(
+                      store: widget.store,
+                      section: IntegrationSection.backup,
+                    ),
+                  ),
+                ),
         ),
       ],
       title: const Text('Backup & data'),
@@ -246,12 +246,15 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                   'Manage body photos and measurements. Photos and private notes need a separate encrypted backup.',
                 ),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => BodyProgressScreen(store: widget.store),
-                  ),
-                ),
+                onTap: _dataActionsBlocked
+                    ? null
+                    : () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              BodyProgressScreen(store: widget.store),
+                        ),
+                      ),
               ),
             ),
 
@@ -259,7 +262,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               store: widget.store,
               id: ContextualGuideId.dataBackup,
               message:
-                  'Moving to a new phone? Save a full backup first. Use Cloud backup to choose a synced folder.',
+                  'Moving to a new phone? Save a workout & data backup first. Use Cloud backup to choose a synced folder.',
             ),
             if (widget.store.importedWorkouts.isNotEmpty)
               Card(
@@ -267,9 +270,9 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                   leading: const Icon(Icons.playlist_add_check),
                   title: const Text('Set your place in Year One Strength'),
                   subtitle: const Text(
-                    'Choose a week or microcycle and match your earlier imported workouts.',
+                    'Choose a week or training cycle and match your earlier imported workouts.',
                   ),
-                  onTap: _busy
+                  onTap: _dataActionsBlocked
                       ? null
                       : () async {
                           await showProgramPositionSheet(context, widget.store);
@@ -277,7 +280,19 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                         },
                 ),
               ),
+            if (widget.store.localDataDeletionWarning != null)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    widget.store.localDataDeletionWarning!,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
             const _DataHeader(),
+            const SizedBox(height: 12),
+            const BodyPhotoBackupNotice(),
             const SizedBox(height: 22),
             const BrandSectionLabel('Backups on this device'),
             const SizedBox(height: 10),
@@ -296,7 +311,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                     subtitle: const Text(
                       'Keep recent backups on this device when your data changes.',
                     ),
-                    onChanged: _busy
+                    onChanged: _dataActionsBlocked
                         ? null
                         : (value) => unawaited(
                             _run(
@@ -330,7 +345,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: _busy
+                          onPressed: _dataActionsBlocked
                               ? null
                               : () => _run(
                                   () => widget.store.createAutomaticBackup(
@@ -346,7 +361,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: _busy
+                          onPressed: _dataActionsBlocked
                               ? null
                               : () => Navigator.push(
                                   context,
@@ -374,7 +389,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               subtitle:
                   'Choose a synced folder, check backup status, or restore a backup from another device.',
               badge: 'Cloud',
-              onTap: _busy
+              onTap: _dataActionsBlocked
                   ? null
                   : () => Navigator.push(
                       context,
@@ -388,11 +403,11 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             ),
             _ActionTile(
               icon: Icons.save_alt_rounded,
-              title: 'Save a full backup',
+              title: 'Save workout & data backup',
               subtitle:
                   'A .plab file with your programs, logs, unfinished sessions, fitness checks, measurements, settings, and imports. Body photos and private notes use the separate encrypted backup above.',
-              badge: 'Full',
-              onTap: _busy
+              badge: 'Backup',
+              onTap: _dataActionsBlocked
                   ? null
                   : () => _run(() async {
                       await controller.saveBackup();
@@ -400,11 +415,11 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
             ),
             _ActionTile(
               icon: Icons.ios_share_rounded,
-              title: 'Share full backup',
+              title: 'Share workout & data backup',
               subtitle:
                   'Share a .plab backup using your phone. Body photos and private notes use their separate encrypted backup.',
               badge: 'Share',
-              onTap: _busy
+              onTap: _dataActionsBlocked
                   ? null
                   : () => _run(
                       controller.shareBackup,
@@ -417,7 +432,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               subtitle:
                   'Choose a .plab or .fitnotes backup, or a CSV, TSV, JSON, TXT, or ZIP export from Strong, Hevy, Fitbod, JEFIT, or another app.',
               badge: 'Import',
-              onTap: _busy ? null : _pickImport,
+              onTap: _dataActionsBlocked ? null : _pickImport,
             ),
             const SizedBox(height: 24),
             const BrandSectionLabel('Take your data with you'),
@@ -428,7 +443,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               subtitle:
                   'Workouts, sets, custom exercises, Functional Training sessions, and fitness checks as CSV files.',
               badge: 'Open',
-              onTap: _busy
+              onTap: _dataActionsBlocked
                   ? null
                   : () => _run(() async {
                       await controller.savePortableCsv();
@@ -440,7 +455,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               subtitle:
                   'Save workouts in the Strong CSV format for apps that support it, including Hevy.',
               badge: 'Migrate',
-              onTap: _busy
+              onTap: _dataActionsBlocked
                   ? null
                   : () => _run(() async {
                       await controller.saveStrongCompatibleCsv();
@@ -452,7 +467,7 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               trailing: widget.store.lastImportBatch == null
                   ? null
                   : TextButton(
-                      onPressed: _busy
+                      onPressed: _dataActionsBlocked
                           ? null
                           : () => _confirmUndoImport(context),
                       child: const Text('Undo last'),
@@ -470,6 +485,17 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
               ...widget.store.importHistory.reversed
                   .take(5)
                   .map((batch) => _ImportHistoryTile(batch: batch)),
+            const SizedBox(height: 24),
+            const BrandSectionLabel('Delete local data'),
+            const SizedBox(height: 10),
+            _ActionTile(
+              icon: Icons.delete_forever_outlined,
+              title: 'Delete all data',
+              subtitle:
+                  'Remove all Progression Lab data on this device. Cloud backups, exported files, and copies in other apps remain.',
+              badge: 'Delete',
+              onTap: _busy ? null : _confirmDeleteAllData,
+            ),
             const SizedBox(height: 18),
             const LabPanel(
               accent: BrandColors.violet,
@@ -492,6 +518,40 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
       ),
     ),
   );
+
+  Future<void> _confirmDeleteAllData() async {
+    if (_busy) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => const _DeleteLocalDataDialog(),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    final cloud = CloudBackupSyncService.shared(widget.store);
+    try {
+      await cloud.pauseForLocalDeletion();
+      await widget.store.deleteAllLocalData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Local app data deleted.')));
+    } on Object catch (error) {
+      if (!widget.store.deletedAllLocalData &&
+          !widget.store.localDataDeletionNeedsRetry) {
+        cloud.resumeAfterFailedLocalDeletion();
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            userFacingError(error, action: UserFeedbackAction.deleteData),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   Future<void> _confirmUndoImport(BuildContext context) async {
     final batch = widget.store.lastImportBatch;
@@ -521,6 +581,69 @@ class _DataManagementScreenState extends State<DataManagementScreen> {
       success: 'The last import was removed.',
     );
   }
+}
+
+class _DeleteLocalDataDialog extends StatefulWidget {
+  const _DeleteLocalDataDialog();
+  @override
+  State<_DeleteLocalDataDialog> createState() => _DeleteLocalDataDialogState();
+}
+
+class _DeleteLocalDataDialogState extends State<_DeleteLocalDataDialog> {
+  final input = TextEditingController();
+  @override
+  void dispose() {
+    input.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Delete all data on this device?'),
+    content: SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'This removes workout history, unfinished sessions, imports, Daily entries, ratings, Body photos and notes, settings, device backups, and saved account keys. This cannot be undone.',
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Cloud backups, files you exported or shared, and copies in Health Connect, Apple Health, or other apps remain. Delete those copies in their own apps.',
+          ),
+          const SizedBox(height: 12),
+          if (Theme.of(context).platform == TargetPlatform.android)
+            const Text(
+              'Android will close the app and reset its permissions. Reopen Progression Lab to start fresh.',
+            ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const ValueKey('delete-local-data-confirmation'),
+            controller: input,
+            autocorrect: false,
+            enableSuggestions: false,
+            decoration: const InputDecoration(
+              labelText: 'Type Delete to confirm',
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+        ],
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context, false),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: input.text == 'Delete'
+            ? () => Navigator.pop(context, true)
+            : null,
+        child: const Text('Delete all data'),
+      ),
+    ],
+  );
 }
 
 class CsvMappingScreen extends StatefulWidget {
@@ -766,7 +889,7 @@ class _ImportPreviewScreenState extends State<ImportPreviewScreen> {
               const LabMark(size: 68),
               const SizedBox(height: 16),
               Text(
-                plan.source.label.toUpperCase(),
+                plan.source.label,
                 style: const TextStyle(
                   color: BrandColors.cyan,
                   fontWeight: FontWeight.w900,
@@ -861,7 +984,9 @@ class _ImportPreviewScreenState extends State<ImportPreviewScreen> {
               ],
               const SizedBox(height: 22),
               GradientAction(
-                label: importing ? 'Importing' : 'IMPORT $count WORKOUTS',
+                label: importing
+                    ? 'Importing'
+                    : 'Import $count ${count == 1 ? 'workout' : 'workouts'}',
                 icon: Icons.download_done_rounded,
                 onPressed: importing || count <= 0 ? null : _import,
               ),
@@ -1352,11 +1477,7 @@ class _PreviewMetric extends StatelessWidget {
   );
 }
 
-String _formatDateTime(DateTime value) {
-  final local = value.toLocal();
-  return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} '
-      '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
-}
+String _formatDateTime(DateTime value) => formatAppDateTime(value);
 
 String _formatBytes(int bytes) {
   if (bytes < 1024) return '$bytes B';

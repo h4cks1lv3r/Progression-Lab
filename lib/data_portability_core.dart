@@ -12,10 +12,29 @@ const int _maxBackupUncompressedBytes = 128 * 1024 * 1024;
 
 String sha256Hex(List<int> bytes) => sha256.convert(bytes).toString();
 
+class UnsupportedImportFileException extends FormatException {
+  const UnsupportedImportFileException()
+    : super(
+        'Choose a .plab backup, a native FitNotes .fitnotes backup, or a CSV, TSV, JSON, TXT, or ZIP workout export.',
+      );
+}
+
+enum BackupValidationProblem {
+  damaged,
+  wrongFormat,
+  unsupportedVersion,
+  tooLarge,
+  couldNotCreate,
+}
+
 class BackupValidationException implements Exception {
-  const BackupValidationException(this.message);
+  const BackupValidationException(
+    this.message, {
+    this.problem = BackupValidationProblem.damaged,
+  });
 
   final String message;
+  final BackupValidationProblem problem;
 
   @override
   String toString() => message;
@@ -108,7 +127,10 @@ abstract final class ProgressionBackupCodec {
     }
     final encoded = ZipEncoder().encode(archive);
     if (encoded == null || encoded.isEmpty) {
-      throw const BackupValidationException('Could not encode the backup.');
+      throw const BackupValidationException(
+        'Could not encode the backup.',
+        problem: BackupValidationProblem.couldNotCreate,
+      );
     }
     return Uint8List.fromList(encoded);
   }
@@ -123,11 +145,13 @@ abstract final class ProgressionBackupCodec {
     } on Object {
       throw const BackupValidationException(
         'This file is not a valid Progression Lab backup.',
+        problem: BackupValidationProblem.wrongFormat,
       );
     }
     if (archive.length > _maxBackupFiles) {
       throw const BackupValidationException(
         'The backup contains too many files.',
+        problem: BackupValidationProblem.tooLarge,
       );
     }
 
@@ -148,6 +172,7 @@ abstract final class ProgressionBackupCodec {
       if (totalUncompressed > _maxBackupUncompressedBytes) {
         throw const BackupValidationException(
           'The expanded backup is larger than 128 MB.',
+          problem: BackupValidationProblem.tooLarge,
         );
       }
       final content = file.content;
@@ -164,6 +189,7 @@ abstract final class ProgressionBackupCodec {
     if (manifest['format'] != progressionBackupFormat) {
       throw const BackupValidationException(
         'The selected file is not a Progression Lab backup.',
+        problem: BackupValidationProblem.wrongFormat,
       );
     }
     final schema = _readInt(manifest['schemaVersion']);
@@ -172,6 +198,7 @@ abstract final class ProgressionBackupCodec {
         schema > progressionBackupSchemaVersion) {
       throw BackupValidationException(
         'Backup schema ${manifest['schemaVersion']} is not supported.',
+        problem: BackupValidationProblem.unsupportedVersion,
       );
     }
     final contentNames = _stringList(manifest['contents']);

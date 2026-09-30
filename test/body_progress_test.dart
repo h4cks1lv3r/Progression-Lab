@@ -280,8 +280,8 @@ void main() {
         lengthUnit: 'cm',
         dates: true,
       );
-      expect(selected.interval, contains('2026-09-01'));
-      expect(selected.caption, contains('2026-09-07'));
+      expect(selected.interval, contains('Sep 1, 2026'));
+      expect(selected.caption, contains('Sep 7, 2026'));
       final milestone = BodyShareSnapshot.build(
         title: 'My progress',
         start: '2026-09-07',
@@ -291,7 +291,7 @@ void main() {
         lengthUnit: 'cm',
         dates: true,
       );
-      expect(milestone.interval, '2026-09-07');
+      expect(milestone.interval, 'Sep 7, 2026');
     },
   );
   test('failed body commits preserve measurements and journal', () async {
@@ -412,7 +412,7 @@ void main() {
         );
         await tester.tap(find.byKey(const ValueKey('add-body-checkin')));
         await tester.pumpAndSettle();
-        expect(find.text('New check-in'), findsOneWidget);
+        expect(find.text('New body entry'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pumpAndSettle();
@@ -444,13 +444,13 @@ void main() {
     await tester.pumpWidget(app(BodyProgressScreen(store: model)));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.text('2026-08-01'),
+      find.text('Aug 1, 2026'),
       200,
       scrollable: find.byType(Scrollable).last,
     );
-    await tester.tap(find.text('2026-08-01'));
+    await tester.tap(find.text('Aug 1, 2026'));
     await tester.pumpAndSettle();
-    expect(find.text('Finish your current check-in'), findsOneWidget);
+    expect(find.text('Finish your current body entry'), findsOneWidget);
     expect(model.bodyMedia.draft!['id'], 'unfinished');
     await tester.tap(find.text('Resume draft'));
     await tester.pumpAndSettle();

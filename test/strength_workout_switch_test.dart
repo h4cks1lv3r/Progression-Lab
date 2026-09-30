@@ -130,12 +130,12 @@ void main() {
       final store = await open(tester);
       final firstSession = store.draft!.sessionId;
       final start = store.programStartDate;
-      await tester.enterText(field('WEIGHT (lb)'), '135');
+      await tester.enterText(field('Weight (lb)'), '135');
       await tester.enterText(field('Reps'), '8');
       await tester.tap(find.text('Log set'));
       await tester.pumpAndSettle();
       expect(store.logs, hasLength(1));
-      await tester.enterText(field('WEIGHT (lb)'), '145');
+      await tester.enterText(field('Weight (lb)'), '145');
       await tester.enterText(field('Reps'), '7');
 
       await switchTo(tester, 1);
@@ -144,7 +144,7 @@ void main() {
       expect(store.draft!.workoutIndex, 1);
       final secondSession = store.draft!.sessionId;
       expect(secondSession, isNot(firstSession));
-      await tester.enterText(field('WEIGHT (lb)'), '185');
+      await tester.enterText(field('Weight (lb)'), '185');
       await switchTo(tester, 0);
 
       expect(store.week, 1);
@@ -158,7 +158,7 @@ void main() {
       expect(store.draft!.sessionId, firstSession);
       expect(store.draft!.setNumber, 2);
       expect(
-        tester.widget<TextField>(field('WEIGHT (lb)')).controller!.text,
+        tester.widget<TextField>(field('Weight (lb)')).controller!.text,
         '145',
       );
       expect(tester.widget<TextField>(field('Reps')).controller!.text, '7');
@@ -180,7 +180,7 @@ void main() {
     (tester) async {
       final store = await open(tester);
       final oldSession = store.draft!.sessionId;
-      await tester.enterText(field('WEIGHT (lb)'), '165');
+      await tester.enterText(field('Weight (lb)'), '165');
       await tester.tap(
         find.byKey(const ValueKey('session-switch-strength-workout')),
       );
@@ -231,7 +231,7 @@ void main() {
       (tester) async {
         final store = await open(tester);
         final session = store.draft!.sessionId;
-        await tester.enterText(field('WEIGHT (lb)'), '155');
+        await tester.enterText(field('Weight (lb)'), '155');
         failWrites = failure == 'draft';
         failSelection = failure == 'selection' ? 1 : null;
         await switchTo(tester, 1);
@@ -246,7 +246,7 @@ void main() {
           findsOneWidget,
         );
         expect(
-          tester.widget<TextField>(field('WEIGHT (lb)')).controller!.text,
+          tester.widget<TextField>(field('Weight (lb)')).controller!.text,
           '155',
         );
         failWrites = false;

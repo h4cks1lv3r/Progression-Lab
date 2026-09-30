@@ -523,11 +523,11 @@ class BrandSectionLabel extends StatelessWidget {
           const SizedBox(width: 9),
           Expanded(
             child: Text(
-              text.toUpperCase(),
+              text,
               style: const TextStyle(
                 color: BrandColors.white,
                 fontWeight: FontWeight.w900,
-                letterSpacing: 1.15,
+                letterSpacing: .3,
                 fontSize: 12,
               ),
             ),

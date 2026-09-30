@@ -6,6 +6,7 @@ import 'share_options.dart';
 import 'store.dart';
 import 'contextual_guides.dart';
 import 'daily_inputs_screen.dart';
+import 'user_feedback.dart';
 
 class ShareMetric {
   const ShareMetric(this.label, this.value);
@@ -24,7 +25,7 @@ class WorkoutShareData {
     required this.highlightLabel,
     required this.highlightValue,
     this.achievementLabel,
-    this.footer = 'TEST · TRAIN · TRANSFORM',
+    this.footer = 'Test · Train · Transform',
     this.snapshot,
   });
 
@@ -134,7 +135,7 @@ class ShareImageBridge {
         'fileName': fileName,
       });
     } on MissingPluginException {
-      return;
+      rethrow;
     }
   }
 }
@@ -172,7 +173,7 @@ class WorkoutSharePreview extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                'PROGRESSION LAB',
+                'Progression Lab',
                 style: theme.textTheme.labelLarge?.copyWith(
                   color: BrandColors.violet,
                   fontWeight: FontWeight.w900,
@@ -225,7 +226,7 @@ class WorkoutSharePreview extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
                             Text(
-                              data.highlightLabel.toUpperCase(),
+                              formatShareLabel(data.highlightLabel),
                               style: theme.textTheme.labelSmall?.copyWith(
                                 color: Colors.white60,
                                 fontWeight: FontWeight.w800,
@@ -260,7 +261,7 @@ class WorkoutSharePreview extends StatelessWidget {
               ],
               const Spacer(),
               Text(
-                data.footer,
+                formatShareLabel(data.footer),
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: Colors.white54,
                   fontWeight: FontWeight.w800,
@@ -292,7 +293,7 @@ class _PreviewMetric extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            metric.label.toUpperCase(),
+            formatShareLabel(metric.label),
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: Colors.white54,
               fontWeight: FontWeight.w700,
@@ -313,10 +314,21 @@ class _PreviewMetric extends StatelessWidget {
 }
 
 class WorkoutSharePreviewScreen extends StatefulWidget {
-  const WorkoutSharePreviewScreen({super.key, required this.data, this.store});
+  const WorkoutSharePreviewScreen({
+    super.key,
+    required this.data,
+    this.store,
+    this.imageGenerator,
+  });
 
   final WorkoutShareData data;
   final AppStore? store;
+  @visibleForTesting
+  final Future<Uint8List> Function(
+    WorkoutShareData data,
+    WorkoutSharePreferences preferences,
+  )?
+  imageGenerator;
 
   @override
   State<WorkoutSharePreviewScreen> createState() =>
@@ -334,10 +346,21 @@ class _WorkoutSharePreviewScreenState extends State<WorkoutSharePreviewScreen> {
     super.initState();
     _preferences =
         widget.store?.sharePreferences ?? const WorkoutSharePreferences();
-    _image = WorkoutShareCardGenerator.generate(
-      widget.data,
-      preferences: _preferences,
-    );
+    _image = _generateImage();
+  }
+
+  Future<Uint8List> _generateImage() async {
+    try {
+      return await (widget.imageGenerator?.call(widget.data, _preferences) ??
+          WorkoutShareCardGenerator.generate(
+            widget.data,
+            preferences: _preferences,
+          ));
+    } catch (error, stack) {
+      debugPrint('Workout share image generation failed: $error');
+      debugPrintStack(stackTrace: stack);
+      rethrow;
+    }
   }
 
   Future<void> _editOptions() async {
@@ -470,10 +493,7 @@ class _WorkoutSharePreviewScreenState extends State<WorkoutSharePreviewScreen> {
       if (!mounted) return;
       setState(() {
         _preferences = result;
-        _image = WorkoutShareCardGenerator.generate(
-          widget.data,
-          preferences: result,
-        );
+        _image = _generateImage();
       });
     } catch (_) {
       if (mounted)
@@ -507,9 +527,11 @@ class _WorkoutSharePreviewScreenState extends State<WorkoutSharePreviewScreen> {
   );
 
   Future<void> _save(Uint8List bytes) async {
-    if (_saving) return;
+    if (_saving || !mounted) return;
     setState(() => _saving = true);
     try {
+      if (!mounted) return;
+      widget.store?.ensureLocalDataWritable();
       final location = await ShareImageBridge.savePng(
         bytes,
         shareFileName(widget.data.completedAt),
@@ -524,10 +546,16 @@ class _WorkoutSharePreviewScreenState extends State<WorkoutSharePreviewScreen> {
           ),
         ),
       );
-    } on PlatformException catch (error) {
+    } on Object catch (error, stack) {
+      debugPrint('Workout share image save failed: $error');
+      debugPrintStack(stackTrace: stack);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message ?? 'Could not save the image.')),
+        SnackBar(
+          content: Text(
+            userFacingError(error, action: UserFeedbackAction.saveImage),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -535,9 +563,11 @@ class _WorkoutSharePreviewScreenState extends State<WorkoutSharePreviewScreen> {
   }
 
   Future<void> _share(Uint8List bytes) async {
-    if (_sharing) return;
+    if (_sharing || !mounted) return;
     setState(() => _sharing = true);
     try {
+      if (!mounted) return;
+      widget.store?.ensureLocalDataWritable();
       await ShareImageBridge.sharePng(
         bytes,
         shareFileName(widget.data.completedAt),
@@ -548,10 +578,16 @@ class _WorkoutSharePreviewScreenState extends State<WorkoutSharePreviewScreen> {
               )
             : null,
       );
-    } on PlatformException catch (error) {
+    } on Object catch (error, stack) {
+      debugPrint('Workout share image send failed: $error');
+      debugPrintStack(stackTrace: stack);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message ?? 'Could not share the image.')),
+        SnackBar(
+          content: Text(
+            userFacingError(error, action: UserFeedbackAction.shareImage),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _sharing = false);
@@ -578,9 +614,27 @@ class _WorkoutSharePreviewScreenState extends State<WorkoutSharePreviewScreen> {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text(
-                  'Could not generate the share card.\n${snapshot.error}',
-                  textAlign: TextAlign.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      userFacingError(
+                        snapshot.error!,
+                        action: UserFeedbackAction.createImage,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: () {
+                        final image = _generateImage();
+                        setState(() {
+                          _image = image;
+                        });
+                      },
+                      child: const Text('Try again'),
+                    ),
+                  ],
                 ),
               ),
             );
@@ -626,7 +680,7 @@ class _WorkoutSharePreviewScreenState extends State<WorkoutSharePreviewScreen> {
                                 ? Icons.hourglass_top_rounded
                                 : Icons.download_rounded,
                           ),
-                          label: Text(_saving ? 'SAVING' : 'SAVE IMAGE'),
+                          label: Text(_saving ? 'Saving' : 'Save image'),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -638,7 +692,7 @@ class _WorkoutSharePreviewScreenState extends State<WorkoutSharePreviewScreen> {
                                 ? Icons.hourglass_top_rounded
                                 : Icons.share_rounded,
                           ),
-                          label: Text(_sharing ? 'OPENING' : 'SHARE'),
+                          label: Text(_sharing ? 'Opening' : 'Share'),
                         ),
                       ),
                     ],
@@ -724,9 +778,9 @@ Future<void> showWorkoutCompleteSheet(
 
 String formatShareDuration(Duration value) {
   final minutes = value.inMinutes;
-  if (minutes < 1) return '<1 MIN';
-  if (minutes < 60) return '$minutes MIN';
+  if (minutes < 1) return '<1 min';
+  if (minutes < 60) return '$minutes min';
   final hours = minutes ~/ 60;
   final remainder = minutes % 60;
-  return remainder == 0 ? '$hours HR' : '$hours HR $remainder MIN';
+  return remainder == 0 ? '$hours hr' : '$hours hr $remainder min';
 }

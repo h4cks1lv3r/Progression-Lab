@@ -241,8 +241,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Daily check-in'), findsOneWidget);
-    expect(find.text('DAY AT A GLANCE'), findsOneWidget);
-    expect(find.text('QUICK ADD'), findsOneWidget);
+    expect(find.text('Day at a glance'), findsOneWidget);
+    expect(find.text('Quick add'), findsOneWidget);
 
     await tester.pumpWidget(
       MaterialApp(

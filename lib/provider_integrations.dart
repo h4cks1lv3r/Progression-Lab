@@ -8,6 +8,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'external_workout_formats.dart';
+import 'store.dart';
+import 'user_feedback.dart';
 
 enum TrainingProvider { strava, garmin }
 
@@ -108,30 +110,39 @@ class ProviderActivityPage {
 /// device-scoped session tokens. File import remains available without a broker.
 class ProviderIntegrationService extends ChangeNotifier {
   ProviderIntegrationService({
+    AppStore? store,
     HttpClient? httpClient,
     MethodChannel? secureChannel,
     MethodChannel? browserChannel,
-  }) : _httpClient = httpClient ?? HttpClient(),
+    ProviderConfiguration Function(TrainingProvider)? configurationForProvider,
+  }) : _store = store,
+       _configurationForProvider =
+           configurationForProvider ?? ProviderConfiguration.forProvider,
+       _httpClient = httpClient ?? HttpClient(),
        _secureChannel =
            secureChannel ??
            const MethodChannel('progression_lab/secure_storage'),
        _browserChannel =
-           browserChannel ?? const MethodChannel('progression_lab/oauth');
+           browserChannel ?? const MethodChannel('progression_lab/oauth') {
+    for (final provider in TrainingProvider.values) {
+      _status[provider] = ProviderStatus(
+        provider: provider,
+        state: _configurationForProvider(provider).configured
+            ? ProviderConnectionState.disconnected
+            : ProviderConnectionState.unavailable,
+      );
+    }
+  }
 
+  final AppStore? _store;
+  final ProviderConfiguration Function(TrainingProvider)
+  _configurationForProvider;
   final HttpClient _httpClient;
   final MethodChannel _secureChannel;
   final MethodChannel _browserChannel;
-  final Map<TrainingProvider, ProviderStatus> _status =
-      <TrainingProvider, ProviderStatus>{
-        for (final provider in TrainingProvider.values)
-          provider: ProviderStatus(
-            provider: provider,
-            state: ProviderConfiguration.forProvider(provider).configured
-                ? ProviderConnectionState.disconnected
-                : ProviderConnectionState.unavailable,
-          ),
-      };
+  final Map<TrainingProvider, ProviderStatus> _status = {};
   bool _busy = false;
+  bool _disposed = false;
   String? _lastError;
 
   Map<TrainingProvider, ProviderStatus> get statuses =>
@@ -141,7 +152,7 @@ class ProviderIntegrationService extends ChangeNotifier {
 
   Future<void> initialize() async {
     for (final provider in TrainingProvider.values) {
-      final config = ProviderConfiguration.forProvider(provider);
+      final config = _configurationForProvider(provider);
       if (!config.configured) continue;
       final token = await _readSecret(_tokenKey(provider));
       if (token == null || token.isEmpty) continue;
@@ -170,7 +181,7 @@ class ProviderIntegrationService extends ChangeNotifier {
   }
 
   Future<bool> connect(TrainingProvider provider) async {
-    final config = ProviderConfiguration.forProvider(provider);
+    final config = _configurationForProvider(provider);
     if (!config.configured) {
       throw StateError(
         '${provider.name} synchronization needs a configured OAuth broker. '
@@ -259,7 +270,7 @@ class ProviderIntegrationService extends ChangeNotifier {
   }
 
   Future<void> disconnect(TrainingProvider provider) async {
-    final config = ProviderConfiguration.forProvider(provider);
+    final config = _configurationForProvider(provider);
     final token = await _readSecret(_tokenKey(provider));
     if (config.configured && token != null && token.isNotEmpty) {
       try {
@@ -290,7 +301,7 @@ class ProviderIntegrationService extends ChangeNotifier {
     required DateTime end,
     String? cursor,
   }) async {
-    final config = ProviderConfiguration.forProvider(provider);
+    final config = _configurationForProvider(provider);
     final token = await _requiredToken(provider);
     return _guard(() async {
       final query = <String, String>{
@@ -339,7 +350,7 @@ class ProviderIntegrationService extends ChangeNotifier {
     String activityId, {
     String preferredFormat = 'fit',
   }) async {
-    final config = ProviderConfiguration.forProvider(provider);
+    final config = _configurationForProvider(provider);
     final token = await _requiredToken(provider);
     final uri = _uri(
       config,
@@ -444,17 +455,36 @@ class ProviderIntegrationService extends ChangeNotifier {
     return token;
   }
 
-  Future<String?> _readSecret(String key) =>
-      _secureChannel.invokeMethod<String>('read', <String, String>{'key': key});
+  void _ensureActive() {
+    if (_disposed) throw StateError('This connection is no longer active.');
+    _store?.ensureLocalDataWritable();
+  }
 
-  Future<void> _writeSecret(String key, String value) =>
-      _secureChannel.invokeMethod<void>('write', <String, String>{
-        'key': key,
-        'value': value,
-      });
+  Future<String?> _readSecret(String key) {
+    _ensureActive();
+    return _secureChannel.invokeMethod<String>('read', <String, String>{
+      'key': key,
+    });
+  }
 
-  Future<void> _deleteSecret(String key) =>
-      _secureChannel.invokeMethod<void>('delete', <String, String>{'key': key});
+  Future<void> _writeSecret(String key, String value) {
+    _ensureActive();
+    Future<void> write() => _secureChannel.invokeMethod<void>(
+      'write',
+      <String, String>{'key': key, 'value': value},
+    );
+    // A write already handed to the native channel must finish before reset
+    // clears secure storage. The active check also rejects late HTTP responses.
+    final store = _store;
+    return store == null ? write() : store.trackLocalFileOperation(write);
+  }
+
+  Future<void> _deleteSecret(String key) {
+    _ensureActive();
+    return _secureChannel.invokeMethod<void>('delete', <String, String>{
+      'key': key,
+    });
+  }
 
   String _tokenKey(TrainingProvider provider) =>
       'provider.${provider.name}.sessionToken';
@@ -518,6 +548,7 @@ class ProviderIntegrationService extends ChangeNotifier {
     Future<T> Function() action, {
     TrainingProvider? provider,
   }) async {
+    _ensureActive();
     if (_busy) throw StateError('A provider operation is already running.');
     _busy = true;
     _lastError = null;
@@ -525,7 +556,10 @@ class ProviderIntegrationService extends ChangeNotifier {
     try {
       return await action();
     } catch (error) {
-      _lastError = '$error';
+      _lastError = userFacingError(
+        error,
+        action: UserFeedbackAction.connection,
+      );
       if (provider != null) {
         _status[provider] = _status[provider]!.copyWith(
           state: ProviderConnectionState.error,
@@ -541,7 +575,13 @@ class ProviderIntegrationService extends ChangeNotifier {
   }
 
   @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
   void dispose() {
+    _disposed = true;
     _httpClient.close(force: true);
     super.dispose();
   }

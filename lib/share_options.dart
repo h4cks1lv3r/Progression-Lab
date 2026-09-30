@@ -8,6 +8,16 @@ enum WorkoutShareTemplate { cleanPerformance, achievement, sessionRecap }
 
 enum WorkoutShareAspect { story, portraitFeed, square }
 
+String formatShareLabel(String value) {
+  final label = value.trim();
+  if (label.isEmpty ||
+      label != label.toUpperCase() ||
+      const {'PR', 'PB', 'AMRAP', 'RPE', 'BMI'}.contains(label)) {
+    return value;
+  }
+  return '${label[0]}${label.substring(1).toLowerCase()}';
+}
+
 class WorkoutSharePrivacy {
   const WorkoutSharePrivacy({
     this.showExactWeights = true,
@@ -259,8 +269,8 @@ abstract final class AdvancedWorkoutShareCardGenerator {
     _text(
       canvas,
       snapshot.status == 'partial'
-          ? 'PARTIAL SESSION SAVED'
-          : 'WORKOUT COMPLETE',
+          ? 'Partial workout saved'
+          : 'Workout complete',
       Offset(left, y),
       34,
       color: const Color(0xff22d3ee),
@@ -326,20 +336,21 @@ abstract final class AdvancedWorkoutShareCardGenerator {
     _textCentered(
       canvas,
       snapshot.status == 'partial'
-          ? 'PARTIAL SESSION'
+          ? 'Partial workout saved'
           : snapshot.achievement.isNotEmpty
-          ? 'NEW BEST'
-          : 'LOCKED IN',
+          ? 'New best'
+          : 'Workout complete',
       Offset(size.width / 2, size.height * .135),
       40,
       color: const Color(0xff22d3ee),
       weight: FontWeight.w900,
       letterSpacing: 5,
+      maxWidth: size.width * .85,
     );
     final highlight = snapshot.highlights.firstOrNull;
     _textCentered(
       canvas,
-      highlight?.label.toUpperCase() ?? snapshot.workout.toUpperCase(),
+      highlight == null ? snapshot.workout : formatShareLabel(highlight.label),
       Offset(size.width / 2, center.dy - 52),
       34,
       color: Colors.white70,
@@ -349,7 +360,7 @@ abstract final class AdvancedWorkoutShareCardGenerator {
     final value = highlight == null
         ? snapshot.workout
         : (!privacy.showExactWeights && highlight.sensitiveWeight
-              ? 'PERSONAL RECORD'
+              ? 'Personal record'
               : highlight.value);
     _textCentered(
       canvas,
@@ -389,7 +400,7 @@ abstract final class AdvancedWorkoutShareCardGenerator {
     var y = size.height * .085;
     _text(
       canvas,
-      'SESSION RECAP',
+      'Workout summary',
       Offset(left, y),
       34,
       color: const Color(0xff22d3ee),
@@ -430,9 +441,9 @@ abstract final class AdvancedWorkoutShareCardGenerator {
           canvas,
           Offset(left, y),
           size.width * .85,
-          'RESULT',
+          'Result',
           snapshot.status == 'partial'
-              ? 'Partial session saved'
+              ? 'Partial workout saved'
               : 'All prescribed work complete',
         );
       }
@@ -441,9 +452,9 @@ abstract final class AdvancedWorkoutShareCardGenerator {
         canvas,
         Offset(left, y),
         size.width * .85,
-        'RESULT',
+        'Result',
         snapshot.status == 'partial'
-            ? 'Partial session saved'
+            ? 'Partial workout saved'
             : 'Workout complete',
       );
     }
@@ -456,25 +467,25 @@ abstract final class AdvancedWorkoutShareCardGenerator {
     if (privacy.completionOnly) return const <ShareHighlight>[];
     return <ShareHighlight>[
       if (privacy.showDuration)
-        ShareHighlight('DURATION', '${snapshot.duration.inMinutes} MIN'),
+        ShareHighlight('Duration', '${snapshot.duration.inMinutes} min'),
       if (snapshot.drills != null)
-        ShareHighlight('DRILLS', '${snapshot.drills}')
+        ShareHighlight('Drills', '${snapshot.drills}')
       else
-        ShareHighlight('WORKING SETS', '${snapshot.sets}'),
+        ShareHighlight('Working sets', '${snapshot.sets}'),
       if (snapshot.effort != null)
-        ShareHighlight('EFFORT', '${snapshot.effort}/10')
+        ShareHighlight('Effort', '${snapshot.effort}/10')
       else
-        ShareHighlight('EXERCISES', '${snapshot.exercises}'),
+        ShareHighlight('Exercises', '${snapshot.exercises}'),
       if (privacy.showVolume && snapshot.volume != null)
         ShareHighlight(
-          'VOLUME',
-          '${_compact(snapshot.volume!)} ${snapshot.volumeUnit.toUpperCase()}',
+          'Volume',
+          '${_compact(snapshot.volume!)} ${snapshot.volumeUnit}',
           sensitiveWeight: true,
         ),
       if (privacy.showBodyweight && snapshot.bodyweight != null)
         ShareHighlight(
-          'BODYWEIGHT',
-          '${_compact(snapshot.bodyweight!)} ${snapshot.bodyweightUnit.toUpperCase()}',
+          'Bodyweight',
+          '${_compact(snapshot.bodyweight!)} ${snapshot.bodyweightUnit}',
           sensitiveWeight: true,
         ),
     ];
@@ -536,7 +547,7 @@ abstract final class AdvancedWorkoutShareCardGenerator {
         canvas,
         Offset(origin.dx, y),
         width,
-        'ACHIEVEMENT',
+        'Achievement',
         snapshot.achievement,
       );
       y += 130;
@@ -558,7 +569,7 @@ abstract final class AdvancedWorkoutShareCardGenerator {
     _panel(canvas, rect);
     _text(
       canvas,
-      label.toUpperCase(),
+      formatShareLabel(label),
       rect.topLeft + const Offset(24, 20),
       20,
       color: const Color(0xff22d3ee),
@@ -598,7 +609,7 @@ abstract final class AdvancedWorkoutShareCardGenerator {
     );
     _text(
       canvas,
-      'PROGRESSION LAB',
+      'Progression Lab',
       Offset(size.width * .18, size.height * .895),
       34,
       weight: FontWeight.w900,
@@ -606,7 +617,7 @@ abstract final class AdvancedWorkoutShareCardGenerator {
     );
     _text(
       canvas,
-      'TEST. TRAIN. TRANSFORM.',
+      'Test. Train. Transform.',
       Offset(size.width * .18, size.height * .925),
       18,
       color: Colors.white54,

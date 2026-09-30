@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -7,6 +8,7 @@ import 'brand.dart';
 import 'daily_inputs.dart';
 import 'gemini_nano.dart';
 import 'lab_analysis.dart';
+import 'lab_conditions.dart';
 import 'store.dart';
 import 'contextual_guides.dart';
 
@@ -142,9 +144,10 @@ class _LabScreenState extends State<LabScreen> {
         ),
       );
     } on PlatformException catch (error) {
+      if (kDebugMode) debugPrint('Lab analysis failed: $error');
       if (mounted) _snack(_friendlyAiError(error));
     } on Object catch (error) {
-      debugPrint('Lab analysis failed: $error');
+      if (kDebugMode) debugPrint('Lab analysis failed: $error');
       if (mounted) {
         _snack('The Lab could not complete that analysis. Try again.');
       }
@@ -208,11 +211,23 @@ class _LabScreenState extends State<LabScreen> {
                             fontSize: 12,
                           ),
                         ),
+                      const SizedBox(height: 12),
+                      if (widget.store.labDataDomains.contains(
+                        LabDataDomain.workouts,
+                      ))
+                        const Text(
+                          LabConditionDefinitions.strengthEstimateExplanation,
+                          style: TextStyle(
+                            color: BrandColors.muted,
+                            fontSize: 12,
+                            height: 1.4,
+                          ),
+                        ),
                       const SizedBox(height: 22),
                       BrandSectionLabel(
                         'Your training insights',
                         trailing: Text(
-                          '${report.evidence.length} SIGNALS',
+                          '${report.evidence.length} insights',
                           style: const TextStyle(
                             color: BrandColors.muted,
                             fontSize: 12,
@@ -376,6 +391,16 @@ class InputsPerformanceScreen extends StatelessWidget {
                           height: 1.45,
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      if (store.labDataDomains.contains(LabDataDomain.workouts))
+                        const Text(
+                          LabConditionDefinitions.strengthEstimateExplanation,
+                          style: TextStyle(
+                            color: BrandColors.muted,
+                            fontSize: 12,
+                            height: 1.4,
+                          ),
+                        ),
                       const SizedBox(height: 18),
                       for (final evidence in report.evidence.where(
                         (item) => const {
@@ -423,7 +448,9 @@ class LabEvidenceCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
-                evidence.neutral
+                evidence.adherencePercent != null
+                    ? Icons.calendar_month_rounded
+                    : evidence.neutral
                     ? Icons.show_chart_rounded
                     : evidence.hasEnoughData
                     ? evidence.positive
@@ -431,6 +458,9 @@ class LabEvidenceCard extends StatelessWidget {
                           : Icons.trending_down_rounded
                     : Icons.hourglass_top_rounded,
                 color: color,
+                semanticLabel: evidence.adherencePercent != null
+                    ? 'Logging consistency'
+                    : null,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -438,7 +468,7 @@ class LabEvidenceCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      evidence.title.toUpperCase(),
+                      evidence.title,
                       style: const TextStyle(
                         fontWeight: FontWeight.w900,
                         letterSpacing: .7,
@@ -467,6 +497,17 @@ class LabEvidenceCard extends StatelessWidget {
             '${evidence.sampleLabel} · ${evidence.metric}',
             style: const TextStyle(color: BrandColors.muted, fontSize: 11),
           ),
+          if (evidence.adherencePercent case final double adherence) ...[
+            const SizedBox(height: 9),
+            Text(
+              '${adherence.toStringAsFixed(1)}% of days logged',
+              style: TextStyle(
+                color: color,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
           if (evidence.effectPercent case final double effect) ...[
             const SizedBox(height: 9),
             Text(
@@ -797,22 +838,9 @@ Future<void> _showDataPacket(BuildContext context, LabReport report) async {
   );
 }
 
-String _statusText(GeminiNanoStatus? status) {
-  if (status == null) return 'Status has not been checked.';
-  return switch (status.availability) {
-    GeminiNanoAvailability.available =>
-      'Ready on device${status.modelName == null ? '' : ' · ${status.modelName}'}.',
-    GeminiNanoAvailability.downloadable =>
-      'Your device supports AI. Download the model to get started.',
-    GeminiNanoAvailability.downloading => 'Downloading AI to your device…',
-    GeminiNanoAvailability.unavailable =>
-      status.message ?? 'Gemini Nano is unavailable on this device.',
-    GeminiNanoAvailability.unsupported =>
-      status.message ?? 'This device does not support Gemini Nano.',
-    GeminiNanoAvailability.error =>
-      status.message ?? 'Could not check Gemini Nano. Try again.',
-  };
-}
+String _statusText(GeminiNanoStatus? status) =>
+    status?.userMessage ??
+    'AI status has not been checked. Tap Check status to check.';
 
 IconData _statusIcon(GeminiNanoStatus? status) =>
     switch (status?.availability) {
@@ -834,29 +862,14 @@ Color _statusColor(GeminiNanoStatus? status) => switch (status?.availability) {
 };
 
 String _domainLabel(LabDataDomain domain) => switch (domain) {
-  LabDataDomain.workouts => 'Strength workouts and progress',
+  LabDataDomain.workouts => 'Workouts and progress',
   LabDataDomain.supplements => 'Supplements and caffeine',
   LabDataDomain.meals => 'Meals and macros',
   LabDataDomain.hydration => 'Hydration and electrolytes',
-  LabDataDomain.recovery => 'Sleep, stress, soreness, and workout response',
+  LabDataDomain.recovery => 'Sleep, stress, soreness, and workout ratings',
   LabDataDomain.bodyMetrics => 'Bodyweight and measurements',
-  LabDataDomain.athletic => 'Functional Training and fitness checks',
+  LabDataDomain.athletic => 'Functional training and performance tests',
 };
 
-String _friendlyAiError(PlatformException error) {
-  final code = error.code.toLowerCase();
-  if (code.contains('busy')) {
-    return 'Gemini Nano is busy. Wait briefly and try again.';
-  }
-  if (code.contains('battery') || code.contains('quota')) {
-    return 'The device has reached its current on-device AI usage limit. Try later.';
-  }
-  if (code.contains('background')) {
-    return 'Keep the Lab open while Gemini Nano is analyzing.';
-  }
-  if (code.contains('cancel')) return 'The analysis was cancelled.';
-  if (code.contains('unsupported') || code.contains('not_available')) {
-    return 'AI summaries aren’t supported on this device. You can still explore your training insights.';
-  }
-  return error.message ?? 'Gemini Nano could not complete the analysis.';
-}
+String _friendlyAiError(PlatformException error) =>
+    geminiNanoUserError(error.code);

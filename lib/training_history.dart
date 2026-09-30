@@ -6,6 +6,7 @@ import 'logged_sets.dart';
 import 'store.dart';
 import 'curated_training_screen.dart';
 import 'open_workout_screen.dart';
+import 'display_format.dart';
 
 class TrainingHistoryScreen extends StatelessWidget {
   const TrainingHistoryScreen({super.key, required this.store});
@@ -72,9 +73,7 @@ class TrainingHistoryScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        MaterialLocalizations.of(
-                          context,
-                        ).formatMediumDate(e.$1),
+                        formatAppDate(e.$1),
                         style: const TextStyle(color: BrandColors.muted),
                       ),
                       const SizedBox(height: 6),

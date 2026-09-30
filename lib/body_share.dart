@@ -8,8 +8,10 @@ import 'body_media.dart';
 import 'body_privacy.dart';
 import 'body_progress.dart';
 import 'body_photo_widgets.dart';
+import 'display_format.dart';
 import 'share_card.dart';
 import 'store.dart';
+import 'user_feedback.dart';
 
 enum BodyShareLayout { comparison, milestone, recap, withoutPhoto }
 
@@ -73,11 +75,13 @@ class BodyShareSnapshot {
     return BodyShareSnapshot(
       title: title.trim().isEmpty ? 'My progress' : title.trim(),
       interval: dates
-          ? (days == 0 ? end : '$start → $end · $days days')
-          : (days == 0 ? 'One check-in' : '$days days of progress'),
+          ? (days == 0
+                ? formatAppDate(DateTime.parse(end))
+                : '${formatAppDate(DateTime.parse(start))} → ${formatAppDate(DateTime.parse(end))} · $days days')
+          : (days == 0 ? 'One Body entry' : '$days days of progress'),
       lines: lines,
-      earlierLabel: dates ? start : 'Earlier',
-      latestLabel: dates ? end : 'Latest',
+      earlierLabel: dates ? formatAppDate(DateTime.parse(start)) : 'Earlier',
+      latestLabel: dates ? formatAppDate(DateTime.parse(end)) : 'Latest',
     );
   }
 }
@@ -164,7 +168,7 @@ class _BodyShareScreenState extends State<BodyShareScreen> {
     BodyShareSize.story => 640,
   };
   Future<void> preview() async {
-    if (busy) return;
+    if (busy || !mounted) return;
     setState(() => busy = true);
     final capturedSnapshot = snapshot;
     try {
@@ -176,6 +180,7 @@ class _BodyShareScreenState extends State<BodyShareScreen> {
           final bytes = await File(
             widget.store.bodyMedia.path(p),
           ).readAsBytes();
+          if (!mounted) return;
           final codec = await ui.instantiateImageCodec(bytes);
           final frame = await codec.getNextFrame();
           frame.image.dispose();
@@ -192,12 +197,15 @@ class _BodyShareScreenState extends State<BodyShareScreen> {
         );
       }
       await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      widget.store.ensureLocalDataWritable();
       final render =
           boundary.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (render == null) throw StateError('The preview is not ready.');
       final image = await render.toImage(pixelRatio: 3);
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
       image.dispose();
+      if (!mounted) return;
       if (data == null) throw StateError('The image could not be generated.');
       if (mounted)
         await Navigator.push(
@@ -205,16 +213,23 @@ class _BodyShareScreenState extends State<BodyShareScreen> {
           bodyRoute(
             widget.store.bodyMedia,
             (_) => _FinalBodyShare(
+              store: widget.store,
               bytes: data.buffer.asUint8List(),
               caption: capturedSnapshot.caption,
               aspectRatio: 360 / height,
             ),
           ),
         );
-    } on Object catch (e) {
+    } on Object catch (error, stack) {
+      debugPrint('Body share image generation failed: $error');
+      debugPrintStack(stackTrace: stack);
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not generate the image: $e')),
+          SnackBar(
+            content: Text(
+              '${userFacingError(error, action: UserFeedbackAction.createImage)} If a photo is missing, choose another photo or use a layout without photos.',
+            ),
+          ),
         );
     } finally {
       if (mounted) setState(() => busy = false);
@@ -430,7 +445,7 @@ class BodyShareArtwork extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'PROGRESSION LAB',
+                'Progression Lab',
                 style: TextStyle(
                   fontSize: 10,
                   letterSpacing: 2,
@@ -469,7 +484,7 @@ class BodyShareArtwork extends StatelessWidget {
                             const SizedBox(height: 20),
                             Text(
                               snapshot.lines.isEmpty
-                                  ? 'Every check-in counts.'
+                                  ? 'Every Body entry counts.'
                                   : snapshot.lines.first,
                               textAlign: TextAlign.center,
                               style: const TextStyle(
@@ -525,7 +540,7 @@ class BodyShareArtwork extends StatelessWidget {
               ],
               const SizedBox(height: 10),
               const Text(
-                'MY PACE. MY PROGRESS.',
+                'My pace. My progress.',
                 style: TextStyle(
                   fontSize: 9,
                   letterSpacing: 1.3,
@@ -552,11 +567,13 @@ class BodyShareArtwork extends StatelessWidget {
 
 class _FinalBodyShare extends StatefulWidget {
   const _FinalBodyShare({
+    required this.store,
     required this.bytes,
     required this.caption,
     required this.aspectRatio,
   });
   final double aspectRatio;
+  final AppStore store;
   final Uint8List bytes;
   final String caption;
   @override
@@ -565,19 +582,27 @@ class _FinalBodyShare extends StatefulWidget {
 
 class _FinalBodyShareState extends State<_FinalBodyShare> {
   bool busy = false;
-  Future<void> action(Future<void> Function() work, String? message) async {
-    if (busy) return;
+  Future<void> action(
+    Future<void> Function() work,
+    String? message,
+    UserFeedbackAction operation,
+  ) async {
+    if (busy || !mounted) return;
     setState(() => busy = true);
     try {
+      if (!mounted) return;
+      widget.store.ensureLocalDataWritable();
       await work();
       if (mounted && message != null)
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(message)));
-    } on Object catch (e) {
+    } on Object catch (error, stack) {
+      debugPrint('Body share action failed: $error');
+      debugPrintStack(stackTrace: stack);
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not complete this action: $e')),
+          SnackBar(content: Text(userFacingError(error, action: operation))),
         );
     } finally {
       if (mounted) setState(() => busy = false);
@@ -618,6 +643,7 @@ class _FinalBodyShareState extends State<_FinalBodyShare> {
                           caption: widget.caption,
                         ),
                         null,
+                        UserFeedbackAction.shareImage,
                       ),
                 icon: const Icon(Icons.share),
                 label: const Text('Share'),
@@ -625,14 +651,18 @@ class _FinalBodyShareState extends State<_FinalBodyShare> {
               OutlinedButton.icon(
                 onPressed: busy
                     ? null
-                    : () => action(() async {
-                        final path = await ShareImageBridge.savePng(
-                          widget.bytes,
-                          'body-${bodyId()}.png',
-                        );
-                        if (path == null)
-                          throw StateError('Saving is unavailable.');
-                      }, 'Image saved to your gallery.'),
+                    : () => action(
+                        () async {
+                          final path = await ShareImageBridge.savePng(
+                            widget.bytes,
+                            'body-${bodyId()}.png',
+                          );
+                          if (path == null)
+                            throw StateError('Saving is unavailable.');
+                        },
+                        'Image saved to your gallery.',
+                        UserFeedbackAction.saveImage,
+                      ),
                 icon: const Icon(Icons.download),
                 label: const Text('Save image'),
               ),
@@ -644,6 +674,7 @@ class _FinalBodyShareState extends State<_FinalBodyShare> {
                           ClipboardData(text: widget.caption),
                         ),
                         'Caption copied.',
+                        UserFeedbackAction.copyCaption,
                       ),
                 icon: const Icon(Icons.copy),
                 label: const Text('Copy caption'),

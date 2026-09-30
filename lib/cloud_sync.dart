@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import 'data_portability.dart';
 import 'data_portability_core.dart';
+import 'user_feedback.dart';
 import 'store.dart';
 
 enum CloudFolderProvider {
@@ -223,6 +224,8 @@ class CloudBackupSyncService extends ChangeNotifier {
   bool _listening = false;
   bool _pendingChanges = true;
   String? _lastUploadedFingerprint;
+  bool _pausedForLocalDeletion = false;
+  Completer<void>? _operationFinished;
 
   CloudFolderStatus get status => _status;
   bool get automaticSyncEnabled => _automaticSyncEnabled;
@@ -234,11 +237,15 @@ class CloudBackupSyncService extends ChangeNotifier {
   bool get backupStatusVerified => _lastUploadedFingerprint != null;
 
   Future<void> initialize() async {
-    final result = await _channel.invokeMapMethod<Object?, Object?>('status');
-    _status = CloudFolderStatus.fromJson(result ?? const <Object?, Object?>{});
-    _automaticSyncEnabled = result?['automaticSyncEnabled'] == true;
-    _startListening();
-    notifyListeners();
+    await _guard(() async {
+      final result = await _channel.invokeMapMethod<Object?, Object?>('status');
+      _status = CloudFolderStatus.fromJson(
+        result ?? const <Object?, Object?>{},
+      );
+      _automaticSyncEnabled = result?['automaticSyncEnabled'] == true;
+      _startListening();
+      notifyListeners();
+    });
   }
 
   Future<CloudFolderStatus> chooseFolder() async {
@@ -280,14 +287,17 @@ class CloudBackupSyncService extends ChangeNotifier {
         'Choose a backup folder before enabling automatic sync.',
       );
     }
-    await _channel.invokeMethod<void>('setAutomaticSyncEnabled', <String, bool>{
-      'enabled': enabled,
+    await _guard(() async {
+      await _channel.invokeMethod<void>(
+        'setAutomaticSyncEnabled',
+        <String, bool>{'enabled': enabled},
+      );
+      _automaticSyncEnabled = enabled;
+      _startListening();
+      if (enabled && pendingChanges) _scheduleAutomaticUpload();
+      if (!enabled) _debounce?.cancel();
+      notifyListeners();
     });
-    _automaticSyncEnabled = enabled;
-    _startListening();
-    if (enabled && pendingChanges) _scheduleAutomaticUpload();
-    if (!enabled) _debounce?.cancel();
-    notifyListeners();
   }
 
   Future<List<CloudBackupInfo>> listBackups() async {
@@ -439,7 +449,7 @@ class CloudBackupSyncService extends ChangeNotifier {
   }
 
   void _startListening() {
-    if (_listening) return;
+    if (_listening || _pausedForLocalDeletion) return;
     _store.addListener(_scheduleAutomaticUpload);
     _listening = true;
   }
@@ -453,6 +463,7 @@ class CloudBackupSyncService extends ChangeNotifier {
   }
 
   void _scheduleAutomaticUpload() {
+    if (_pausedForLocalDeletion) return;
     _pendingChanges = true;
     notifyListeners();
     if (!_automaticSyncEnabled || !_status.configured) return;
@@ -472,7 +483,12 @@ class CloudBackupSyncService extends ChangeNotifier {
   }
 
   Future<T> _guard<T>(Future<T> Function() action) async {
+    if (_pausedForLocalDeletion) {
+      throw StateError('Backups are paused while local data is being deleted.');
+    }
     if (_busy) throw StateError('A cloud-sync operation is already running.');
+    final finished = Completer<void>();
+    _operationFinished = finished;
     _busy = true;
     notifyListeners();
     try {
@@ -480,19 +496,30 @@ class CloudBackupSyncService extends ChangeNotifier {
     } catch (error, stack) {
       debugPrint('Cloud backup operation failed: $error');
       debugPrintStack(stackTrace: stack);
-      _lastError = error is BackupValidationException
-          ? error.message
-          : error is StateError &&
-                error.message.contains(
-                  'Your current data has not been replaced.',
-                )
-          ? error.message
-          : 'Cloud backup could not finish. Check your connection and folder access, then try again.';
+      _lastError = userFacingError(error, action: UserFeedbackAction.backup);
       rethrow;
     } finally {
       _busy = false;
       notifyListeners();
+      finished.complete();
+      if (identical(_operationFinished, finished)) _operationFinished = null;
     }
+  }
+
+  /// Block new cloud work and drain existing native calls before local storage
+  /// is removed. Cloud copies are not removed by a local data deletion.
+  Future<void> pauseForLocalDeletion() async {
+    _pausedForLocalDeletion = true;
+    _stopListening();
+    final finished = _operationFinished;
+    if (finished != null) await finished.future;
+  }
+
+  /// A failed deletion leaves the current store usable, so listening can resume.
+  void resumeAfterFailedLocalDeletion() {
+    _pausedForLocalDeletion = false;
+    _startListening();
+    if (_automaticSyncEnabled && pendingChanges) _scheduleAutomaticUpload();
   }
 
   String _safeTimestamp(String value) => value

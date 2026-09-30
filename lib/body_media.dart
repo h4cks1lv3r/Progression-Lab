@@ -100,6 +100,43 @@ class BodyMediaStore extends ChangeNotifier {
   Map<String, dynamic>? draft;
   bool loaded = false;
   String? error;
+  bool _deletingData = false;
+  bool _retired = false;
+  final Set<Future<Object?>> _pending = {};
+
+  Future<T> _tracked<T>(Future<T> Function() action) {
+    if (_deletingData || _retired) {
+      return Future.error(StateError('Local data deletion is in progress.'));
+    }
+    final future = action();
+    _pending.add(future);
+    future.then<void>(
+      (_) => _pending.remove(future),
+      onError: (Object _, StackTrace __) => _pending.remove(future),
+    );
+    return future;
+  }
+
+  Future<void> prepareForDataDeletion() async {
+    _deletingData = true;
+    await Future.wait(
+      _pending.map(
+        (future) =>
+            future.then<void>((_) {}, onError: (Object _, StackTrace __) {}),
+      ),
+    );
+  }
+
+  void cancelDataDeletion() => _deletingData = false;
+  void completeDataDeletion() {
+    _retired = true;
+    apply({});
+    directory = '';
+    sessionUnlocked = false;
+    error = null;
+    notifyListeners();
+  }
+
   bool lockEnabled = false;
   bool sessionUnlocked = false;
   void relock() {
@@ -130,7 +167,8 @@ class BodyMediaStore extends ChangeNotifier {
     lastBackup = j['lastBackup'] as String?;
   }
 
-  Future<void> load() async {
+  Future<void> load() => _tracked(_load);
+  Future<void> _load() async {
     try {
       final raw = await channel.invokeMapMethod<String, dynamic>('load');
       directory = raw?['directory'] as String? ?? '';
@@ -146,13 +184,13 @@ class BodyMediaStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> save(Map<String, dynamic> next) async {
+  Future<void> save(Map<String, dynamic> next) => _tracked(() async {
     await channel.invokeMethod<void>('saveJournal', jsonEncode(next));
     apply(next);
     notifyListeners();
-  }
+  });
 
-  Future<BodyPhoto> importPhoto(String path) async {
+  Future<BodyPhoto> importPhoto(String path) => _tracked(() async {
     final raw = await channel.invokeMapMethod<String, dynamic>('importPhoto', {
       'path': path,
     });
@@ -162,22 +200,22 @@ class BodyMediaStore extends ChangeNotifier {
       asset: raw['asset'] as String,
       thumbnail: raw['thumbnail'] as String,
     );
-  }
+  });
 
   String path(BodyPhoto p, {bool thumb = false}) =>
       '$directory/${thumb ? p.thumbnail : p.asset}';
-  Future<bool> unlock() async {
+  Future<bool> unlock() => _tracked(() async {
     final ok = await channel.invokeMethod<bool>('unlock') ?? false;
     if (ok) {
       sessionUnlocked = true;
       notifyListeners();
     }
     return ok;
-  }
+  });
 
   Future<void> protectScreen(bool enabled) =>
       channel.invokeMethod<void>('protectScreen', enabled);
-  Future<void> setReminder(int days) async {
+  Future<void> setReminder(int days) => _tracked(() async {
     final allowed =
         await channel.invokeMethod<bool>('setReminder', {'days': days}) ??
         false;
@@ -186,28 +224,31 @@ class BodyMediaStore extends ChangeNotifier {
         'Allow notifications in Android settings to enable reminders.',
       );
     await save({...journal, 'reminderDays': days});
-  }
+  });
 
   Future<String?> exportArchive(
     Map<String, dynamic> data,
     String password, {
     required bool photos,
-  }) => channel.invokeMethod<String>('exportArchive', {
-    'bundle': jsonEncode({...data, 'journal': journal}),
-    'password': password,
-    'photos': photos,
-  });
-  Future<Map<String, dynamic>?> importArchive(String password) async =>
-      channel.invokeMapMethod<String, dynamic>('importArchive', {
-        'password': password,
-      });
+  }) => _tracked(
+    () => channel.invokeMethod<String>('exportArchive', {
+      'bundle': jsonEncode({...data, 'journal': journal}),
+      'password': password,
+      'photos': photos,
+    }),
+  );
+  Future<Map<String, dynamic>?> importArchive(String password) => _tracked(
+    () => channel.invokeMapMethod<String, dynamic>('importArchive', {
+      'password': password,
+    }),
+  );
   Future<void> discardImport(String token) =>
       channel.invokeMethod<void>('discardImport', {'token': token});
   Future<void> commit(
     Map<String, dynamic> state,
     Map<String, dynamic> next, {
     String? token,
-  }) async {
+  }) => _tracked(() async {
     await channel.invokeMethod<void>('commit', {
       'state': jsonEncode(state),
       'journal': jsonEncode(next),
@@ -215,5 +256,5 @@ class BodyMediaStore extends ChangeNotifier {
     });
     apply(next);
     notifyListeners();
-  }
+  });
 }

@@ -281,7 +281,7 @@ abstract final class AthleticProgram {
   static const _foundationSessions = <_SessionTemplate>[
     _SessionTemplate(
       id: 'foundation-locomotion',
-      day: 'MONDAY',
+      day: 'Monday',
       name: 'Movement & Single-Leg Strength',
       summary:
           'Build steady feet, coordinated steps, split-stance strength, and single-leg balance.',
@@ -411,7 +411,7 @@ abstract final class AthleticProgram {
     ),
     _SessionTemplate(
       id: 'foundation-rotation',
-      day: 'WEDNESDAY',
+      day: 'Wednesday',
       name: 'Rotation & Full-Body Strength',
       summary:
           'Move through your upper back, connect cross-body movements, push, pull, and keep your core steady.',
@@ -541,7 +541,7 @@ abstract final class AthleticProgram {
     ),
     _SessionTemplate(
       id: 'foundation-deceleration',
-      day: 'FRIDAY',
+      day: 'Friday',
       name: 'Land & Stop with Control',
       summary:
           'Build spring through your ankles, smooth landings, sideways control, and steady stops.',
@@ -671,7 +671,7 @@ abstract final class AthleticProgram {
     ),
     _SessionTemplate(
       id: 'foundation-acceleration',
-      day: 'SATURDAY',
+      day: 'Saturday',
       name: 'Speed Basics & Endurance',
       summary:
           'Practice coordinated marching, quick starts, sideways stops, crawls, and low-impact intervals.',
@@ -804,7 +804,7 @@ abstract final class AthleticProgram {
   static const _elasticSessions = <_SessionTemplate>[
     _SessionTemplate(
       id: 'elastic-locomotion',
-      day: 'MONDAY',
+      day: 'Monday',
       name: 'Loaded Steps & Single-Leg Strength',
       summary:
           'Build stronger single-leg support with weighted marches, step-ups, and cross-body core work.',
@@ -935,7 +935,7 @@ abstract final class AthleticProgram {
     ),
     _SessionTemplate(
       id: 'elastic-rotation',
-      day: 'WEDNESDAY',
+      day: 'Wednesday',
       name: 'Build Turning Power',
       summary:
           'Connect your hips and core through medicine-ball work, cross-body pulls, and presses.',
@@ -1065,7 +1065,7 @@ abstract final class AthleticProgram {
     ),
     _SessionTemplate(
       id: 'elastic-deceleration',
-      day: 'FRIDAY',
+      day: 'Friday',
       name: 'Spring, Land & Stop',
       summary:
           'Practice pogo jumps, bounds, sideways landings, sprint starts, and controlled stops.',
@@ -1195,7 +1195,7 @@ abstract final class AthleticProgram {
     ),
     _SessionTemplate(
       id: 'elastic-speed',
-      day: 'SATURDAY',
+      day: 'Saturday',
       name: 'Speed & Direction Changes',
       summary:
           'Build up short sprints, curved runs, planned direction changes, crawls, and repeated efforts.',
@@ -1328,7 +1328,7 @@ abstract final class AthleticProgram {
   static const _integrationSessions = <_SessionTemplate>[
     _SessionTemplate(
       id: 'integration-acceleration',
-      day: 'MONDAY',
+      day: 'Monday',
       name: 'Fast Starts & Single-Leg Power',
       summary:
           'Practice sharp starts, pushes against resistance, single-leg power, and core control as you move.',
@@ -1458,7 +1458,7 @@ abstract final class AthleticProgram {
     ),
     _SessionTemplate(
       id: 'integration-rotation',
-      day: 'WEDNESDAY',
+      day: 'Wednesday',
       name: 'Full-Body Rotation & Power',
       summary:
           'Connect step-behind throws, moving chops, presses, and pulls into full-body power.',
@@ -1588,7 +1588,7 @@ abstract final class AthleticProgram {
     ),
     _SessionTemplate(
       id: 'integration-change-direction',
-      day: 'FRIDAY',
+      day: 'Friday',
       name: 'React, Stop & Change Direction',
       summary:
           'Practice steady landings, controlled stops, 45- and 90-degree turns, and quick reactions.',
@@ -1718,7 +1718,7 @@ abstract final class AthleticProgram {
     ),
     _SessionTemplate(
       id: 'integration-capacity',
-      day: 'SATURDAY',
+      day: 'Saturday',
       name: 'Speed & Repeat Efforts',
       summary:
           'Build from quick starts to controlled faster running, curved runs, and steady repeat sprints.',

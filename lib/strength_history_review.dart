@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'display_format.dart';
+
 import 'brand.dart';
 import 'strength_history_backfill.dart';
 
@@ -65,7 +67,9 @@ class _StrengthHistoryReviewState extends State<StrengthHistoryReviewScreen> {
               for (final session in candidates.reversed)
                 ListTile(
                   selected: assignments[slot.id] == session.id,
-                  title: Text('${_date(session.date)} · ${session.name}'),
+                  title: Text(
+                    '${formatAppDate(session.date)} · ${session.name}',
+                  ),
                   subtitle: Text(
                     '${session.source} · ${slot.matchedExercises(session)}/${slot.workout.exercises.length} exercises\n${session.workingSets.values.fold<int>(0, (sum, count) => sum + count)} working sets',
                   ),
@@ -170,8 +174,8 @@ class _StrengthHistoryReviewState extends State<StrengthHistoryReviewScreen> {
                 slot.blocked
                     ? 'Existing workout or draft saved'
                     : source == null
-                    ? '${_date(slot.date)} · Empty'
-                    : '${_date(source.date)} · ${source.name} (${source.source})\n${slot.matchedExercises(source)}/${slot.workout.exercises.length} exercises · ${slot.hasAllWorkingSets(source) ? 'All working sets matched' : 'Partial'}',
+                    ? '${formatAppDate(slot.date)} · Empty'
+                    : '${formatAppDate(source.date)} · ${source.name} (${source.source})\n${slot.matchedExercises(source)}/${slot.workout.exercises.length} exercises · ${slot.hasAllWorkingSets(source) ? 'All working sets matched' : 'Partial'}',
               ),
               isThreeLine: source != null,
               trailing: slot.blocked ? null : const Icon(Icons.edit_outlined),
@@ -195,9 +199,4 @@ class _StrengthHistoryReviewState extends State<StrengthHistoryReviewScreen> {
       ),
     );
   }
-}
-
-String _date(DateTime value) {
-  final local = value.toLocal();
-  return '${local.month}/${local.day}/${local.year}';
 }

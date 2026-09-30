@@ -324,9 +324,9 @@ extension ExerciseTrackingTypeInfo on ExerciseTrackingType {
   bool get usesCalories => this == ExerciseTrackingType.caloriesDuration;
 
   String get weightLabel => switch (this) {
-    ExerciseTrackingType.weightedBodyweight => 'ADDED WEIGHT',
-    ExerciseTrackingType.assistedBodyweight => 'ASSISTANCE',
-    _ => 'WEIGHT',
+    ExerciseTrackingType.weightedBodyweight => 'Added weight',
+    ExerciseTrackingType.assistedBodyweight => 'Assistance',
+    _ => 'Weight',
   };
 
   String get performanceLabel => switch (this) {

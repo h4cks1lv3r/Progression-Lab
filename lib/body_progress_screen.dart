@@ -11,12 +11,48 @@ import 'body_share.dart';
 import 'brand.dart';
 import 'store.dart';
 import 'health_sync.dart';
+import 'display_format.dart';
+import 'user_feedback.dart';
 
 String bodyNumber(double value) => value.toStringAsFixed(1);
+String bodyDisplayDate(String value) {
+  final date = DateTime.tryParse(value);
+  return date == null ? 'Date unavailable' : formatAppDate(date);
+}
+
 void bodyError(BuildContext context, Object error) {
-  final message = error is PlatformException ? error.message : '$error';
   ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(message ?? 'Could not finish that. Try again.')),
+    SnackBar(
+      content: Text(
+        userFacingError(error, action: UserFeedbackAction.saveData),
+      ),
+    ),
+  );
+}
+
+const bodyPhotoBackupWarning =
+    'Photos and private notes are stored only on this device. '
+    'Uninstalling the app, clearing its data, or losing this phone removes them. '
+    'Save an encrypted body backup with photos first. Workout and cloud backups do not include them.';
+
+class BodyPhotoBackupNotice extends StatelessWidget {
+  const BodyPhotoBackupNotice({super.key});
+  @override
+  Widget build(BuildContext context) => const Card(
+    child: Padding(
+      padding: EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Keep a separate photo backup',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          SizedBox(height: 6),
+          Text(bodyPhotoBackupWarning),
+        ],
+      ),
+    ),
   );
 }
 
@@ -91,9 +127,9 @@ class _BodyProgressScreenState extends State<BodyProgressScreen>
       final continueDraft = await showDialog<bool>(
         context: context,
         builder: (dialog) => AlertDialog(
-          title: const Text('Finish your current check-in'),
+          title: const Text('Finish your current body entry'),
           content: const Text(
-            'Save or discard your current check-in before editing another. You can resume your saved draft now.',
+            'Save or discard your current body entry before editing another. You can resume your saved draft now.',
           ),
           actions: [
             TextButton(
@@ -143,7 +179,9 @@ class _BodyProgressScreenState extends State<BodyProgressScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(media.error!),
+              const Text(
+                'Your private photo journal could not be opened. Try again before making changes.',
+              ),
               TextButton(onPressed: load, child: const Text('Retry')),
             ],
           ),
@@ -178,6 +216,8 @@ class _BodyProgressScreenState extends State<BodyProgressScreen>
             style: TextStyle(color: BrandColors.muted),
           ),
           const SizedBox(height: 18),
+          const BodyPhotoBackupNotice(),
+          const SizedBox(height: 12),
           Wrap(
             spacing: 12,
             runSpacing: 10,
@@ -186,7 +226,7 @@ class _BodyProgressScreenState extends State<BodyProgressScreen>
                 key: const ValueKey('add-body-checkin'),
                 onPressed: () => openEditor(),
                 icon: const Icon(Icons.add_a_photo_outlined),
-                label: const Text('Add check-in'),
+                label: const Text('Add body entry'),
               ),
               OutlinedButton.icon(
                 onPressed: () => Navigator.push(
@@ -206,9 +246,9 @@ class _BodyProgressScreenState extends State<BodyProgressScreen>
             Card(
               child: ListTile(
                 leading: const Icon(Icons.edit_note),
-                title: const Text('Unfinished check-in'),
+                title: const Text('Unfinished body entry'),
                 subtitle: Text(
-                  '${media.draft!['date']} • saved on this device',
+                  '${bodyDisplayDate('${media.draft!['date']}')} • saved on this device',
                 ),
                 trailing: TextButton(
                   onPressed: () => openEditor(resume: true),
@@ -238,7 +278,7 @@ class _BodyProgressScreenState extends State<BodyProgressScreen>
             BodyOverview(store: widget.store),
             const SizedBox(height: 20),
             const Text(
-              'Recent check-ins',
+              'Recent body entries',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ],
@@ -259,7 +299,7 @@ class _BodyProgressScreenState extends State<BodyProgressScreen>
                     vertical: 8,
                   ),
                   leading: const Icon(Icons.photo_library_outlined),
-                  title: Text(c.date),
+                  title: Text(bodyDisplayDate(c.date)),
                   subtitle: Text(
                     '${c.photos.length} photo${c.photos.length == 1 ? '' : 's'}${c.notes.isEmpty ? '' : ' • Private note'}',
                   ),
@@ -270,7 +310,7 @@ class _BodyProgressScreenState extends State<BodyProgressScreen>
             if (view == 0 && media.checkIns.length > 4)
               TextButton(
                 onPressed: () => setState(() => view = 1),
-                child: const Text('See all check-ins'),
+                child: const Text('See all body entries'),
               ),
           ],
           if (view == 2) BodyMeasurementHistory(store: widget.store),
@@ -348,7 +388,7 @@ class BodyOverview extends StatelessWidget {
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   Text(
-                    '${bodyDay(trend.start)} to ${bodyDay(trend.end)} • ${trend.days} of 7 days',
+                    '${formatAppDate(trend.start)} to ${formatAppDate(trend.end)} • ${trend.days} of 7 days',
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -374,7 +414,7 @@ class BodyOverview extends StatelessWidget {
               subtitle: Text(
                 waist == null
                     ? 'Optional • measure at the same site each time'
-                    : waist.date,
+                    : bodyDisplayDate(waist.date),
               ),
               trailing: Text(
                 waist == null
@@ -402,7 +442,7 @@ class BodyOverview extends StatelessWidget {
                   ),
                   if (bmi != null)
                     Text(
-                      'Weight: ${weight!.date}. Height: ${BodyAnalysis.atOrBefore(store.bodyMeasurements, BodyMetric.height, weight.date)!.date}.',
+                      'Weight: ${bodyDisplayDate(weight!.date)}. Height: ${bodyDisplayDate(BodyAnalysis.atOrBefore(store.bodyMeasurements, BodyMetric.height, weight.date)!.date)}.',
                     ),
                   if (bmi != null && settings['adult20'] == true)
                     Text(BodyAnalysis.bmiCategory(bmi, adult20: true)!),
@@ -522,7 +562,7 @@ class _BodyMeasurementHistoryState extends State<BodyMeasurementHistory> {
             ),
           ),
           Text(
-            '${series.map((r) => r.date).reduce((a, b) => a.compareTo(b) < 0 ? a : b)} to ${series.map((r) => r.date).reduce((a, b) => a.compareTo(b) > 0 ? a : b)} • ${series.first.displayUnit(store.unit, unit)}',
+            '${bodyDisplayDate(series.map((r) => r.date).reduce((a, b) => a.compareTo(b) < 0 ? a : b))} to ${bodyDisplayDate(series.map((r) => r.date).reduce((a, b) => a.compareTo(b) > 0 ? a : b))} • ${series.first.displayUnit(store.unit, unit)}',
             style: const TextStyle(color: BrandColors.muted),
           ),
         ],
@@ -547,7 +587,7 @@ class _BodyMeasurementHistoryState extends State<BodyMeasurementHistory> {
               '${bodyNumber(r.displayValue(store.unit, unit))} ${r.displayUnit(store.unit, unit)}',
             ),
             subtitle: Text(
-              '${r.date} • ${r.source == 'manual' ? 'Manual' : r.source}\n${r.method}${r.preferred ? ' • Selected for this day' : ''}',
+              '${bodyDisplayDate(r.date)} • ${r.source == 'manual' ? 'Manual' : r.source}\n${r.method}${r.preferred ? ' • Selected for this day' : ''}',
             ),
             isThreeLine: true,
             trailing: PopupMenuButton<String>(
@@ -736,7 +776,7 @@ Future<void> showBodyMeasurementEditor(
                   if (d != null) set(() => date = d);
                 },
                 icon: const Icon(Icons.calendar_today, size: 18),
-                label: Text(bodyDay(date)),
+                label: Text(formatAppDate(date)),
               ),
               TextField(
                 controller: input,
@@ -1112,7 +1152,9 @@ class _BodyCheckInEditorState extends State<BodyCheckInEditor> {
     },
     child: Scaffold(
       appBar: AppBar(
-        title: Text(widget.checkIn == null ? 'New check-in' : 'Edit check-in'),
+        title: Text(
+          widget.checkIn == null ? 'New body entry' : 'Edit body entry',
+        ),
         actions: [
           TextButton(
             onPressed: busy ? null : save,
@@ -1140,12 +1182,14 @@ class _BodyCheckInEditorState extends State<BodyCheckInEditor> {
                       }
                     },
               icon: const Icon(Icons.calendar_today),
-              label: Text(bodyDay(date)),
+              label: Text(formatAppDate(date)),
             ),
             const Text(
               'Everything below is optional. Photos and notes stay private on this device until you choose to export or share.',
             ),
             const SizedBox(height: 16),
+            const BodyPhotoBackupNotice(),
+            const SizedBox(height: 12),
             Wrap(
               spacing: 12,
               runSpacing: 8,
@@ -1276,7 +1320,7 @@ class _BodyCheckInEditorState extends State<BodyCheckInEditor> {
             const SizedBox(height: 20),
             FilledButton(
               onPressed: busy ? null : save,
-              child: Text(busy ? 'Saving…' : 'Save check-in'),
+              child: Text(busy ? 'Saving…' : 'Save body entry'),
             ),
             TextButton(
               onPressed: busy
@@ -1285,7 +1329,7 @@ class _BodyCheckInEditorState extends State<BodyCheckInEditor> {
                       final confirmed = await confirmBodyDelete(
                         context,
                         widget.checkIn == null
-                            ? 'Discard this unfinished check-in?'
+                            ? 'Discard this unfinished body entry?'
                             : 'Delete these app photos and the private note? Linked measurements stay in your history. Shared or exported copies are unaffected.',
                       );
                       if (!confirmed) return;
@@ -1304,7 +1348,7 @@ class _BodyCheckInEditorState extends State<BodyCheckInEditor> {
                       if (context.mounted) Navigator.pop(context);
                     },
               child: Text(
-                widget.checkIn == null ? 'Discard draft' : 'Delete check-in',
+                widget.checkIn == null ? 'Discard draft' : 'Delete body entry',
               ),
             ),
           ],
@@ -1398,7 +1442,7 @@ class _BodyCompareScreenState extends State<BodyCompareScreen> {
               const Padding(
                 padding: EdgeInsets.all(20),
                 child: Text(
-                  'Choose check-ins with a matching view and pose for a photo comparison, or make a share image without photos.',
+                  'Choose body entries with a matching view and pose for a photo comparison, or make a share image without photos.',
                 ),
               )
             else ...[
@@ -1415,11 +1459,15 @@ class _BodyCompareScreenState extends State<BodyCompareScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: Column(children: [tile(a), Text(first.date)]),
+                      child: Column(
+                        children: [tile(a), Text(bodyDisplayDate(first.date))],
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Column(children: [tile(b), Text(last.date)]),
+                      child: Column(
+                        children: [tile(b), Text(bodyDisplayDate(last.date))],
+                      ),
                     ),
                   ],
                 ),
@@ -1496,7 +1544,7 @@ class _BodyCompareScreenState extends State<BodyCompareScreen> {
           (c) => DropdownMenuItem(
             value: c.id,
             child: Text(
-              '${c.date} • Check-in ${entries.indexOf(c) + 1} • ${c.photos.length} views',
+              '${bodyDisplayDate(c.date)} • Body entry ${entries.indexOf(c) + 1} • ${c.photos.length} views',
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -1553,9 +1601,18 @@ class _BodySettingsScreenState extends State<BodySettingsScreen> {
               children: [
                 Text(
                   restore
-                      ? 'Adds photos, check-ins, and measurements from this backup. Matching saved records are replaced.'
+                      ? 'Adds photos, body entries, and measurements from this backup. Matching saved records are replaced.'
                       : 'Includes measurements and private notes. Keep the password: it cannot be reset. This backup is separate from workout backups.',
                 ),
+                if (!restore) ...[
+                  const SizedBox(height: 12),
+                  const Text(bodyPhotoBackupWarning),
+                  if (!includePhotos)
+                    const Text(
+                      'Photos will not be included in this backup.',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                ],
                 TextField(
                   controller: password,
                   obscureText: true,
@@ -1642,7 +1699,7 @@ class _BodySettingsScreenState extends State<BodySettingsScreen> {
               builder: (dialog) => AlertDialog(
                 title: const Text('Merge this body backup?'),
                 content: Text(
-                  '${checks.length} check-ins, ${checks.fold(0, (n, c) => n + c.photos.length)} photos, and ${imported.length} measurements.\n\n$replacements matching measurements will be updated. Other history is kept. Existing photos are kept when this backup excluded photos.',
+                  '${checks.length} body entries, ${checks.fold(0, (n, c) => n + c.photos.length)} photos, and ${imported.length} measurements.\n\n$replacements matching measurements will be updated. Other history is kept. Existing photos are kept when this backup excluded photos.',
                 ),
                 actions: [
                   TextButton(
@@ -1834,7 +1891,7 @@ class _BodySettingsScreenState extends State<BodySettingsScreen> {
             key: ValueKey(media.reminderDays),
             initialValue: media.reminderDays,
             decoration: const InputDecoration(
-              labelText: 'Optional check-in reminder',
+              labelText: 'Optional body entry reminder',
             ),
             items: [0, 7, 14, 30]
                 .map(
@@ -1853,7 +1910,7 @@ class _BodySettingsScreenState extends State<BodySettingsScreen> {
           ),
           const SizedBox(height: 10),
           Text(
-            '${media.checkIns.fold(0, (n, c) => n + c.photos.length)} saved photos • ${store.bodyMeasurements.length} measurements\nLast body backup: ${media.lastBackup ?? 'Not yet created'}',
+            '${media.checkIns.fold(0, (n, c) => n + c.photos.length)} saved photos • ${store.bodyMeasurements.length} measurements\nLast body backup: ${media.lastBackup == null ? 'Not yet created' : bodyDisplayDate(media.lastBackup!)}',
           ),
           const SizedBox(height: 10),
           const Text(

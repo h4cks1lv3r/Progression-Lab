@@ -230,7 +230,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Week 5 of 12'), findsOneWidget);
-    expect(find.text('LOADED STEPS & SINGLE-LEG STRENGTH'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('functional-current-session-title')),
+          )
+          .data,
+      'Loaded Steps & Single-Leg Strength',
+    );
     await tester.tap(find.text('Start session'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Foot Rocker'), findsOneWidget);

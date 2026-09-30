@@ -5,6 +5,8 @@ import 'dart:math' as math;
 import 'daily_inputs.dart';
 import 'store.dart';
 import 'lab_data.dart';
+import 'lab_conditions.dart';
+import 'display_format.dart';
 
 enum LabConfidence { insufficient, preliminary, developing, stronger }
 
@@ -19,6 +21,7 @@ class LabEvidence {
     required this.confidence,
     required this.confounders,
     this.effectPercent,
+    this.adherencePercent,
     this.positive = true,
     this.neutral = false,
   });
@@ -32,6 +35,7 @@ class LabEvidence {
   final LabConfidence confidence;
   final List<String> confounders;
   final double? effectPercent;
+  final double? adherencePercent;
   final bool positive;
   final bool neutral;
 
@@ -47,6 +51,7 @@ class LabEvidence {
     'confidence': confidence.name,
     'confounders': confounders,
     if (effectPercent != null) 'effectPercent': effectPercent,
+    if (adherencePercent != null) 'adherencePercent': adherencePercent,
     if (!neutral) 'positive': positive,
     'neutral': neutral,
   };
@@ -297,18 +302,30 @@ class LabAnalysisEngine {
     AppStore store,
     List<_StrengthSession> sessions,
   ) {
+    final state = store.exportState();
+    final doses = {
+      for (final session in sessions)
+        session.id: LabConditionDefinitions.caffeineBeforeWorkout(
+          state,
+          session.startedAt,
+        ),
+    };
+    final usable = sessions.where((session) {
+      final dose = doses[session.id]!;
+      return dose == 0 || dose >= LabConditionDefinitions.caffeineMinimumMg;
+    }).toList();
     final grouped = _matchedGroups(
-      sessions,
-      (session) => _caffeineBefore(store, session.startedAt) >= 25,
+      usable,
+      (session) =>
+          doses[session.id]! >= LabConditionDefinitions.caffeineMinimumMg,
     );
     if (grouped.withCondition < 3 || grouped.withoutCondition < 3) {
       return LabEvidence(
         id: 'caffeine',
         title: 'Caffeine and performance',
         finding: 'More matched workouts with and without caffeine are needed.',
-        metric: 'Normalized session strength score',
-        comparison:
-            '25+ mg caffeine 20–180 minutes before training vs no logged caffeine',
+        metric: 'Mean estimated one-rep max for matched exercises',
+        comparison: LabConditionDefinitions.caffeineComparison,
         sampleLabel:
             '${grouped.withCondition} with · ${grouped.withoutCondition} without',
         confidence: LabConfidence.insufficient,
@@ -328,9 +345,8 @@ class LabAnalysisEngine {
       finding: effect.abs() < 1
           ? 'Matched session performance was similar with and without caffeine.'
           : 'Matched session performance was ${effect >= 0 ? 'higher' : 'lower'} after logged caffeine.',
-      metric: 'Normalized session strength score',
-      comparison:
-          '25+ mg caffeine 20–180 minutes before training vs no logged caffeine',
+      metric: 'Mean estimated one-rep max for matched exercises',
+      comparison: LabConditionDefinitions.caffeineComparison,
       sampleLabel:
           '${grouped.withCondition} with · ${grouped.withoutCondition} without',
       confidence: _confidence(grouped.withCondition, grouped.withoutCondition),
@@ -360,7 +376,7 @@ class LabAnalysisEngine {
         title: 'Pre-workout meals',
         finding:
             'More matched workouts with and without a recent meal are needed.',
-        metric: 'Normalized session strength score',
+        metric: 'Mean estimated one-rep max for matched exercises',
         comparison: 'Meal 45–240 minutes before training vs no logged meal',
         sampleLabel:
             '${grouped.withCondition} with · ${grouped.withoutCondition} without',
@@ -375,7 +391,7 @@ class LabAnalysisEngine {
       finding: effect.abs() < 1
           ? 'Matched session performance was similar across meal conditions.'
           : 'Matched session performance was ${effect >= 0 ? 'higher' : 'lower'} when a meal was logged before training.',
-      metric: 'Normalized session strength score',
+      metric: 'Mean estimated one-rep max for matched exercises',
       comparison: 'Meal 45–240 minutes before training vs no logged meal',
       sampleLabel:
           '${grouped.withCondition} with · ${grouped.withoutCondition} without',
@@ -400,7 +416,7 @@ class LabAnalysisEngine {
         title: 'Hydration and performance',
         finding:
             'More matched workouts with different hydration conditions are needed.',
-        metric: 'Normalized session strength score',
+        metric: 'Mean estimated one-rep max for matched exercises',
         comparison: '500+ mL logged in the four hours before training vs less',
         sampleLabel:
             '${grouped.withCondition} hydrated · ${grouped.withoutCondition} comparison',
@@ -415,7 +431,7 @@ class LabAnalysisEngine {
       finding: effect.abs() < 1
           ? 'Matched session performance was similar across logged hydration conditions.'
           : 'Matched session performance was ${effect >= 0 ? 'higher' : 'lower'} when at least 500 mL was logged before training.',
-      metric: 'Normalized session strength score',
+      metric: 'Mean estimated one-rep max for matched exercises',
       comparison: '500+ mL logged in the four hours before training vs less',
       sampleLabel:
           '${grouped.withCondition} hydrated · ${grouped.withoutCondition} comparison',
@@ -430,25 +446,30 @@ class LabAnalysisEngine {
     AppStore store,
     List<_StrengthSession> sessions,
   ) {
+    final state = store.exportState();
+    final hours = {
+      for (final session in sessions)
+        session.id: LabConditionDefinitions.sleepHoursForWorkout(
+          state,
+          session.startedAt,
+        ),
+    };
     final usable = sessions
-        .where(
-          (session) =>
-              store.recoveryForDay(session.startedAt)?.sleepHours != null,
-        )
+        .where((session) => hours[session.id] != null)
         .toList();
     final grouped = _matchedGroups(
       usable,
       (session) =>
-          (store.recoveryForDay(session.startedAt)?.sleepHours ?? 0) >= 7,
+          hours[session.id]! >= LabConditionDefinitions.sleepTargetHours,
     );
     if (grouped.withCondition < 3 || grouped.withoutCondition < 3) {
       return LabEvidence(
         id: 'sleep',
         title: 'Sleep and performance',
         finding:
-            'More matched workouts with complete sleep check-ins are needed.',
-        metric: 'Normalized session strength score',
-        comparison: '7+ hours sleep vs under 7 hours',
+            'More matched workouts with a sleep entry in their recovery record are needed.',
+        metric: 'Mean estimated one-rep max for matched exercises',
+        comparison: LabConditionDefinitions.sleepComparison,
         sampleLabel:
             '${grouped.withCondition} at 7+ h · ${grouped.withoutCondition} under 7 h',
         confidence: LabConfidence.insufficient,
@@ -462,8 +483,8 @@ class LabAnalysisEngine {
       finding: effect.abs() < 1
           ? 'Matched session performance was similar across logged sleep amounts.'
           : 'Matched session performance was ${effect >= 0 ? 'higher' : 'lower'} after at least seven hours of sleep.',
-      metric: 'Normalized session strength score',
-      comparison: '7+ hours sleep vs under 7 hours',
+      metric: 'Mean estimated one-rep max for matched exercises',
+      comparison: LabConditionDefinitions.sleepComparison,
       sampleLabel:
           '${grouped.withCondition} at 7+ h · ${grouped.withoutCondition} under 7 h',
       confidence: _confidence(grouped.withCondition, grouped.withoutCondition),
@@ -510,6 +531,8 @@ class LabAnalysisEngine {
         sampleLabel: '0 logged days',
         confidence: LabConfidence.insufficient,
         confounders: ['Unlogged doses', 'training consistency'],
+        adherencePercent: 0,
+        neutral: true,
       );
     }
     return LabEvidence(
@@ -529,8 +552,8 @@ class LabAnalysisEngine {
         'training consistency',
         'dietary intake',
       ],
-      effectPercent: adherence,
-      positive: adherence >= 70,
+      adherencePercent: adherence,
+      neutral: true,
     );
   }
 
@@ -545,12 +568,11 @@ class LabAnalysisEngine {
     if (values.length < 3) {
       return LabEvidence(
         id: 'workout-response',
-        title: 'Session response',
-        finding:
-            'Complete a few post-workout check-ins to establish a baseline.',
+        title: 'Workout ratings',
+        finding: 'Save a few workout ratings to establish a baseline.',
         metric: 'Energy, focus, effort, and discomfort',
         comparison: 'Last 28 days',
-        sampleLabel: '${values.length} check-ins',
+        sampleLabel: '${values.length} ratings',
         confidence: LabConfidence.insufficient,
         confounders: const ['Subjective ratings', 'workout difficulty'],
       );
@@ -562,15 +584,15 @@ class LabAnalysisEngine {
     final discomfort = average(values.map((item) => item.discomfort));
     return LabEvidence(
       id: 'workout-response',
-      title: 'Session response',
+      title: 'Workout ratings',
       finding:
           'Average energy was ${energy.toStringAsFixed(1)}/5, focus ${focus.toStringAsFixed(1)}/5, and discomfort ${discomfort.toStringAsFixed(1)}/5.',
       metric: 'Post-workout self-ratings',
       comparison: 'Last 28 days',
-      sampleLabel: '${values.length} check-ins',
+      sampleLabel: '${values.length} ratings',
       confidence: _confidence(values.length, values.length),
       confounders: const ['Subjective ratings', 'workout difficulty'],
-      positive: energy >= 3 && focus >= 3 && discomfort <= 3,
+      neutral: true,
     );
   }
 
@@ -650,7 +672,7 @@ class LabAnalysisEngine {
       sampleLabel: '${records.length} sessions',
       confidence: _confidence(records.length, records.length),
       confounders: const ['Program start date', 'session difficulty'],
-      positive: records.length >= 8,
+      neutral: true,
     );
   }
 
@@ -733,19 +755,6 @@ class LabAnalysisEngine {
     );
   }
 
-  double _caffeineBefore(AppStore store, DateTime sessionStart) {
-    final earliest = sessionStart.subtract(const Duration(minutes: 180));
-    final latest = sessionStart.subtract(const Duration(minutes: 20));
-    return store.supplementEvents
-        .where(
-          (event) =>
-              event.caffeineMg > 0 &&
-              !event.takenAt.isBefore(earliest) &&
-              !event.takenAt.isAfter(latest),
-        )
-        .fold(0.0, (sum, event) => sum + event.caffeineMg);
-  }
-
   double _hydrationBefore(AppStore store, DateTime sessionStart) {
     final earliest = sessionStart.subtract(const Duration(hours: 4));
     return store.hydrationEvents
@@ -781,7 +790,7 @@ class LabAnalysisEngine {
   String _dayKey(DateTime value) =>
       '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
 
-  String _shortDate(DateTime value) => '${value.month}/${value.day}';
+  String _shortDate(DateTime value) => formatAppDate(value);
 }
 
 class _StrengthSession {

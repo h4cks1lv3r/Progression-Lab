@@ -7,6 +7,7 @@ import 'daily_inputs.dart';
 import 'store.dart';
 import 'contextual_guides.dart';
 import 'body_progress_screen.dart';
+import 'display_format.dart';
 
 class TodayInputsCard extends StatelessWidget {
   const TodayInputsCard({super.key, required this.store});
@@ -167,24 +168,25 @@ class _DailyInputsScreenState extends State<DailyInputsScreen> {
           child: SafeArea(
             child: CustomScrollView(
               slivers: [
-                SliverAppBar(
-                  pinned: true,
-                  automaticallyImplyLeading: !widget.embedded,
-                  title: widget.embedded ? null : const Text('Daily check-in'),
-                  backgroundColor: BrandColors.ink.withValues(alpha: .94),
-                  actions: [
-                    IconButton(
-                      tooltip: 'Edit saved supplements',
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => SupplementPresetsScreen(store: store),
+                if (!widget.embedded)
+                  SliverAppBar(
+                    pinned: true,
+                    title: const Text('Daily check-in'),
+                    backgroundColor: BrandColors.ink.withValues(alpha: .94),
+                    actions: [
+                      IconButton(
+                        tooltip: 'Edit saved supplements',
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                SupplementPresetsScreen(store: store),
+                          ),
                         ),
+                        icon: const Icon(Icons.tune_rounded),
                       ),
-                      icon: const Icon(Icons.tune_rounded),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(20, 14, 20, 36),
                   sliver: SliverList.list(
@@ -210,9 +212,7 @@ class _DailyInputsScreenState extends State<DailyInputsScreen> {
                               label: Text(
                                 DateUtils.isSameDay(selectedDay, DateTime.now())
                                     ? 'Today'
-                                    : MaterialLocalizations.of(
-                                        context,
-                                      ).formatMediumDate(selectedDay),
+                                    : formatAppDate(selectedDay),
                               ),
                             ),
                           ),
@@ -230,6 +230,21 @@ class _DailyInputsScreenState extends State<DailyInputsScreen> {
                           ),
                         ],
                       ),
+                      if (widget.embedded)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    SupplementPresetsScreen(store: store),
+                              ),
+                            ),
+                            icon: const Icon(Icons.tune_rounded, size: 18),
+                            label: const Text('Edit saved supplements'),
+                          ),
+                        ),
                       const SizedBox(height: 12),
                       FeatureTip(
                         store: store,
@@ -1642,8 +1657,8 @@ Future<void> showWorkoutResponseSheet(
     builder: (sheetContext) => StatefulBuilder(
       builder: (context, setState) => _EntrySheet(
         ownedControllers: [notes],
-        title: 'How did that feel?',
-        saveLabel: 'Save check-in',
+        title: 'Workout rating',
+        saveLabel: 'Save workout rating',
         secondaryLabel: 'Skip',
         onSecondary: () => Navigator.pop(sheetContext),
         children: [
@@ -1721,7 +1736,10 @@ Future<void> showWorkoutResponseSheet(
     if (value != null) await store.saveWorkoutResponse(value);
   } on Object {
     if (context.mounted) {
-      _showInputError(context, 'The workout check-in could not be saved.');
+      _showInputError(
+        context,
+        'The workout rating could not be saved. Try again.',
+      );
     }
   }
 }
@@ -1830,9 +1848,7 @@ class _TimeRow extends StatelessWidget {
     contentPadding: EdgeInsets.zero,
     leading: const Icon(Icons.schedule_rounded, color: BrandColors.cyan),
     title: const Text('Date & time'),
-    subtitle: Text(
-      '${MaterialLocalizations.of(context).formatMediumDate(value)} · ${_time(value)}',
-    ),
+    subtitle: Text(formatAppDateTime(value)),
     trailing: TextButton(
       onPressed: () async {
         final day = await showDatePicker(

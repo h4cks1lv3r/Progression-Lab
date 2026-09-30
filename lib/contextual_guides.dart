@@ -191,9 +191,16 @@ class ContextualGuideState extends ChangeNotifier {
     };
     final store = _store;
     if (store != null) {
+      store.ensureLocalDataWritable();
       final merged = Map<String, dynamic>.from(store.integrationState)
         ..['contextualGuides'] = data;
       await store.setIntegrationState(merged);
+      // An accepted reset retires this store. Do not recreate its old mirror.
+      if (store.deletingAllLocalData ||
+          store.deletedAllLocalData ||
+          store.localDataDeletionNeedsRetry)
+        return;
+      store.ensureLocalDataWritable();
     }
     try {
       await _channel.invokeMethod<void>('write', data);

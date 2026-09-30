@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.8.2+26 — 2026-09-30
+
+- Use safe share, backup, storage recovery, and on-device AI error messages with retry instructions.
+- Standardize visible dates, Cycle labels, workout ratings, Body entries, performance tests, and sentence-case controls; explain AMRAP and estimated one-rep maximum.
+- Share fixed logging/finish controls and save progress across workout modes while preserving Functional drill completion.
+- Add confirmed Delete all data with operation draining, retired store guards, route replacement, and recovery gating after incomplete cleanup.
+- Show private-photo backup warnings before photo entry and in backup review; name app-data backups by their actual scope.
+- Align new caffeine and sleep comparisons and experiments; preserve existing criteria and show creatine as logging adherence.
+- Remove duplicate Year One and embedded Daily bars; improve history date contrast and restore plate tools for EZ, trap, and Smith equipment with explicit starting weight.
+
 ## 2.8.1+25 — 2026-09-30
 
 - Preserve Functional drafts per session and Strength inputs per exercise; resume exact saved scopes from Home.

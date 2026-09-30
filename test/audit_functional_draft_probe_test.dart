@@ -180,9 +180,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.enterText(field('WEIGHT (lb)'), '123');
+      await tester.enterText(field('Weight (lb)'), '123');
       await tester.enterText(field('Reps'), '9');
-      await tester.enterText(field('Set notes'), 'Return to this bench');
+      await tester.enterText(field('Notes (optional)'), 'Return to this bench');
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
       expect(store.draft!.weight, '123');
@@ -197,12 +197,12 @@ void main() {
       await tester.tap(find.text('1. Barbell Bench Press').last);
       await tester.pumpAndSettle();
       expect(
-        tester.widget<TextField>(field('WEIGHT (lb)')).controller!.text,
+        tester.widget<TextField>(field('Weight (lb)')).controller!.text,
         '123',
       );
       expect(tester.widget<TextField>(field('Reps')).controller!.text, '9');
       expect(
-        tester.widget<TextField>(field('Set notes')).controller!.text,
+        tester.widget<TextField>(field('Notes (optional)')).controller!.text,
         'Return to this bench',
       );
       expect(store.draft!.weight, '123');

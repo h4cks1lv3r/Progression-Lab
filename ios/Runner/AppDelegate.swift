@@ -2,6 +2,8 @@ import Flutter
 import Photos
 import UIKit
 import UniformTypeIdentifiers
+import Security
+import MobileCoreServices
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, UIDocumentPickerDelegate {
@@ -36,13 +38,19 @@ import UniformTypeIdentifiers
       name: "iron_cadence/storage",
       binaryMessenger: messenger
     )
-    storageChannel.setMethodCallHandler { call, result in
+    storageChannel.setMethodCallHandler { [weak self] call, result in
       switch call.method {
       case "read":
         result(UserDefaults.standard.string(forKey: "progression_lab_state"))
       case "write":
         UserDefaults.standard.set(call.arguments as? String ?? "{}", forKey: "progression_lab_state")
         result(nil)
+      case "deleteAllLocalData":
+        self?.deleteAllLocalData(result: result)
+      case "deletionStatus":
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let stage = base.appendingPathComponent("Progression Lab Delete Staging", isDirectory: true)
+        result(["needsRetry": UserDefaults.standard.bool(forKey: "progression_lab.delete_cleanup_pending") || FileManager.default.fileExists(atPath: stage.path)])
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -63,6 +71,95 @@ import UniformTypeIdentifiers
     portabilityChannel.setMethodCallHandler { [weak self] call, result in
       self?.handleDataPortability(call: call, result: result)
     }
+  }
+
+  private func deleteAllLocalData(result: @escaping FlutterResult) {
+    guard let bundle = Bundle.main.bundleIdentifier else {
+      result(FlutterError(code: "local_data_delete_failed", message: "The app storage could not be identified.", details: nil))
+      return
+    }
+    guard pickerOperation == nil else {
+      result(FlutterError(code: "local_data_delete_busy", message: "Close the file picker before deleting data.", details: nil))
+      return
+    }
+    let manager = FileManager.default
+    let base = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+    let stage = base.appendingPathComponent("Progression Lab Delete Staging", isDirectory: true)
+    var moved: [(URL, URL)] = []
+    var committed = false
+    do {
+      try IntegrationBridgeIOS.shared.prepareForLocalDataDeletion()
+      // A prior partial cleanup is kept separate from the live state and retried.
+      if manager.fileExists(atPath: stage.path) { try manager.removeItem(at: stage) }
+      try manager.createDirectory(at: stage, withIntermediateDirectories: true)
+      // Body capture plugins also leave original images under tmp/image_picker_*
+      // and tmp/camera. Include every private temp/cache child rather than a
+      // list of app-owned filenames that can miss plugin-created private data.
+      let directories = try Self.localDataDeletionPaths(
+        supportDirectory: base,
+        temporaryDirectory: manager.temporaryDirectory,
+        cachesDirectory: manager.urls(for: .cachesDirectory, in: .userDomainMask).first,
+        stagingDirectory: stage,
+        manager: manager
+      )
+      for (index, original) in directories.enumerated() where manager.fileExists(atPath: original.path) {
+        let staged = stage.appendingPathComponent("data-\(index)", isDirectory: true)
+        try manager.moveItem(at: original, to: staged)
+        moved.append((original, staged))
+      }
+      // The service restriction excludes other apps' credentials.
+      let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: "com.h4cks1lv3r.progressionlab",
+      ]
+      let status = SecItemDelete(query as CFDictionary)
+      guard status == errSecSuccess || status == errSecItemNotFound else {
+        throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
+      }
+      UserDefaults.standard.removePersistentDomain(forName: bundle)
+      committed = true
+      try manager.removeItem(at: stage)
+      result(true)
+    } catch {
+      if committed {
+        UserDefaults.standard.set(true, forKey: "progression_lab.delete_cleanup_pending")
+        result(FlutterError(code: "local_data_delete_partial", message: "App data was reset, but some private files could not be removed. Try Delete all data again.", details: nil))
+      } else {
+        var rollbackFailed = false
+        for (original, staged) in moved.reversed() {
+          do { try manager.moveItem(at: staged, to: original) } catch { rollbackFailed = true }
+        }
+        if moved.isEmpty || !rollbackFailed { try? manager.removeItem(at: stage) }
+        // A failed rollback must not let retained drafts re-create private data.
+        let incomplete = rollbackFailed || manager.fileExists(atPath: stage.path)
+        result(FlutterError(code: incomplete ? "local_data_delete_incomplete" : "local_data_delete_failed", message: "Could not finish deleting local data. Try again.", details: nil))
+      }
+    }
+  }
+
+  static func localDataDeletionPaths(
+    supportDirectory: URL,
+    temporaryDirectory: URL,
+    cachesDirectory: URL?,
+    stagingDirectory: URL,
+    manager: FileManager = .default
+  ) throws -> [URL] {
+    // These roots come from this application's container. Enumeration is only
+    // one level deep: moving/deleting a symlink removes the link, not its target.
+    var roots = [supportDirectory, temporaryDirectory]
+    if let cachesDirectory = cachesDirectory { roots.append(cachesDirectory) }
+    var paths: [URL] = []
+    for root in roots where manager.fileExists(atPath: root.path) {
+      let children = try manager.contentsOfDirectory(
+        at: root,
+        includingPropertiesForKeys: nil,
+        options: []
+      )
+      paths.append(contentsOf: children.filter {
+        $0.standardizedFileURL.path != stagingDirectory.standardizedFileURL.path
+      })
+    }
+    return paths
   }
 
   private func handleShareImage(call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -97,8 +194,8 @@ import UniformTypeIdentifiers
     guard let image = UIImage(data: data) else {
       throw DataPortabilityError("The generated workout image is invalid.")
     }
-    PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
-      guard status == .authorized || status == .limited else {
+    let saveAuthorizedImage: (Bool) -> Void = { authorized in
+      guard authorized else {
         DispatchQueue.main.async {
           result(
             FlutterError(
@@ -126,6 +223,15 @@ import UniformTypeIdentifiers
             )
           }
         }
+      }
+    }
+    if #available(iOS 14.0, *) {
+      PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+        saveAuthorizedImage(status == .authorized || status == .limited)
+      }
+    } else {
+      PHPhotoLibrary.requestAuthorization { status in
+        saveAuthorizedImage(status == .authorized)
       }
     }
   }
@@ -216,7 +322,12 @@ import UniformTypeIdentifiers
     let url = directory.appendingPathComponent(name)
     try data.write(to: url, options: .atomic)
     pickerOperation = .save(result, url)
-    let picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
+    let picker: UIDocumentPickerViewController
+    if #available(iOS 14.0, *) {
+      picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
+    } else {
+      picker = UIDocumentPickerViewController(urls: [url], in: .exportToService)
+    }
     picker.delegate = self
     present(picker)
   }
@@ -226,10 +337,18 @@ import UniformTypeIdentifiers
       throw DataPortabilityError("Another file picker is already open.")
     }
     pickerOperation = .open(result)
-    let picker = UIDocumentPickerViewController(
-      forOpeningContentTypes: [.zip, .commaSeparatedText, .data],
-      asCopy: true
-    )
+    let picker: UIDocumentPickerViewController
+    if #available(iOS 14.0, *) {
+      picker = UIDocumentPickerViewController(
+        forOpeningContentTypes: [.zip, .commaSeparatedText, .data],
+        asCopy: true
+      )
+    } else {
+      picker = UIDocumentPickerViewController(
+        documentTypes: [kUTTypeZipArchive as String, kUTTypeCommaSeparatedText as String, kUTTypeData as String],
+        in: .import
+      )
+    }
     picker.allowsMultipleSelection = false
     picker.delegate = self
     present(picker)
@@ -259,11 +378,26 @@ import UniformTypeIdentifiers
         if data.count > 100 * 1024 * 1024 {
           throw DataPortabilityError("The selected file is larger than 100 MB.")
         }
-        let values = try url.resourceValues(forKeys: [.contentTypeKey])
+        let mimeType: String
+        if #available(iOS 14.0, *) {
+          let values = try url.resourceValues(forKeys: [.contentTypeKey])
+          mimeType = values.contentType?.preferredMIMEType ?? "application/octet-stream"
+        } else if let identifier = UTTypeCreatePreferredIdentifierForTag(
+          kUTTagClassFilenameExtension,
+          url.pathExtension as CFString,
+          nil
+        )?.takeRetainedValue(), let value = UTTypeCopyPreferredTagWithClass(
+          identifier,
+          kUTTagClassMIMEType
+        )?.takeRetainedValue() {
+          mimeType = value as String
+        } else {
+          mimeType = "application/octet-stream"
+        }
         result([
           "name": url.lastPathComponent,
           "bytes": FlutterStandardTypedData(bytes: data),
-          "mimeType": values.contentType?.preferredMIMEType ?? "application/octet-stream",
+          "mimeType": mimeType,
         ])
       } catch {
         result(

@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+
+import 'display_format.dart';
 import 'brand.dart';
 import 'store.dart';
 import 'contextual_guides.dart';
@@ -202,7 +204,7 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
                 const Padding(
                   padding: EdgeInsets.only(top: 8),
                   child: Text(
-                    'Estimated 1RM predicts the weight you could lift once from this set’s weight and reps.',
+                    'Estimated one-rep maximum (e1RM) is the weight you may be able to lift once, calculated from this set’s weight and reps. It is an estimate, not a tested maximum.',
                     style: TextStyle(color: BrandColors.muted),
                   ),
                 ),
@@ -258,7 +260,7 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
                             ?.copyWith(fontWeight: FontWeight.w800),
                       ),
                       Text(
-                        '${_date(focus.date)} · ${setDescription(focus, widget.store.unit)}',
+                        '${formatAppDate(focus.date)} · ${setDescription(focus, widget.store.unit)}',
                         style: const TextStyle(color: BrandColors.muted),
                       ),
                       const SizedBox(height: 16),
@@ -309,20 +311,25 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
                         ),
                       ),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            _date(points.first.date),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: BrandColors.muted,
+                          Expanded(
+                            child: Text(
+                              formatAppDate(points.first.date),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: BrandColors.muted,
+                              ),
                             ),
                           ),
-                          Text(
-                            _date(points.last.date),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: BrandColors.muted,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              formatAppDate(points.last.date),
+                              textAlign: TextAlign.end,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: BrandColors.muted,
+                              ),
                             ),
                           ),
                         ],
@@ -362,7 +369,7 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
                   onTap: () =>
                       setState(() => selectedPoint = points.indexOf(log)),
                   title: Text(setDescription(log, widget.store.unit)),
-                  subtitle: Text('${_date(log.date)} · ${log.workout}'),
+                  subtitle: Text('${formatAppDate(log.date)} · ${log.workout}'),
                   trailing: Text(
                     '${metricNumber(active!.value(log))} $unit',
                     style: const TextStyle(color: BrandColors.cyan),
@@ -381,7 +388,7 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
                     color: BrandColors.violet,
                   ),
                   title: Text(setDescription(log, widget.store.unit)),
-                  subtitle: Text(_date(log.date)),
+                  subtitle: Text(formatAppDate(log.date)),
                 ),
             ],
           ],
@@ -389,7 +396,6 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
       );
     },
   );
-  String _date(DateTime d) => '${d.month}/${d.day}/${d.year}';
 }
 
 class _TrendPainter extends CustomPainter {

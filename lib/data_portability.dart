@@ -39,33 +39,45 @@ class DataPortabilityController {
         '${date.second.toString().padLeft(2, '0')}';
   }
 
-  Uint8List buildBackup({String reason = 'manual'}) =>
-      ProgressionBackupCodec.encode(store.exportState(), reason: reason);
+  Uint8List buildBackup({String reason = 'manual'}) {
+    store.ensureLocalDataWritable();
+    return ProgressionBackupCodec.encode(store.exportState(), reason: reason);
+  }
 
-  Future<String?> saveBackup() => DataPortabilityBridge.saveFile(
-    bytes: buildBackup(),
-    fileName: 'Progression-Lab-Backup-${_dateStamp()}.plab',
-    mimeType: 'application/zip',
-  );
-
-  Future<void> shareBackup() => DataPortabilityBridge.shareFile(
-    bytes: buildBackup(),
-    fileName: 'Progression-Lab-Backup-${_dateStamp()}.plab',
-    mimeType: 'application/zip',
-  );
-
-  Future<String?> savePortableCsv() => DataPortabilityBridge.saveFile(
-    bytes: ComprehensivePortableExport.encodePortableCsvZip(
-      store.exportState(),
+  Future<String?> saveBackup() => store.trackLocalFileOperation(
+    () => DataPortabilityBridge.saveFile(
+      bytes: buildBackup(),
+      fileName: 'Progression-Lab-Backup-${_dateStamp()}.plab',
+      mimeType: 'application/zip',
     ),
-    fileName: 'Progression-Lab-CSV-${_dateStamp()}.zip',
-    mimeType: 'application/zip',
   );
 
-  Future<String?> saveStrongCompatibleCsv() => DataPortabilityBridge.saveFile(
-    bytes: ProgressionCsvExport.encodeStrongCompatibleCsv(store.exportState()),
-    fileName: 'Progression-Lab-Strong-Compatible-${_dateStamp()}.csv',
-    mimeType: 'text/csv',
+  Future<void> shareBackup() => store.trackLocalFileOperation(
+    () => DataPortabilityBridge.shareFile(
+      bytes: buildBackup(),
+      fileName: 'Progression-Lab-Backup-${_dateStamp()}.plab',
+      mimeType: 'application/zip',
+    ),
+  );
+
+  Future<String?> savePortableCsv() => store.trackLocalFileOperation(
+    () => DataPortabilityBridge.saveFile(
+      bytes: ComprehensivePortableExport.encodePortableCsvZip(
+        store.exportState(),
+      ),
+      fileName: 'Progression-Lab-CSV-${_dateStamp()}.zip',
+      mimeType: 'application/zip',
+    ),
+  );
+
+  Future<String?> saveStrongCompatibleCsv() => store.trackLocalFileOperation(
+    () => DataPortabilityBridge.saveFile(
+      bytes: ProgressionCsvExport.encodeStrongCompatibleCsv(
+        store.exportState(),
+      ),
+      fileName: 'Progression-Lab-Strong-Compatible-${_dateStamp()}.csv',
+      mimeType: 'text/csv',
+    ),
   );
 
   Future<DataImportCandidate?> pickImportFile() async {
@@ -102,9 +114,7 @@ class DataPortabilityController {
         WorkoutCsvImporter.inspectArchive(file.bytes),
       );
     }
-    throw const FormatException(
-      'Choose a .plab backup, a native FitNotes .fitnotes backup, or a CSV, TSV, JSON, TXT, or ZIP workout export.',
-    );
+    throw const UnsupportedImportFileException();
   }
 
   WorkoutImportPlan buildImportPlan({
@@ -141,7 +151,9 @@ class DataPortabilityController {
     await store.createAutomaticBackup(reason: 'after-restore');
   }
 
-  Future<void> createVerifiedSafetyBackup({required String reason}) async {
+  Future<void> createVerifiedSafetyBackup({
+    required String reason,
+  }) => store.trackLocalFileOperation(() async {
     final state = store.exportState();
     final snapshot = jsonEncode(state);
     final bytes = ProgressionBackupCodec.encode(state, reason: reason);
@@ -167,15 +179,19 @@ class DataPortabilityController {
         'Device data changed while the safety backup was being saved. Review the backup again. Your current data has not been replaced.',
       );
     }
-  }
+  });
 
   Future<List<AutomaticBackupInfo>> automaticBackups() =>
-      DataPortabilityBridge.listAutomaticBackups();
+      store.localDataDeletionNeedsRetry || store.deletedAllLocalData
+      ? Future.value(const [])
+      : DataPortabilityBridge.listAutomaticBackups();
 
   Future<PortableBackupDocument> validateAutomaticBackup(
     AutomaticBackupInfo info,
-  ) async => ProgressionBackupCodec.decode(
-    await DataPortabilityBridge.readAutomaticBackup(info.path),
+  ) => store.trackLocalFileOperation(
+    () async => ProgressionBackupCodec.decode(
+      await DataPortabilityBridge.readAutomaticBackup(info.path),
+    ),
   );
 
   Future<void> restoreAutomaticBackup(AutomaticBackupInfo info) async {
@@ -183,14 +199,17 @@ class DataPortabilityController {
     await restoreDocument(document);
   }
 
-  Future<void> exportAutomaticBackup(AutomaticBackupInfo info) async {
-    final bytes = await DataPortabilityBridge.readAutomaticBackup(info.path);
-    await DataPortabilityBridge.saveFile(
-      bytes: bytes,
-      fileName: info.name,
-      mimeType: 'application/zip',
-    );
-  }
+  Future<void> exportAutomaticBackup(AutomaticBackupInfo info) =>
+      store.trackLocalFileOperation(() async {
+        final bytes = await DataPortabilityBridge.readAutomaticBackup(
+          info.path,
+        );
+        await DataPortabilityBridge.saveFile(
+          bytes: bytes,
+          fileName: info.name,
+          mimeType: 'application/zip',
+        );
+      });
 
   Future<void> deleteAutomaticBackup(AutomaticBackupInfo info) =>
       DataPortabilityBridge.deleteAutomaticBackup(info.path);

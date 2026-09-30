@@ -514,6 +514,118 @@ class AppStore extends ChangeNotifier {
   List<BodyMeasurement> bodyMeasurements = [];
   Map<String, dynamic> bodySettings = {};
   final bodyMedia = BodyMediaStore();
+  bool _deletingAllLocalData = false;
+  bool _deletedAllLocalData = false;
+  bool localDataDeletionNeedsRetry = false;
+  String? localDataDeletionWarning;
+  bool _disposed = false;
+  bool get deletingAllLocalData => _deletingAllLocalData;
+  bool get deletedAllLocalData => _deletedAllLocalData;
+  final Set<Future<Object?>> _localFileOperations = {};
+
+  Future<T> trackLocalFileOperation<T>(Future<T> Function() action) {
+    ensureLocalDataWritable();
+    final future = action();
+    _localFileOperations.add(future);
+    future.then<void>(
+      (_) => _localFileOperations.remove(future),
+      onError: (Object _, StackTrace __) => _localFileOperations.remove(future),
+    );
+    return future;
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  void ensureLocalDataWritable() {
+    if (_deletingAllLocalData ||
+        _deletedAllLocalData ||
+        localDataDeletionNeedsRetry) {
+      throw StateError(
+        'Local data deletion is in progress. Open the app again to continue.',
+      );
+    }
+  }
+
+  /// Retire this store after the platform reset. Old screens and callbacks must
+  /// never write their retained drafts, credentials, or preferences back.
+  Future<void> deleteAllLocalData() async {
+    if (_deletingAllLocalData || _deletedAllLocalData) {
+      throw StateError('Local data deletion is in progress.');
+    }
+    _deletingAllLocalData = true;
+    _writeGeneration++;
+    notifyListeners();
+    try {
+      await Future.wait([
+        _openWrites,
+        _curatedWrites,
+        _writeQueue,
+        _automaticBackupQueue,
+        bodyMedia.prepareForDataDeletion(),
+        ..._localFileOperations.map(
+          (operation) => operation.then<void>(
+            (_) {},
+            onError: (Object _, StackTrace __) {},
+          ),
+        ),
+      ]);
+      final accepted = await _channel.invokeMethod<bool>('deleteAllLocalData');
+      if (accepted != true) {
+        throw StateError(
+          'The device did not accept the data deletion request.',
+        );
+      }
+      _deletedAllLocalData = true;
+      localDataDeletionNeedsRetry = false;
+      localDataDeletionWarning = null;
+      final empty = AppStore();
+      try {
+        integrationState = {};
+        _applyStateData(empty.exportState());
+      } finally {
+        empty.dispose();
+      }
+      bodyMedia.completeDataDeletion();
+      hadPersistedState = false;
+      primaryStateLoaded = false;
+      loadFailure = null;
+      storageWarning = null;
+    } on PlatformException catch (error) {
+      // iOS reports a committed reset whose private-file cleanup was partial.
+      // Retire the old store even on that error; retained drafts cannot undo it.
+      if (error.code == 'local_data_delete_partial') {
+        _deletedAllLocalData = true;
+        integrationState = {};
+        final empty = AppStore();
+        try {
+          _applyStateData(empty.exportState());
+        } finally {
+          empty.dispose();
+        }
+        bodyMedia.completeDataDeletion();
+      } else if (error.code == 'local_data_delete_incomplete') {
+        localDataDeletionNeedsRetry = true;
+        localDataDeletionWarning =
+            'Local data deletion could not finish. Try Delete all data again before using the app.';
+      }
+      rethrow;
+    } finally {
+      _deletingAllLocalData = false;
+      if (!_deletedAllLocalData && !localDataDeletionNeedsRetry)
+        bodyMedia.cancelDataDeletion();
+      notifyListeners();
+    }
+  }
+
   static const double poundsToKilograms = 0.45359237;
   bool isLoaded = false;
   bool hadPersistedState = false;
@@ -562,12 +674,42 @@ class AppStore extends ChangeNotifier {
   List<LabMessage> labMessages = [];
 
   Future<void> load() async {
+    ensureLocalDataWritable();
     hadPersistedState = false;
     primaryStateLoaded = false;
     loadFailure = null;
     storageWarning = null;
     try {
+      final status = await _channel.invokeMapMethod<String, dynamic>(
+        'deletionStatus',
+      );
+      if (status?['needsRetry'] == true) {
+        localDataDeletionNeedsRetry = true;
+        localDataDeletionWarning =
+            'Local data deletion could not finish. Try Delete all data again before using the app.';
+        await bodyMedia.prepareForDataDeletion();
+        isLoaded = true;
+        notifyListeners();
+        return;
+      }
+    } on MissingPluginException {
+      // Android delegates the complete reset and process stop to the OS.
+    } on PlatformException catch (error) {
+      if (!const {'unknown_method', 'not_implemented'}.contains(error.code)) {
+        localDataDeletionNeedsRetry = true;
+        localDataDeletionWarning =
+            'Local app data could not be checked. Close and reopen the app. To remove all local data, use Delete all data.';
+        await bodyMedia.prepareForDataDeletion();
+        isLoaded = true;
+        notifyListeners();
+        return;
+      }
+      // These explicit method-availability errors identify an older bridge,
+      // which could not have created a pending deletion transaction.
+    }
+    try {
       final raw = await _channel.invokeMethod<String>('read');
+      ensureLocalDataWritable();
       if (raw != null && raw.isNotEmpty) {
         hadPersistedState = true;
         final decoded = jsonDecode(raw);
@@ -591,6 +733,7 @@ class AppStore extends ChangeNotifier {
             suppressErrors: true,
           );
           try {
+            ensureLocalDataWritable();
             await _channel.invokeMethod('write', jsonEncode(exportState()));
             await _writeAutomaticBackup(
               exportState(),
@@ -810,6 +953,7 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> restoreState(Map<String, dynamic> source) async {
+    ensureLocalDataWritable();
     final sourceVersion = _readInt(source['schemaVersion']);
     if (sourceVersion != null && sourceVersion > schemaVersion) {
       throw StateError(
@@ -867,6 +1011,7 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<String?> quarantineDamagedState() async {
+    ensureLocalDataWritable();
     if (!hadPersistedState || primaryStateLoaded) return null;
     try {
       final path = await _channel.invokeMethod<String>('quarantine');
@@ -880,6 +1025,7 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> startFreshDataState() async {
+    ensureLocalDataWritable();
     await quarantineDamagedState();
     await save(createAutomaticBackup: false);
     hadPersistedState = true;
@@ -951,6 +1097,7 @@ class AppStore extends ChangeNotifier {
   Future<void> _writeQueue = Future.value();
   int _writeGeneration = 0;
   Future<void> save({bool createAutomaticBackup = true}) async {
+    ensureLocalDataWritable();
     _writeGeneration++;
     final state = exportState();
     final write = _writeQueue.then((_) {
@@ -964,7 +1111,10 @@ class AppStore extends ChangeNotifier {
     });
     _writeQueue = write.catchError((Object _) {});
     await write;
-    if (automaticBackupsEnabled && createAutomaticBackup) {
+    if (!_deletingAllLocalData &&
+        !_deletedAllLocalData &&
+        automaticBackupsEnabled &&
+        createAutomaticBackup) {
       await _writeAutomaticBackup(
         state,
         reason: 'automatic',
@@ -973,7 +1123,26 @@ class AppStore extends ChangeNotifier {
     }
   }
 
+  Future<void> _automaticBackupQueue = Future.value();
   Future<void> _writeAutomaticBackup(
+    Map<String, dynamic> state, {
+    required String reason,
+    required bool suppressErrors,
+  }) {
+    if (_deletingAllLocalData || _deletedAllLocalData) return Future.value();
+    final operation = _automaticBackupQueue.then((_) async {
+      if (_deletingAllLocalData || _deletedAllLocalData) return;
+      await _writeAutomaticBackupNow(
+        state,
+        reason: reason,
+        suppressErrors: suppressErrors,
+      );
+    });
+    _automaticBackupQueue = operation.catchError((Object _) {});
+    return operation;
+  }
+
+  Future<void> _writeAutomaticBackupNow(
     Map<String, dynamic> state, {
     required String reason,
     required bool suppressErrors,
@@ -1318,6 +1487,7 @@ class AppStore extends ChangeNotifier {
     String? token,
     Map<String, dynamic>? settings,
   }) async {
+    ensureLocalDataWritable();
     if (values.any((v) => !v.valid))
       throw ArgumentError('The body archive contains invalid measurements.');
     final next = {
@@ -2073,7 +2243,9 @@ class AppStore extends ChangeNotifier {
     bool changesLogs = false,
     bool backup = false,
   }) {
+    ensureLocalDataWritable();
     final operation = _openWrites.then((_) async {
+      ensureLocalDataWritable();
       final previous = openWorkout;
       final previousLogs = changesLogs ? List<SetLog>.of(logs) : null;
       try {
@@ -2412,7 +2584,9 @@ class AppStore extends ChangeNotifier {
     bool backup = false,
     bool changesLogs = false,
   }) {
+    ensureLocalDataWritable();
     final operation = _curatedWrites.then((_) async {
+      ensureLocalDataWritable();
       final previousState = curatedTraining;
       final previousLogs = changesLogs ? List<SetLog>.of(logs) : null;
       try {

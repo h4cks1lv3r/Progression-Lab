@@ -100,7 +100,7 @@ void main() {
       );
       store.logs.add(previous);
       await openWorkout(tester, store, exercise);
-      expect(weightField('WEIGHT'), findsNothing);
+      expect(weightField('Weight'), findsNothing);
       await saveSet(tester);
       expect(store.logs, hasLength(2));
       expect(store.logs.last.weight, 0);
@@ -118,7 +118,7 @@ void main() {
     (tester) async {
       final store = newStore();
       await openWorkout(tester, store, 'Weighted Dip');
-      final input = weightField('ADDED WEIGHT');
+      final input = weightField('Added weight');
       expect(input, findsOneWidget);
       await tester.enterText(input, 'invalid');
       await saveSet(tester);
@@ -141,7 +141,7 @@ void main() {
   ) async {
     final store = newStore();
     await openWorkout(tester, store, 'Assisted Dip');
-    final input = weightField('ASSISTANCE');
+    final input = weightField('Assistance');
     expect(input, findsOneWidget);
     await saveSet(tester);
     expect(store.logs, isEmpty);
@@ -162,10 +162,10 @@ void main() {
     await openWorkout(tester, store, 'Barbell Bench Press');
     await saveSet(tester);
     expect(store.logs, isEmpty);
-    await tester.enterText(weightField('WEIGHT'), '0');
+    await tester.enterText(weightField('Weight'), '0');
     await saveSet(tester);
     expect(store.logs, isEmpty);
-    await tester.enterText(weightField('WEIGHT'), '100');
+    await tester.enterText(weightField('Weight'), '100');
     await saveSet(tester);
     expect(store.logs.single.weight, 100);
     await close(tester, store);
@@ -277,7 +277,7 @@ void main() {
           ),
         ),
       );
-      await tester.enterText(weightField('ADDED WEIGHT'), '');
+      await tester.enterText(weightField('Added weight'), '');
       await tester.tap(find.text('Save set'));
       await tester.pumpAndSettle();
       expect(find.text('Saved'), findsOneWidget);

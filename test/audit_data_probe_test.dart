@@ -182,7 +182,7 @@ void main() {
       await tester.ensureVisible(find.text('All'));
       await tester.tap(find.text('All'));
       await tester.pumpAndSettle();
-      expect(find.text('9/29/2026 · 200 lb · 5 reps'), findsOneWidget);
+      expect(find.text('Sep 29, 2026 · 200 lb · 5 reps'), findsOneWidget);
       final chart = find.byWidgetPredicate(
         (widget) => widget is SizedBox && widget.height == 150,
       );
@@ -193,11 +193,11 @@ void main() {
       final size = tester.getSize(chart);
       await tester.tapAt(origin + Offset(12, size.height / 2));
       await tester.pumpAndSettle();
-      expect(find.text('9/29/2026 · 100 lb · 5 reps'), findsOneWidget);
+      expect(find.text('Sep 29, 2026 · 100 lb · 5 reps'), findsOneWidget);
       await tester.tapAt(origin + Offset(size.width - 12, size.height / 2));
       await tester.pumpAndSettle();
-      expect(find.text('9/29/2026 · 200 lb · 5 reps'), findsOneWidget);
-      expect(find.text('9/29/2026 · 100 lb · 5 reps'), findsNothing);
+      expect(find.text('Sep 29, 2026 · 200 lb · 5 reps'), findsOneWidget);
+      expect(find.text('Sep 29, 2026 · 100 lb · 5 reps'), findsNothing);
     },
   );
 

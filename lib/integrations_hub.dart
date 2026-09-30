@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'cloud_sync.dart';
 import 'contextual_guides.dart';
-import 'data_portability_core.dart';
+import 'display_format.dart';
 import 'external_workout_formats.dart';
 import 'health_sync.dart';
 import 'body_progress.dart';
@@ -14,6 +14,7 @@ import 'provider_integrations.dart';
 import 'safe_layout.dart';
 import 'share_options.dart';
 import 'store.dart';
+import 'user_feedback.dart';
 
 class IntegrationPreferencesStore extends ChangeNotifier {
   IntegrationPreferencesStore({required AppStore store, MethodChannel? channel})
@@ -155,6 +156,7 @@ class IntegrationPreferencesStore extends ChangeNotifier {
     final merged = Map<String, dynamic>.from(_store.integrationState)
       ..['integrations'] = data;
     await _store.setIntegrationState(merged);
+    _store.ensureLocalDataWritable();
     try {
       await _channel.invokeMethod<void>('write', jsonEncode(data));
     } on PlatformException {
@@ -299,7 +301,8 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
     _tabs = TabController(length: _sections.length, vsync: this);
     _health = HealthSyncService()..addListener(_refresh);
     _cloud = CloudBackupSyncService.shared(widget.store)..addListener(_refresh);
-    _providers = ProviderIntegrationService()..addListener(_refresh);
+    _providers = ProviderIntegrationService(store: widget.store)
+      ..addListener(_refresh);
     _guides = ContextualGuideState(store: widget.store)..addListener(_refresh);
     _preferences = IntegrationPreferencesStore(store: widget.store)
       ..addListener(_refresh);
@@ -436,16 +439,38 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
           eyebrow: 'Health connection',
           title: name,
           description:
-              'Sync workout summaries, bodyweight, and body-fat readings. Your detailed sets and daily check-ins stay in Progression Lab.',
+              'Sync workout summaries, bodyweight, and body-fat readings. Your detailed sets, daily entries, and workout ratings stay in Progression Lab.',
         ),
         _StatusCard(
           title: status.available ? 'Available' : 'Unavailable',
           detail: status.message.isNotEmpty
               ? status.message
-              : 'Authorization: ${status.authorization.name}',
+              : switch (status.authorization) {
+                  HealthAuthorizationState.authorized =>
+                    'Health access is allowed. You can import and export the data you chose.',
+                  HealthAuthorizationState.denied =>
+                    'Health access is off. Select Review health access to change it.',
+                  HealthAuthorizationState.unavailable =>
+                    'Health access is unavailable on this device.',
+                  HealthAuthorizationState.unknown ||
+                  HealthAuthorizationState.notDetermined =>
+                    'Select Review health access to choose what to share.',
+                },
           positive: status.available,
         ),
         const SizedBox(height: 12),
+        if (_health.lastError != null) ...[
+          OutlinedButton.icon(
+            onPressed: _health.busy
+                ? null
+                : () => _run(() async {
+                    await _health.refreshStatus();
+                  }),
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Retry health status'),
+          ),
+          const SizedBox(height: 12),
+        ],
         FilledButton.icon(
           onPressed: _health.busy || !status.available
               ? null
@@ -884,8 +909,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
   );
 
   String _localDateTime(DateTime date) {
-    final local = date.toLocal();
-    return '${MaterialLocalizations.of(context).formatMediumDate(local)} · ${TimeOfDay.fromDateTime(local).format(context)}';
+    return formatAppDateTime(date);
   }
 
   String _providerStateLabel(ProviderConnectionState state) => switch (state) {
@@ -1160,7 +1184,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
               ],
               const SizedBox(height: 20),
               const Text(
-                'Based on your saved workouts and check-ins. These patterns do not prove cause and effect.',
+                'Based on your saved workouts, daily entries, and workout ratings. These patterns do not prove cause and effect.',
               ),
               const SizedBox(height: 16),
               FilledButton(
@@ -1233,7 +1257,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
             ListTile(
               title: Text(r.title),
               subtitle: Text(
-                '${MaterialLocalizations.of(ctx).formatMediumDate(r.startedAt.toLocal())} · ${r.endedAt.difference(r.startedAt).inMinutes} min from first start to finish',
+                '${formatAppDate(r.startedAt)} · ${r.endedAt.difference(r.startedAt).inMinutes} min from first start to finish',
               ),
               trailing: const Icon(Icons.upload_outlined),
               onTap: () => Navigator.pop(ctx, r),
@@ -1295,10 +1319,10 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
             runSpacing: 8,
             children: <Widget>[
               _Chip(
-                '${experiment.conditionA.label}: ${result.samplesA.length}/${experiment.minimumSessionsPerCondition} workouts',
+                '${experiment.conditionA.description}\n${result.samplesA.length}/${experiment.minimumSessionsPerCondition} workouts',
               ),
               _Chip(
-                '${experiment.conditionB.label}: ${result.samplesB.length}/${experiment.minimumSessionsPerCondition} workouts',
+                '${experiment.conditionB.description}\n${result.samplesB.length}/${experiment.minimumSessionsPerCondition} workouts',
               ),
               _Chip(result.confidence.label),
               if (result.percentDifference != null)
@@ -1329,9 +1353,10 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
       debugPrintStack(stackTrace: stack);
       if (mounted) {
         setState(
-          () => _message = error is FormatException
-              ? error.message
-              : 'Could not import that activity file. Check the file and try again.',
+          () => _message = userFacingError(
+            error,
+            action: UserFeedbackAction.importFile,
+          ),
         );
       }
     } finally {
@@ -1386,7 +1411,7 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
     if (!mounted) return;
     final start = await _confirm(
       'Review ${_templateName(template).toLowerCase()}',
-      'Compare:\n• ${experiment.conditionA.label}\n• ${experiment.conditionB.label}\n\n'
+      'Compare:\n• ${experiment.conditionA.description}\n• ${experiment.conditionB.description}\n\n'
           'Result measured: ${experiment.metric.label}.\n'
           'At least ${experiment.minimumSessionsPerCondition} comparable workouts in each condition are needed before a conclusion.\n\n'
           '${_experimentRequirements(template)}\n\n'
@@ -1549,14 +1574,10 @@ class _IntegrationsHubScreenState extends State<IntegrationsHubScreen>
       debugPrintStack(stackTrace: stack);
       if (mounted) {
         setState(
-          () => _message = error is BackupValidationException
-              ? error.message
-              : error is StateError &&
-                    error.message.contains(
-                      'Your current data has not been replaced.',
-                    )
-              ? error.message
-              : 'Could not finish this action. Check the connection or selected file and try again.',
+          () => _message = userFacingError(
+            error,
+            action: UserFeedbackAction.connection,
+          ),
         );
       }
     }
@@ -1783,6 +1804,7 @@ class _Notice extends StatelessWidget {
         trailing: IconButton(
           onPressed: onClose,
           icon: const Icon(Icons.close_rounded),
+          tooltip: 'Dismiss this notice',
         ),
       ),
     ),

@@ -38,10 +38,10 @@ class ProgramWeek {
   final List<WorkoutPlan> workouts;
 
   String get label => switch (kind) {
-    WeekKind.build => 'BUILD',
-    WeekKind.volumeDeload => 'VOLUME DELOAD',
-    WeekKind.strength => 'STRENGTH WEEK',
-    WeekKind.fullDeload => 'FULL DELOAD',
+    WeekKind.build => 'Build',
+    WeekKind.volumeDeload => 'Volume deload',
+    WeekKind.strength => 'Strength week',
+    WeekKind.fullDeload => 'Full deload',
   };
 }
 
